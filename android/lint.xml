@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<lint>
+    <!--
+      Brogue PE imports SDL's complete Android Java layer, including optional
+      controller, Bluetooth, vibration, microphone, and pointer-capture code.
+      The game does not request or use those optional capabilities. Keep their
+      lint exceptions scoped to the vendored SDL source tree so equivalent
+      problems in Brogue PE's own code still fail release lint.
+    -->
+    <issue id="MissingPermission">
+        <ignore path="SDL2/android-project/app/src/main/java/" />
+    </issue>
+    <issue id="NewApi">
+        <ignore path="SDL2/android-project/app/src/main/java/" />
+    </issue>
+    <issue id="UnspecifiedRegisterReceiverFlag">
+        <ignore path="SDL2/android-project/app/src/main/java/" />
+    </issue>
+</lint>

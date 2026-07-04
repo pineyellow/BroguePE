@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Adaptive-icon launchers enlarge the foreground to allow masking and motion.
+  Use the original bitmap directly so the adaptive icon does not enlarge a
+  launcher-density copy that has already been downscaled.
+-->
+<inset xmlns:android="http://schemas.android.com/apk/res/android"
+    android:drawable="@drawable/app_icon_source"
+    android:inset="18%" />

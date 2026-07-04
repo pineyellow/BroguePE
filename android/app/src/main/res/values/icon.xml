@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Android 7 fallback; Android 8+ replaces this alias with an adaptive icon. -->
+    <item name="app_icon_adaptive" type="mipmap">@mipmap/app_icon</item>
+</resources>

@@ -1,0 +1,52 @@
+# Compiled Brogue outputs
+*.o
+*.su
+*.gcda
+*.gcno
+*.gcov
+*.desktop
+gmon.out
+/bin/*.brogue*
+/bin/BrogueHighScores.txt
+/bin/brogue*
+/bin/*.png
+
+
+# Gradle and Android build outputs
+/android/.gradle/
+/android/build/
+/android/app/build/
+/android/app/release/
+/android/.cxx/
+/android/app/.cxx/
+/android/app/.externalNativeBuild/
+/android/captures/
+*.apk
+*.aab
+*.ap_
+
+# Machine-local Android configuration and signing secrets
+/android/local.properties
+/android/keystore.properties
+*.jks
+*.keystore
+
+# Release directories and archives
+/BroguePE-*/
+*.zip
+
+# Personal Tools
+/tools/
+
+# Local toolchain caches
+/.toolchains/
+
+# IDE, editor, and OS metadata
+/.idea/
+/.vs/
+/.vscode/
+*.iml
+*.swp
+*~
+.DS_Store
+Thumbs.db

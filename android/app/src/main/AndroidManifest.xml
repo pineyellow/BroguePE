@@ -1,0 +1,39 @@
+<?xml version="1.0" encoding="utf-8"?>
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:allowBackup="true"
+        android:enableOnBackInvokedCallback="true"
+        android:icon="@mipmap/app_icon_adaptive"
+        android:label="@string/app_name"
+        android:theme="@style/Theme.Brogue"
+        android:hasCode="true"
+        tools:targetApi="33">
+
+        <!--
+          Brogue PE is intentionally a fullscreen, landscape-only game.
+          sensorLandscape permits either landscape orientation; resizing and
+          multi-window would violate the fixed game-surface layout.
+        -->
+        <activity
+            android:name=".BrogueActivity"
+            android:alwaysRetainTaskState="true"
+            android:resizeableActivity="false"
+            android:configChanges="layoutDirection|locale|orientation|uiMode|screenLayout|screenSize|smallestScreenSize|keyboard|keyboardHidden|navigation"
+            android:screenOrientation="sensorLandscape"
+            android:exported="true"
+            tools:ignore="DiscouragedApi,NonResizeableActivity">
+
+            <intent-filter>
+                <action android:name="android.intent.action.MAIN" />
+                <category android:name="android.intent.category.LAUNCHER" />
+            </intent-filter>
+
+            <meta-data
+                android:name="SDL_APP_NAME"
+                android:value="Brogue PE" />
+        </activity>
+    </application>
+
+</manifest>

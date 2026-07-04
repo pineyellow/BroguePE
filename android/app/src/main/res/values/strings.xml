@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Brogue PE</string>
+    <string name="actions_title">ACTIONS</string>
+    <string name="credits_title">CREDITS</string>
+    <string name="death_title">YOU DIED</string>
+    <string name="discoveries_title">DISCOVERED ITEMS</string>
+    <string name="discoveries_section">-- %1$s --</string>
+    <string name="discovery_chance">(%1$d%%)</string>
+    <string name="inventory_empty">Your pack is empty.</string>
+    <string name="stats_none_yet">None yet</string>
+    <string name="stats_recent_seeds">Recently Played Seeds</string>
+    <string name="settings_title">SETTINGS</string>
+</resources>
