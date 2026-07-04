@@ -21,9 +21,8 @@ import android.widget.Toast;
 import java.text.DecimalFormat;
 
 /** In-game Settings panel — bottom-right card launched from the hamburger
- *  submenu. Toggles mirror C-side state by sending the corresponding keystroke
- *  (e.g. '\\' for hide color effects) so the engine and SharedPreferences stay
- *  in sync. Also exposes seed copy. */
+ *  submenu. Gameplay settings are persisted here, then applied on Brogue's
+ *  game thread through a dedicated event. Also exposes seed copy. */
 final class SettingsPanel {
 
     private static final String[] GRAPHICS_MODE_LABELS = {
@@ -86,10 +85,10 @@ final class SettingsPanel {
         hSepP.setMargins(activity.dpToPx(4), 0, activity.dpToPx(4), activity.dpToPx(8));
         panel.addView(headerSep, hSepP);
 
-        // Game-state toggles — sendChar notifies the engine of the change.
+        // Game-state toggles notify the engine after persisting the new value.
         boolean dpadEnabled = GameSettings.getBool(activity, DPadOverlay.PREF_ENABLED, true);
-        addGameToggle(panel, "Hide Color Effects", "hide_color_effects", '\\');
-        addGameToggle(panel, "Display Stealth Range", "display_stealth_range", ']');
+        addGameToggle(panel, "Hide Color Effects", "hide_color_effects");
+        addGameToggle(panel, "Display Stealth Range", "display_stealth_range");
         addAppToggle(panel, "Enable DPAD", DPadOverlay.PREF_ENABLED, true,
             enabled -> {
                 activity.setDpadEnabled(enabled);
@@ -271,9 +270,9 @@ final class SettingsPanel {
         panel.addView(sep, p);
     }
 
-    /** Toggle backed by {@link GameSettings}; sends {@code gameKey} to the
-     *  engine on change so the C side picks up the new state. */
-    private void addGameToggle(LinearLayout panel, String label, String prefKey, char gameKey) {
+    /** Toggle backed by {@link GameSettings}; asks the game thread to re-read
+     *  the absolute setting value after it is persisted. */
+    private void addGameToggle(LinearLayout panel, String label, String prefKey) {
         LinearLayout row = addRow(panel, label);
 
         boolean on = GameSettings.getBool(activity, prefKey);
@@ -285,7 +284,7 @@ final class SettingsPanel {
             boolean nowOn = !GameSettings.getBool(activity, prefKey);
             GameSettings.setBool(activity, prefKey, nowOn);
             updateCheckIndicator(check, nowOn);
-            KeyInput.sendChar(activity, gameKey);
+            activity.nativeApplyGameSettings();
         });
     }
 
@@ -381,7 +380,7 @@ final class SettingsPanel {
             currentMode[0] = (currentMode[0] + 1) % GRAPHICS_MODE_LABELS.length;
             GameSettings.setInt(activity, "graphics_mode", currentMode[0]);
             labelView.setText(GRAPHICS_MODE_LABELS[currentMode[0]]);
-            KeyInput.sendChar(activity, 'G');
+            activity.nativeApplyGameSettings();
         });
     }
 

@@ -23,6 +23,7 @@
 #include "Rogue.h"
 #include "GlobalsBase.h"
 #include "tiles.h"
+#include "android-touch.h"
 
 /* ---- Tuning constants ---- */
 
@@ -220,6 +221,17 @@ void androidApplySettings(void) {
     if (mode != (int)graphicsMode) {
         graphicsMode = setGraphicsMode(mode);
     }
+}
+
+JNIEXPORT void JNICALL
+Java_com_pineyellow_broguepe_BrogueActivity_nativeApplyGameSettings(
+        JNIEnv *env, jobject thiz) {
+    (void)env; (void)thiz;
+    SDL_Event event;
+    SDL_zero(event);
+    event.type = SDL_USEREVENT;
+    event.user.code = ANDROID_SETTINGS_CHANGED_EVENT_CODE;
+    SDL_PushEvent(&event);
 }
 
 void androidShowInventory(const char *json) {

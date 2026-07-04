@@ -2089,6 +2089,7 @@ void overlayDisplayBuffer(const screenDisplayBuffer *overBuf) {
                     target->backColorComponents[0] = br;
                     target->backColorComponents[1] = bg;
                     target->backColorComponents[2] = bb;
+                    markModalOverlayCell(i, j);
                 } else {
                     plotCharWithColor(character, (windowpos){ i, j }, &foreColor, &backColor);
                 }

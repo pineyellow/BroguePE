@@ -107,6 +107,7 @@ static int8_t tileShifts[TILE_ROWS][TILE_COLS][2][MAX_TILE_SIZE][3];
 static ScreenTile dungeonTiles[ROWS][COLS]; // dungeon layer (rendered at 2x zoom)
 static ScreenTile loadingTiles[ROWS][COLS]; // fixed screen-space loading progress
 static ScreenTile uiTiles[ROWS][COLS];     // UI layer (sidebar, messages, bottom bar, modals — rendered at 1x)
+static boolean modalOverlayCells[ROWS][COLS]; // explicit modal UI cells inside the dungeon region
 
 boolean plotToUiLayer = false; // set by commitDraws/refreshScreen to route plotChar → updateTile
 
@@ -189,14 +190,24 @@ void setLoadingProgress(unsigned long amount, unsigned long maximum) {
 }
 
 void enterModalMode(void) {
-    if (modalNestCount++ == 0) renderMode = RENDER_MODAL;
+    if (modalNestCount++ == 0) {
+        memset(modalOverlayCells, 0, sizeof(modalOverlayCells));
+        renderMode = RENDER_MODAL;
+    }
 }
 
 void exitModalMode(void) {
     if (--modalNestCount <= 0) {
         modalNestCount = 0;
         renderMode = RENDER_GAMEPLAY;
+        memset(modalOverlayCells, 0, sizeof(modalOverlayCells));
         clearOverlayRegion();
+    }
+}
+
+void markModalOverlayCell(short x, short y) {
+    if (x >= 0 && x < COLS && y >= 0 && y < ROWS) {
+        modalOverlayCells[y][x] = true;
     }
 }
 
@@ -1077,11 +1088,21 @@ void updateScreen() {
                     if (tileHeight == 0) continue;
 
                     ScreenTile *tile = &uiTiles[y][x];
+                    boolean dungeonInterior = x >= STAT_BAR_WIDTH
+                        && y >= MESSAGE_LINES && y < ROWS - 2;
+                    // While a game modal is open, only cells deliberately
+                    // painted by a modal overlay may occupy the fixed UI
+                    // layer over the dungeon. This rejects leaked map draws
+                    // in Tiles, ASCII and Hybrid modes alike.
+                    if (dungeonInterior
+                            && rogue.gameInProgress
+                            && renderMode == RENDER_MODAL
+                            && !modalOverlayCells[y][x]) {
+                        continue;
+                    }
                     // Graphical map sprites belong exclusively to dungeonTiles.
                     // Reject any stale/leaked copy before the fixed 1x UI pass.
-                    if (x >= STAT_BAR_WIDTH
-                            && y >= MESSAGE_LINES && y < ROWS - 2
-                            && tile->charIndex >= 256) {
+                    if (dungeonInterior && tile->charIndex >= 256) {
                         continue;
                     }
                     int destY = uiBaseY + y * uiH / ROWS;

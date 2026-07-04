@@ -519,6 +519,7 @@ public class BrogueActivity extends SDLActivity {
     native void nativeArmQuickTargetSelection();
     native boolean nativeIsTargetingActive();
     native boolean nativeHasSelectedTarget();
+    native void nativeApplyGameSettings();
     native void nativeBeginDpadAutoMove();
     native void nativeSetDpadRepeatActive(boolean active);
     native boolean nativeShouldStopDpadAutoMove();

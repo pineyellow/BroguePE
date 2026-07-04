@@ -2,10 +2,9 @@ package com.pineyellow.broguepe;
 
 import android.content.Context;
 
-/** SharedPreferences-backed game settings. Mirrored in C (the engine reads
- *  them via JNI at startup and re-reads on relevant keystrokes like '\\' to
- *  toggle color effects). Keep keys in sync with brogue_settings usage on
- *  the C side. */
+/** SharedPreferences-backed game settings. Mirrored in C through
+ *  androidApplySettings. Keep keys in sync with brogue_settings usage on the
+ *  C side. */
 final class GameSettings {
 
     private static final String PREFS = "brogue_settings";

@@ -189,6 +189,17 @@ static boolean pollBrogueEvent(rogueEvent *returnEvent, boolean textInput) {
                 androidWriteSaveFile();
             }
             continue;
+        } else if (event.type == SDL_USEREVENT
+                && event.user.code == ANDROID_SETTINGS_CHANGED_EVENT_CODE) {
+            // Java stores absolute values. Apply them on this thread without
+            // returning an input event that an inspection modal would consume
+            // merely to dismiss itself.
+            androidApplySettings();
+            if (rogue.gameInProgress && !rogue.gameHasEnded) {
+                displayLevel();
+                refreshSideBar(-1, -1, false);
+            }
+            continue;
         } else if (event.type == SDL_RENDER_DEVICE_RESET) {
             // Defer graphics work until queued Android context and surface
             // events have drained and the replacement surface is drawable.

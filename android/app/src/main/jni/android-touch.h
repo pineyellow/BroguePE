@@ -4,6 +4,10 @@
 #include <SDL.h>
 #include "Rogue.h"
 
+/* Internal SDL event used to apply Java preferences on Brogue's game thread
+ * without turning the change into gameplay/modal input. */
+#define ANDROID_SETTINGS_CHANGED_EVENT_CODE 0x42505345
+
 /*
  * Process an SDL event for Android touch gestures.
  * Returns true and fills `out` if a rogueEvent was produced.

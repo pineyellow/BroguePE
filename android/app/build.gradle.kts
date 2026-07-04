@@ -1,6 +1,6 @@
 import java.util.Properties
 
-val broguePeVersionName = "1.0.3"
+val broguePeVersionName = "1.0.4"
 
 plugins {
     id("com.android.application")
