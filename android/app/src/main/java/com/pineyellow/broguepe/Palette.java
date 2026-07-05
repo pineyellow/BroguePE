@@ -18,7 +18,7 @@ final class Palette {
     static final int VOID_BLACK     = Color.argb(240, 8, 6, 16);
     static final int SUBMENU_BG     = Color.argb(235, 12, 10, 25);
     static final int RIPPLE_GLOW    = Color.argb(80, 140, 150, 190);
-    static final int BORDER_DIM     = Color.argb(120, 80, 65, 40);
+    static final int BORDER_DIM     = Color.argb(120, 80, 95, 120);
     static final int BORDER_ACTIVE  = Color.argb(200, 140, 150, 190);
 
     static final int INVENTORY_BG   = Color.argb(245, 10, 8, 22);

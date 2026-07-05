@@ -29,6 +29,10 @@ final class DPadOverlay {
 
     static final float DEFAULT_SIZE = 1f;
     static final float DEFAULT_BUTTON_WIDTH = 1f;
+    static final float MIN_SIZE = 0.5f;
+    static final float MAX_SIZE = 2.0f;
+    static final float MIN_BUTTON_WIDTH = 0.5f;
+    static final float MAX_BUTTON_WIDTH = 2.0f;
     static final int SIZE_DP = 185;
     static final int MARGIN_DP = 12;
     private static final long HOLD_REPEAT_DELAY_MS = 300L;

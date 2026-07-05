@@ -138,6 +138,9 @@ public class BrogueActivity extends SDLActivity {
             dpToPx(DPadOverlay.SIZE_DP),
             Gravity.TOP | Gravity.START);
         gameOverlay.addView(dpadView, dpadParams);
+        // Keep toolbar controls as an escape hatch if an oversized or moved
+        // DPAD overlaps them. Empty areas still fall through to the DPAD.
+        controlsOverlay.bringToFront();
         setDpadEnabled(GameSettings.getBool(this, DPadOverlay.PREF_ENABLED, true));
 
         resumeInputBlocker = new View(this);
@@ -466,12 +469,22 @@ public class BrogueActivity extends SDLActivity {
             return;
         }
 
-        float sizeScale = positiveOrDefault(
-            GameSettings.getFloat(this, DPadOverlay.PREF_SIZE, DPadOverlay.DEFAULT_SIZE),
-            DPadOverlay.DEFAULT_SIZE);
-        float buttonWidthScale = positiveOrDefault(
-            GameSettings.getFloat(this, DPadOverlay.PREF_BUTTON_WIDTH, DPadOverlay.DEFAULT_BUTTON_WIDTH),
-            DPadOverlay.DEFAULT_BUTTON_WIDTH);
+        float savedSizeScale = GameSettings.getFloat(
+            this, DPadOverlay.PREF_SIZE, DPadOverlay.DEFAULT_SIZE);
+        float sizeScale = boundedOrDefault(savedSizeScale, DPadOverlay.DEFAULT_SIZE,
+            DPadOverlay.MIN_SIZE, DPadOverlay.MAX_SIZE);
+        if (savedSizeScale != sizeScale) {
+            GameSettings.setFloat(this, DPadOverlay.PREF_SIZE, sizeScale);
+        }
+
+        float savedButtonWidthScale = GameSettings.getFloat(
+            this, DPadOverlay.PREF_BUTTON_WIDTH, DPadOverlay.DEFAULT_BUTTON_WIDTH);
+        float buttonWidthScale = boundedOrDefault(savedButtonWidthScale,
+            DPadOverlay.DEFAULT_BUTTON_WIDTH,
+            DPadOverlay.MIN_BUTTON_WIDTH, DPadOverlay.MAX_BUTTON_WIDTH);
+        if (savedButtonWidthScale != buttonWidthScale) {
+            GameSettings.setFloat(this, DPadOverlay.PREF_BUTTON_WIDTH, buttonWidthScale);
+        }
 
         int widthPx = dpToPx(DPadOverlay.SIZE_DP * sizeScale * buttonWidthScale);
         int heightPx = dpToPx(DPadOverlay.SIZE_DP * sizeScale);
@@ -590,7 +603,9 @@ public class BrogueActivity extends SDLActivity {
         return Math.round(dp * getResources().getDisplayMetrics().density);
     }
 
-    private static float positiveOrDefault(float value, float fallback) {
-        return Float.isFinite(value) && value > 0f ? value : fallback;
+    private static float boundedOrDefault(float value, float fallback,
+                                          float minimum, float maximum) {
+        if (!Float.isFinite(value)) return fallback;
+        return Math.max(minimum, Math.min(maximum, value));
     }
 }

@@ -152,31 +152,69 @@ final class PlayerStatsModal {
     /** Last ten distinct seeds this install has played, newest first. Each
      *  row is clickable and can be replayed offline. */
     private void addRecentSeedsSection(LinearLayout panel, PlayerStats stats) {
+        LinearLayout header = new LinearLayout(activity);
+        header.setOrientation(LinearLayout.HORIZONTAL);
+        header.setGravity(Gravity.CENTER_VERTICAL);
+        header.setMinimumHeight(activity.dpToPx(44));
+        header.setPadding(activity.dpToPx(12), activity.dpToPx(8),
+                          activity.dpToPx(8), activity.dpToPx(8));
+
+        GradientDrawable headerBg = new GradientDrawable();
+        headerBg.setShape(GradientDrawable.RECTANGLE);
+        headerBg.setCornerRadius(activity.dpToPx(4));
+        headerBg.setColor(Palette.ITEM_BG);
+        headerBg.setStroke(1, Palette.BORDER_DIM);
+        header.setBackground(new RippleDrawable(
+            ColorStateList.valueOf(Palette.RIPPLE_GLOW), headerBg, null));
+
         TextView subhead = new TextView(activity);
         subhead.setText(R.string.stats_recent_seeds);
         subhead.setTextColor(Palette.DIM_WHITE_BLUE);
         subhead.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         subhead.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         subhead.setLetterSpacing(0.1f);
-        subhead.setPadding(activity.dpToPx(4), activity.dpToPx(20),
-                           activity.dpToPx(4), activity.dpToPx(6));
-        panel.addView(subhead);
+        header.addView(subhead, new LinearLayout.LayoutParams(
+            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        TextView chevron = new TextView(activity);
+        chevron.setText("\u25B8");
+        chevron.setTextColor(Palette.PALE_BLUE);
+        chevron.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        chevron.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        chevron.setGravity(Gravity.CENTER);
+        header.addView(chevron, new LinearLayout.LayoutParams(
+            activity.dpToPx(32), LinearLayout.LayoutParams.WRAP_CONTENT));
+        LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT);
+        headerParams.setMargins(activity.dpToPx(4), activity.dpToPx(16),
+                                activity.dpToPx(4), 0);
+        panel.addView(header, headerParams);
+
+        LinearLayout content = new LinearLayout(activity);
+        content.setOrientation(LinearLayout.VERTICAL);
+        content.setVisibility(View.GONE);
 
         if (stats.recentSeeds.isEmpty()) {
-            panel.addView(makeEmptyPlaceholder());
-            return;
-        }
-
-        LinearLayout list = new LinearLayout(activity);
-        list.setOrientation(LinearLayout.VERTICAL);
-        for (Long seed : stats.recentSeeds) {
-            list.addView(makeRecentSeedRow(seed));
+            content.addView(makeEmptyPlaceholder());
+        } else {
+            for (Long seed : stats.recentSeeds) {
+                content.addView(makeRecentSeedRow(seed));
+            }
         }
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT);
         lp.setMargins(activity.dpToPx(4), 0, activity.dpToPx(4), 0);
-        panel.addView(list, lp);
+        panel.addView(content, lp);
+
+        header.setClickable(true);
+        header.setFocusable(true);
+        header.setOnClickListener(v -> {
+            boolean expand = content.getVisibility() != View.VISIBLE;
+            content.setVisibility(expand ? View.VISIBLE : View.GONE);
+            chevron.setText(expand ? "\u25BE" : "\u25B8");
+        });
     }
 
     private View makeRecentSeedRow(long seed) {

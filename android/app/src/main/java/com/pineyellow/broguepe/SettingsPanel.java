@@ -95,17 +95,20 @@ final class SettingsPanel {
                 show();
             });
         if (dpadEnabled) {
-            addFloatSetting(panel, "DPAD X", DPadOverlay.PREF_OFFSET_X, 0f, null,
+            addStepperSetting(panel, "DPAD X", DPadOverlay.PREF_OFFSET_X,
+                0f, null, null, 1f,
                 "DPAD X offset in dp (+ goes right, - goes left)",
                 activity::applyDpadSettings);
-            addFloatSetting(panel, "DPAD Y", DPadOverlay.PREF_OFFSET_Y, 0f, null,
+            addStepperSetting(panel, "DPAD Y", DPadOverlay.PREF_OFFSET_Y,
+                0f, null, null, 1f,
                 "DPAD Y offset in dp (+ goes up, - goes down)",
                 activity::applyDpadSettings);
-            addFloatSetting(panel, "DPAD Size", DPadOverlay.PREF_SIZE, DPadOverlay.DEFAULT_SIZE, 0.25f,
-                "DPAD size multiplier",
-                activity::applyDpadSettings);
-            addFloatSetting(panel, "DPAD Button Width", DPadOverlay.PREF_BUTTON_WIDTH,
-                DPadOverlay.DEFAULT_BUTTON_WIDTH, 0.25f,
+            addStepperSetting(panel, "DPAD Size", DPadOverlay.PREF_SIZE,
+                DPadOverlay.DEFAULT_SIZE, DPadOverlay.MIN_SIZE, DPadOverlay.MAX_SIZE, 0.1f,
+                "DPAD size multiplier", activity::applyDpadSettings);
+            addStepperSetting(panel, "DPAD Button Width", DPadOverlay.PREF_BUTTON_WIDTH,
+                DPadOverlay.DEFAULT_BUTTON_WIDTH,
+                DPadOverlay.MIN_BUTTON_WIDTH, DPadOverlay.MAX_BUTTON_WIDTH, 0.1f,
                 "DPAD button width ratio (1 = square buttons)",
                 activity::applyDpadSettings);
         }
@@ -339,7 +342,8 @@ final class SettingsPanel {
     }
 
     private void addFloatSetting(LinearLayout panel, String label, String prefKey, float defaultValue,
-                                 Float minValue, String prompt, Runnable onChange) {
+                                 Float minValue, Float maxValue,
+                                 String prompt, Runnable onChange) {
         LinearLayout row = addRow(panel, label);
         TextView valueView = makeValueIndicator(formatFloat(
             GameSettings.getFloat(activity, prefKey, defaultValue)));
@@ -353,12 +357,19 @@ final class SettingsPanel {
                 if (result == null) return;
                 Float parsed = tryParseFloat(result);
                 if (parsed == null) {
-                    Toast.makeText(activity, "Enter a valid number.", Toast.LENGTH_SHORT).show();
+                    Toast.makeText(activity, "Enter a valid number.",
+                        Toast.LENGTH_SHORT).show();
                     return;
                 }
-                if (minValue != null && parsed < minValue) {
+                if ((minValue != null && parsed < minValue)
+                        || (maxValue != null && parsed > maxValue)) {
+                    String allowedRange = minValue != null && maxValue != null
+                        ? formatFloat(minValue) + " to " + formatFloat(maxValue)
+                        : minValue != null
+                            ? "at least " + formatFloat(minValue)
+                            : "at most " + formatFloat(maxValue);
                     Toast.makeText(activity,
-                        "Value must be at least " + formatFloat(minValue) + ".",
+                        "Value must be " + allowedRange + ".",
                         Toast.LENGTH_SHORT).show();
                     return;
                 }
@@ -366,6 +377,32 @@ final class SettingsPanel {
                 valueView.setText(formatFloat(parsed));
                 if (onChange != null) onChange.run();
             }));
+    }
+
+    private void addStepperSetting(LinearLayout panel, String label, String prefKey,
+                                   float defaultValue, Float minValue, Float maxValue,
+                                   float step, String prompt, Runnable onChange) {
+        LinearLayout row = addRow(panel, label);
+        TextView valueView = makeValueIndicator(formatFloat(
+            GameSettings.getFloat(activity, prefKey, defaultValue)));
+        row.addView(valueView);
+
+        row.setOnClickListener(v -> {
+            float originalValue = GameSettings.getFloat(activity, prefKey, defaultValue);
+            activity.textInputDialog.showStepper(
+                prompt, originalValue, minValue, maxValue, step,
+                preview -> {
+                    GameSettings.setFloat(activity, prefKey, preview);
+                    valueView.setText(formatFloat(preview));
+                    if (onChange != null) onChange.run();
+                },
+                result -> {
+                    float finalValue = result != null ? result : originalValue;
+                    GameSettings.setFloat(activity, prefKey, finalValue);
+                    valueView.setText(formatFloat(finalValue));
+                    if (onChange != null) onChange.run();
+                });
+        });
     }
 
     private void addGraphicsModeCycler(LinearLayout panel) {
@@ -437,8 +474,12 @@ final class SettingsPanel {
     }
 
     private Float tryParseFloat(String value) {
+        String normalized = value.trim().replace(',', '.');
+        if (!normalized.matches("[+-]?(?:\\d+(?:\\.\\d*)?|\\.\\d+)")) {
+            return null;
+        }
         try {
-            return Float.parseFloat(value.trim().replace(',', '.'));
+            return Float.parseFloat(normalized);
         } catch (NumberFormatException e) {
             return null;
         }
