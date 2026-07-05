@@ -89,6 +89,10 @@ final class SettingsPanel {
         boolean dpadEnabled = GameSettings.getBool(activity, DPadOverlay.PREF_ENABLED, true);
         addGameToggle(panel, "Hide Color Effects", "hide_color_effects");
         addGameToggle(panel, "Display Stealth Range", "display_stealth_range");
+        addStepperSetting(panel, "Action Button Size", ActionsToolbar.PREF_BUTTON_SIZE,
+            ActionsToolbar.DEFAULT_BUTTON_SIZE,
+            ActionsToolbar.MIN_BUTTON_SIZE, ActionsToolbar.MAX_BUTTON_SIZE, 0.1f,
+            "Action button size multiplier", activity::applyActionButtonSettings);
         addAppToggle(panel, "Enable DPAD", DPadOverlay.PREF_ENABLED, true,
             enabled -> {
                 activity.setDpadEnabled(enabled);
@@ -97,19 +101,19 @@ final class SettingsPanel {
         if (dpadEnabled) {
             addStepperSetting(panel, "DPAD X", DPadOverlay.PREF_OFFSET_X,
                 0f, null, null, 1f,
-                "DPAD X offset in dp (+ goes right, - goes left)",
+                "DPAD X position offset in dp\n(+ goes right, - goes left)",
                 activity::applyDpadSettings);
             addStepperSetting(panel, "DPAD Y", DPadOverlay.PREF_OFFSET_Y,
                 0f, null, null, 1f,
-                "DPAD Y offset in dp (+ goes up, - goes down)",
+                "DPAD Y position offset in dp\n(+ goes up, - goes down)",
                 activity::applyDpadSettings);
             addStepperSetting(panel, "DPAD Size", DPadOverlay.PREF_SIZE,
                 DPadOverlay.DEFAULT_SIZE, DPadOverlay.MIN_SIZE, DPadOverlay.MAX_SIZE, 0.1f,
-                "DPAD size multiplier", activity::applyDpadSettings);
+                "DPAD overall size multiplier", activity::applyDpadSettings);
             addStepperSetting(panel, "DPAD Button Width", DPadOverlay.PREF_BUTTON_WIDTH,
                 DPadOverlay.DEFAULT_BUTTON_WIDTH,
                 DPadOverlay.MIN_BUTTON_WIDTH, DPadOverlay.MAX_BUTTON_WIDTH, 0.1f,
-                "DPAD button width ratio (1 = square buttons)",
+                "DPAD button width multiplier\n(1 = square buttons)",
                 activity::applyDpadSettings);
         }
         addGraphicsModeCycler(panel);

@@ -35,8 +35,15 @@ final class DPadOverlay {
     static final float MAX_BUTTON_WIDTH = 2.0f;
     static final int SIZE_DP = 185;
     static final int MARGIN_DP = 12;
+    static final float DEAD_ZONE_BASE_DP = 12.5f;
+    static final float DEAD_ZONE_MIN_DP = 7.5f;
+    static final float DEAD_ZONE_MAX_DP = 20f;
     private static final long HOLD_REPEAT_DELAY_MS = 300L;
     private static final long HOLD_REPEAT_INTERVAL_MS = 70L;
+
+    // Temporary testing aid. Set false after the guard-zone size is confirmed.
+    private static final boolean SHOW_DEAD_ZONE_DEBUG_TINT = true;
+    private static final int DEAD_ZONE_DEBUG_COLOR = Color.argb(28, 255, 55, 55);
 
     private static final int GRID_LINE_COLOR = Color.argb(105, 255, 255, 255);
     private static final int GLYPH_COLOR = Color.argb(235, 255, 255, 255);
@@ -68,6 +75,9 @@ final class DPadOverlay {
         grid.setOrientation(LinearLayout.VERTICAL);
         grid.setClipChildren(false);
         grid.setClipToPadding(false);
+        // Child cells handle DPAD presses. The clickable padded area around
+        // them consumes near-misses so they cannot become dungeon-map taps.
+        grid.setClickable(true);
 
         addRow(grid, 0,
             new Cell("\u2196", 'y'),
@@ -198,6 +208,16 @@ final class DPadOverlay {
         cancelRepeat(true);
     }
 
+    void setDeadZoneSize(int insetPx) {
+        int inset = Math.max(0, insetPx);
+        root.setPadding(inset, inset, inset, inset);
+    }
+
+    static float deadZoneDp(float sizeScale) {
+        return Math.max(DEAD_ZONE_MIN_DP,
+            Math.min(DEAD_ZONE_MAX_DP, DEAD_ZONE_BASE_DP * sizeScale));
+    }
+
     private boolean shouldStopForAutomation(char command) {
         return isAutomationCommand(command) && activity.nativeShouldStopDpadAutoMove();
     }
@@ -251,6 +271,57 @@ final class DPadOverlay {
             if (drawLeft) canvas.drawLine(left, top, left, bottom, paint);
             canvas.drawLine(left, bottom, right, bottom, paint);
             canvas.drawLine(right, top, right, bottom, paint);
+        }
+
+        @Override
+        public void setAlpha(int alpha) {
+            paint.setAlpha(alpha);
+            invalidateSelf();
+        }
+
+        @Override
+        public void setColorFilter(android.graphics.ColorFilter colorFilter) {
+            paint.setColorFilter(colorFilter);
+            invalidateSelf();
+        }
+
+        @Override
+        public int getOpacity() {
+            return PixelFormat.TRANSLUCENT;
+        }
+    }
+
+    /** Debug-only tint for the touch-consuming padding around the visible grid. */
+    private static final class DeadZoneDrawable extends Drawable {
+        private final Paint paint = new Paint();
+        private int inset;
+
+        DeadZoneDrawable() {
+            paint.setColor(SHOW_DEAD_ZONE_DEBUG_TINT
+                ? DEAD_ZONE_DEBUG_COLOR : Color.TRANSPARENT);
+            paint.setStyle(Paint.Style.FILL);
+        }
+
+        void setInset(int inset) {
+            this.inset = Math.max(0, inset);
+            invalidateSelf();
+        }
+
+        @Override
+        public void draw(Canvas canvas) {
+            if (inset <= 0 || paint.getAlpha() == 0) return;
+
+            float left = getBounds().left;
+            float top = getBounds().top;
+            float right = getBounds().right;
+            float bottom = getBounds().bottom;
+            float guard = Math.min(inset,
+                Math.min((right - left) / 2f, (bottom - top) / 2f));
+
+            canvas.drawRect(left, top, right, top + guard, paint);
+            canvas.drawRect(left, bottom - guard, right, bottom, paint);
+            canvas.drawRect(left, top + guard, left + guard, bottom - guard, paint);
+            canvas.drawRect(right - guard, top + guard, right, bottom - guard, paint);
         }
 
         @Override

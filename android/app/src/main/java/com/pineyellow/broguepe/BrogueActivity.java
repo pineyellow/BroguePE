@@ -462,6 +462,12 @@ public class BrogueActivity extends SDLActivity {
         }
     }
 
+    void applyActionButtonSettings() {
+        if (actionsToolbar != null) {
+            actionsToolbar.applyButtonSizeSetting();
+        }
+    }
+
     void applyDpadSettings() {
         if (dpadView == null || gameOverlay == null) return;
         if (gameOverlay.getWidth() == 0 || gameOverlay.getHeight() == 0) {
@@ -486,8 +492,12 @@ public class BrogueActivity extends SDLActivity {
             GameSettings.setFloat(this, DPadOverlay.PREF_BUTTON_WIDTH, buttonWidthScale);
         }
 
-        int widthPx = dpToPx(DPadOverlay.SIZE_DP * sizeScale * buttonWidthScale);
-        int heightPx = dpToPx(DPadOverlay.SIZE_DP * sizeScale);
+        int gridWidthPx = dpToPx(DPadOverlay.SIZE_DP * sizeScale * buttonWidthScale);
+        int gridHeightPx = dpToPx(DPadOverlay.SIZE_DP * sizeScale);
+        int deadZonePx = dpToPx(DPadOverlay.deadZoneDp(sizeScale));
+        int widthPx = gridWidthPx + deadZonePx * 2;
+        int heightPx = gridHeightPx + deadZonePx * 2;
+        dpadOverlay.setDeadZoneSize(deadZonePx);
 
         float defaultAnchorXPx = dpToPx(DPadOverlay.MARGIN_DP + DPadOverlay.SIZE_DP / 2f);
         float defaultAnchorYPx = gameOverlay.getHeight()
@@ -497,10 +507,17 @@ public class BrogueActivity extends SDLActivity {
         float anchorYPx = defaultAnchorYPx
             - dpToPx(GameSettings.getFloat(this, DPadOverlay.PREF_OFFSET_Y, 0f));
 
-        int left = Math.round(anchorXPx - widthPx / 2f);
-        int top = Math.round(anchorYPx - heightPx / 2f);
-        left = Math.max(0, Math.min(gameOverlay.getWidth() - widthPx, left));
-        top = Math.max(0, Math.min(gameOverlay.getHeight() - heightPx, top));
+        // Clamp the visible grid exactly as before, then place the guard
+        // around it. Any guard extending beyond a screen edge is harmlessly
+        // clipped without shifting the controls the player positioned.
+        int gridLeft = Math.round(anchorXPx - gridWidthPx / 2f);
+        int gridTop = Math.round(anchorYPx - gridHeightPx / 2f);
+        gridLeft = Math.max(0,
+            Math.min(gameOverlay.getWidth() - gridWidthPx, gridLeft));
+        gridTop = Math.max(0,
+            Math.min(gameOverlay.getHeight() - gridHeightPx, gridTop));
+        int left = gridLeft - deadZonePx;
+        int top = gridTop - deadZonePx;
 
         FrameLayout.LayoutParams params = (FrameLayout.LayoutParams) dpadView.getLayoutParams();
         if (params == null) {

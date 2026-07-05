@@ -35,6 +35,14 @@ final class ActionsToolbar {
     private static final String PREFS        = "brogue_toolbar";
     private static final String PREF_PINNED  = "pinned_actions";
     private static final String PREF_ORDER   = "action_order";
+    static final String PREF_BUTTON_SIZE     = "action_button_size";
+    static final float DEFAULT_BUTTON_SIZE   = 1f;
+    static final float MIN_BUTTON_SIZE       = 0.5f;
+    static final float MAX_BUTTON_SIZE       = 2f;
+
+    private static final float BASE_BUTTON_SIZE_DP = 44f;
+    private static final float BASE_BUTTON_PADDING_DP = 10f;
+    private static final float BASE_GLYPH_TEXT_SP = 14f;
 
     // Registered actions: {key, human label}. The pinned subset of this set
     // appears in the toolbar; the full set appears in the Actions panel.
@@ -133,8 +141,9 @@ final class ActionsToolbar {
         LinearLayout topGroup = new LinearLayout(activity);
         topGroup.setOrientation(LinearLayout.VERTICAL);
         topGroup.setGravity(Gravity.END);
+        int buttonSize = buttonSizePx();
         topGroup.addView(menuBtn, new LinearLayout.LayoutParams(
-            dp(44), dp(44)));
+            buttonSize, buttonSize));
         LinearLayout.LayoutParams submenuParams = new LinearLayout.LayoutParams(
             dp(170), LinearLayout.LayoutParams.WRAP_CONTENT);
         submenuParams.topMargin = dp(6);
@@ -158,6 +167,23 @@ final class ActionsToolbar {
 
         rebuildToolbar();
         return controlsLayer;
+    }
+
+    /** Applies the saved size to both the pinned actions and hamburger button. */
+    void applyButtonSizeSetting() {
+        float scale = buttonSizeScale();
+
+        if (menuBtn != null) {
+            ViewGroup.LayoutParams params = menuBtn.getLayoutParams();
+            if (params != null) {
+                params.width = buttonSizePx(scale);
+                params.height = buttonSizePx(scale);
+                menuBtn.setLayoutParams(params);
+            }
+            setBarButtonPadding(menuBtn, scale);
+        }
+
+        rebuildToolbar();
     }
 
     /** Dismisses the submenu if open. No-op otherwise. */
@@ -317,7 +343,7 @@ final class ActionsToolbar {
         toolbarContainer.removeAllViews();
 
         java.util.Set<String> pinned = getPinned();
-        int btnSize = dp(44);
+        int btnSize = buttonSizePx();
         int btnMargin = dp(3);
 
         java.util.List<String> order = getActionOrder();
@@ -784,8 +810,7 @@ final class ActionsToolbar {
         btn.setImageResource(drawableResId);
         btn.setColorFilter(Palette.ACTION_BUTTON_TEXT);
         btn.setScaleType(ImageButton.ScaleType.CENTER_INSIDE);
-        int pad = dp(10);
-        btn.setPadding(pad, pad, pad, pad);
+        setBarButtonPadding(btn, buttonSizeScale());
         btn.setStateListAnimator(null);
         btn.setElevation(0);
 
@@ -817,11 +842,11 @@ final class ActionsToolbar {
         TextView btn = new TextView(activity);
         btn.setText(glyph);
         btn.setTextColor(Palette.PALE_BLUE);
-        btn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        float scale = buttonSizeScale();
+        btn.setTextSize(TypedValue.COMPLEX_UNIT_SP, BASE_GLYPH_TEXT_SP * scale);
         btn.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         btn.setGravity(Gravity.CENTER);
-        int pad = dp(10);
-        btn.setPadding(pad, pad, pad, pad);
+        setBarButtonPadding(btn, scale);
 
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
@@ -929,5 +954,31 @@ final class ActionsToolbar {
         return bg;
     }
 
+    private float buttonSizeScale() {
+        float saved = GameSettings.getFloat(
+            activity, PREF_BUTTON_SIZE, DEFAULT_BUTTON_SIZE);
+        float scale = Float.isFinite(saved)
+            ? Math.max(MIN_BUTTON_SIZE, Math.min(MAX_BUTTON_SIZE, saved))
+            : DEFAULT_BUTTON_SIZE;
+        if (saved != scale) {
+            GameSettings.setFloat(activity, PREF_BUTTON_SIZE, scale);
+        }
+        return scale;
+    }
+
+    private int buttonSizePx() {
+        return buttonSizePx(buttonSizeScale());
+    }
+
+    private int buttonSizePx(float scale) {
+        return dp(BASE_BUTTON_SIZE_DP * scale);
+    }
+
+    private void setBarButtonPadding(View button, float scale) {
+        int padding = dp(BASE_BUTTON_PADDING_DP * scale);
+        button.setPadding(padding, padding, padding, padding);
+    }
+
     private int dp(int v) { return activity.dpToPx(v); }
+    private int dp(float v) { return activity.dpToPx(v); }
 }
