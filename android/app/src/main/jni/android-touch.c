@@ -29,7 +29,7 @@
 
 #define LONG_PRESS_MS         400   /* hold time for inspect mode */
 #define TAP_MAX_MOVE_PX        20   /* max drift before a tap becomes a drag */
-#define MIN_ZOOM_LEVEL       1.5f
+#define MIN_ZOOM_LEVEL       1.0f
 #define MAX_ZOOM_LEVEL       3.0f
 #define MIN_PINCH_DISTANCE_PX 8.0f
 
@@ -69,6 +69,7 @@ boolean androidCameraSnap = false;
 boolean androidPanOverride = false;
 boolean androidCameraDetached = false;
 boolean androidCameraFastRecenter = false;
+enum androidCameraFollowModes androidCameraFollowMode = ANDROID_CAMERA_FOLLOW_SMOOTH;
 volatile int androidTopLeftCornerRadiusPx = 0;
 volatile int androidTopLeftCornerCenterXPx = 0;
 volatile int androidTopLeftCornerCenterYPx = 0;
@@ -216,6 +217,12 @@ void androidApplySettings(void) {
 
     rogue.trueColorMode = androidGetSettingBool("hide_color_effects");
     rogue.displayStealthRangeMode = androidGetSettingBool("display_stealth_range");
+    int cameraFollowMode = androidGetSettingInt(
+        "camera_follow_mode", ANDROID_CAMERA_FOLLOW_SMOOTH);
+    androidCameraFollowMode = cameraFollowMode >= ANDROID_CAMERA_FOLLOW_SMOOTH
+            && cameraFollowMode <= ANDROID_CAMERA_FOLLOW_INSTANT
+        ? (enum androidCameraFollowModes)cameraFollowMode
+        : ANDROID_CAMERA_FOLLOW_SMOOTH;
     int mode = androidGetSettingInt("graphics_mode", TILES_GRAPHICS);
     if (mode < TEXT_GRAPHICS || mode > HYBRID_GRAPHICS) mode = TILES_GRAPHICS;
     if (mode != (int)graphicsMode) {
@@ -633,14 +640,15 @@ static void cellFromPixel(float px, float py, int *cx, int *cy) {
     } else {
         // Dungeon layer: zoomed + panned
         zoom = androidZoomLevel;
-        w = (int)(fitW * zoom);
-        h = (int)(fitH * zoom);
-        ofsX = (windowWidth - w) / 2 + (int)roundf(androidPanX);
-        ofsY = (windowHeight - h) / 2 + (int)roundf(androidPanY);
-        if (ofsX > 0) ofsX = 0;
-        if (ofsY > 0) ofsY = 0;
-        if (ofsX + w < windowWidth) ofsX = windowWidth - w;
-        if (ofsY + h < windowHeight) ofsY = windowHeight - h;
+        float panX = androidPanX;
+        float panY = androidPanY;
+        SDL_Rect viewport;
+        calculateDungeonViewport(windowWidth, windowHeight, zoom,
+                                 &panX, &panY, &viewport);
+        w = viewport.w;
+        h = viewport.h;
+        ofsX = viewport.x;
+        ofsY = viewport.y;
     }
 
     *cx = (int)((px - ofsX) * COLS / w);

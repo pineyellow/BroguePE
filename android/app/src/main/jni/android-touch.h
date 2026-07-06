@@ -73,6 +73,13 @@ extern boolean androidCameraDetached;
 /* True while an action is smoothly returning the camera from free-look. */
 extern boolean androidCameraFastRecenter;
 
+enum androidCameraFollowModes {
+    ANDROID_CAMERA_FOLLOW_SMOOTH = 0,
+    ANDROID_CAMERA_FOLLOW_FAST = 1,
+    ANDROID_CAMERA_FOLLOW_INSTANT = 2,
+};
+extern enum androidCameraFollowModes androidCameraFollowMode;
+
 /* Top-left physical display corner supplied by Android WindowInsets. */
 extern volatile int androidTopLeftCornerRadiusPx;
 extern volatile int androidTopLeftCornerCenterXPx;

@@ -18,4 +18,9 @@ void requestRendererRecovery(void);
 int consumeRendererRecoveryRequest(void);
 void resetCameraFrameClock(void);
 
+// Calculate the scaled dungeon rectangle and constrain its pan to the visible
+// bounds. When the dungeon fits on an axis, it is centered on that axis.
+void calculateDungeonViewport(int screenWidth, int screenHeight, float zoom,
+    float *panX, float *panY, SDL_Rect *viewport);
+
 #endif

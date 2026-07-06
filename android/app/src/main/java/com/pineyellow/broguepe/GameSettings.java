@@ -8,6 +8,11 @@ import android.content.Context;
 final class GameSettings {
 
     private static final String PREFS = "brogue_settings";
+    static final String PREF_CAMERA_FOLLOW_MODE = "camera_follow_mode";
+    static final int CAMERA_FOLLOW_SMOOTH = 0;
+    static final int CAMERA_FOLLOW_FAST = 1;
+    static final int CAMERA_FOLLOW_INSTANT = 2;
+    static final int DEFAULT_CAMERA_FOLLOW_MODE = CAMERA_FOLLOW_SMOOTH;
 
     private GameSettings() {}
 

@@ -28,6 +28,11 @@ final class SettingsPanel {
     private static final String[] GRAPHICS_MODE_LABELS = {
         "Graphics: ASCII", "Graphics: Tiles", "Graphics: Hybrid"
     };
+    private static final String[] CAMERA_FOLLOW_MODE_LABELS = {
+        "Camera Follow Speed: Smooth",
+        "Camera Follow Speed: Fast",
+        "Camera Follow Speed: Instant"
+    };
 
     private final BrogueActivity activity;
     private final FrameLayout host;
@@ -89,6 +94,7 @@ final class SettingsPanel {
         boolean dpadEnabled = GameSettings.getBool(activity, DPadOverlay.PREF_ENABLED, true);
         addGameToggle(panel, "Hide Color Effects", "hide_color_effects");
         addGameToggle(panel, "Display Stealth Range", "display_stealth_range");
+        addCameraFollowModeCycler(panel);
         addStepperSetting(panel, "Action Button Size", ActionsToolbar.PREF_BUTTON_SIZE,
             ActionsToolbar.DEFAULT_BUTTON_SIZE,
             ActionsToolbar.MIN_BUTTON_SIZE, ActionsToolbar.MAX_BUTTON_SIZE, 0.1f,
@@ -421,6 +427,29 @@ final class SettingsPanel {
             currentMode[0] = (currentMode[0] + 1) % GRAPHICS_MODE_LABELS.length;
             GameSettings.setInt(activity, "graphics_mode", currentMode[0]);
             labelView.setText(GRAPHICS_MODE_LABELS[currentMode[0]]);
+            activity.nativeApplyGameSettings();
+        });
+    }
+
+    private void addCameraFollowModeCycler(LinearLayout panel) {
+        int mode = GameSettings.getInt(activity,
+            GameSettings.PREF_CAMERA_FOLLOW_MODE,
+            GameSettings.DEFAULT_CAMERA_FOLLOW_MODE);
+        if (mode < GameSettings.CAMERA_FOLLOW_SMOOTH
+                || mode > GameSettings.CAMERA_FOLLOW_INSTANT) {
+            mode = GameSettings.DEFAULT_CAMERA_FOLLOW_MODE;
+        }
+
+        LinearLayout row = addRow(panel, CAMERA_FOLLOW_MODE_LABELS[mode]);
+        TextView labelView = (TextView) row.getChildAt(0);
+
+        final int[] currentMode = {mode};
+        row.setOnClickListener(v -> {
+            currentMode[0] = (currentMode[0] + 1)
+                % CAMERA_FOLLOW_MODE_LABELS.length;
+            GameSettings.setInt(activity, GameSettings.PREF_CAMERA_FOLLOW_MODE,
+                currentMode[0]);
+            labelView.setText(CAMERA_FOLLOW_MODE_LABELS[currentMode[0]]);
             activity.nativeApplyGameSettings();
         });
     }

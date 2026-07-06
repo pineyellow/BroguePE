@@ -22,9 +22,10 @@ static boolean messageArchiveActive = false;
 #define TEXT_X_HEIGHT 100   // height (px) of the 'x' outline
 #define TEXT_BASELINE  46   // height (px) of the blank space below the 'x' outline
 #define MAX_TILE_SIZE  64   // maximum width or height (px) of screen tiles before we switch to linear interpolation
-#define CAMERA_FOLLOW_LERP 0.10f
-#define CAMERA_REPEAT_FOLLOW_LERP 0.40f
-#define CAMERA_RECENTER_LERP 0.40f
+#define CAMERA_SMOOTH_FOLLOW_LERP 0.10f
+#define CAMERA_SMOOTH_ACCELERATED_LERP 0.40f
+#define CAMERA_FAST_FOLLOW_LERP 0.40f
+#define CAMERA_FAST_ACCELERATED_LERP 0.70f
 #define CAMERA_REFERENCE_FRAME_MS 36.0
 
 // Horizontal position of the top message log and bottom flavor text.
@@ -37,6 +38,32 @@ static float androidSidebarXOffsetCells = 2.0f;
 
 static Uint64 cameraLastUpdateCounter = 0;
 
+static float constrainCameraPan(float pan, int contentSize, int screenSize) {
+    if (contentSize <= screenSize) {
+        return 0.0f;
+    }
+
+    float limit = (contentSize - screenSize) / 2.0f;
+    return fmaxf(-limit, fminf(limit, pan));
+}
+
+void calculateDungeonViewport(int screenWidth, int screenHeight, float zoom,
+                              float *panX, float *panY, SDL_Rect *viewport) {
+    int fitWidth = screenHeight * 16 / 10;
+    int fitHeight = screenHeight;
+    if (fitWidth > screenWidth) {
+        fitWidth = screenWidth;
+        fitHeight = screenWidth * 10 / 16;
+    }
+
+    viewport->w = (int)(fitWidth * zoom);
+    viewport->h = (int)(fitHeight * zoom);
+    *panX = constrainCameraPan(*panX, viewport->w, screenWidth);
+    *panY = constrainCameraPan(*panY, viewport->h, screenHeight);
+    viewport->x = (screenWidth - viewport->w) / 2 + (int)roundf(*panX);
+    viewport->y = (screenHeight - viewport->h) / 2 + (int)roundf(*panY);
+}
+
 void resetCameraFrameClock(void) {
     cameraLastUpdateCounter = SDL_GetPerformanceCounter();
 }
@@ -48,6 +75,22 @@ static float cameraFollowAlpha(float referenceAlpha, double elapsedMs) {
     float alpha = 1.0f - powf(1.0f - referenceAlpha,
                               (float)(elapsedMs / CAMERA_REFERENCE_FRAME_MS));
     return alpha > 1.0f ? 1.0f : alpha;
+}
+
+static float cameraReferenceAlpha(void) {
+    boolean accelerated = androidCameraFastRecenter || androidContinuousMoveActive;
+
+    switch (androidCameraFollowMode) {
+        case ANDROID_CAMERA_FOLLOW_INSTANT:
+            return 1.0f;
+        case ANDROID_CAMERA_FOLLOW_FAST:
+            return accelerated
+                ? CAMERA_FAST_ACCELERATED_LERP : CAMERA_FAST_FOLLOW_LERP;
+        case ANDROID_CAMERA_FOLLOW_SMOOTH:
+        default:
+            return accelerated
+                ? CAMERA_SMOOTH_ACCELERATED_LERP : CAMERA_SMOOTH_FOLLOW_LERP;
+    }
 }
 
 static int sidebarOffsetPixels(int rowCenterY, float cellWidth) {
@@ -983,7 +1026,9 @@ void updateScreen() {
     int zoomH = (int)(fitH * effectiveZoom);
 
     // Auto-center view unless Android free-look has detached the camera.
-    if (effectiveZoom > 1.0f && !androidCameraDetached) {
+    // At full-map zoom, the legal pan naturally converges to zero instead of
+    // switching to a separate camera mode.
+    if (inGame && !androidCameraDetached) {
         int centerX, centerY;
         if (inGame) {
             centerX = player.loc.x + STAT_BAR_WIDTH + 1;
@@ -1008,11 +1053,7 @@ void updateScreen() {
             androidCameraSnap = false;
             androidCameraFastRecenter = false;
         } else {
-            float referenceAlpha = androidCameraFastRecenter
-                ? CAMERA_RECENTER_LERP
-                : androidContinuousMoveActive
-                    ? CAMERA_REPEAT_FOLLOW_LERP
-                    : CAMERA_FOLLOW_LERP;
+            float referenceAlpha = cameraReferenceAlpha();
             float followLerp = cameraFollowAlpha(referenceAlpha, cameraElapsedMs);
             androidPanX += (targetPanX - androidPanX) * followLerp;
             androidPanY += (targetPanY - androidPanY) * followLerp;
@@ -1027,20 +1068,13 @@ void updateScreen() {
         }
     }
 
-    int cx = (screenW - zoomW) / 2 + (int)roundf(androidPanX);
-    int cy = (screenH - zoomH) / 2 + (int)roundf(androidPanY);
-
-    // Clamp pan
-    if (cx > 0) { androidPanX -= cx; cx = 0; }
-    if (cy > 0) { androidPanY -= cy; cy = 0; }
-    if (cx + zoomW < screenW) { androidPanX += screenW - (cx + zoomW); cx = screenW - zoomW; }
-    if (cy + zoomH < screenH) { androidPanY += screenH - (cy + zoomH); cy = screenH - zoomH; }
-
-    if (effectiveZoom <= 1.0f) {
-        androidPanX = 0; androidPanY = 0;
-        cx = (screenW - zoomW) / 2;
-        cy = (screenH - zoomH) / 2;
-    }
+    SDL_Rect dungeonViewport;
+    calculateDungeonViewport(screenW, screenH, effectiveZoom,
+                             &androidPanX, &androidPanY, &dungeonViewport);
+    int cx = dungeonViewport.x;
+    int cy = dungeonViewport.y;
+    zoomW = dungeonViewport.w;
+    zoomH = dungeonViewport.h;
 
     offsetX = cx;
     offsetY = cy;
