@@ -539,6 +539,7 @@ public class BrogueActivity extends SDLActivity {
 
     native void nativeStartMenuResult(int choice);
     native void nativeStartMenuResultWithSeed(int choice, long seed);
+    native void nativeStartMenuResultWithSeedAndVariant(int choice, long seed, int variant);
     native void nativeStartMenuCancel();
     native void nativeTextInputResult(boolean confirmed, String text);
     native void nativeConfirmationResult(boolean confirmed);

@@ -39,6 +39,7 @@ class SeedDetailsModal {
         headerLabelView = makeHeaderLabelView();
         panel.addView(headerLabelView);
         onSeedViewBuilt(headerLabelView);
+        onBeforeActionButtons(panel);
 
         StartMenu.addButton(panel, "Play", true, v -> launchRun());
         StartMenu.addButton(panel, "Back", true, v -> activity.modalStack.pop());
@@ -58,11 +59,21 @@ class SeedDetailsModal {
         return view;
     }
 
+    protected void onBeforeActionButtons(LinearLayout panel) {}
+
+    protected int getLaunchVariant() { return -1; }
+
     private void launchRun() {
         if (seed <= 0) return;
         activity.modalStack.clear();
         activity.startMenu.dismiss();
         activity.nativeDeleteSaveFile();
-        activity.nativeStartMenuResultWithSeed(StartMenu.CHOICE_PLAY_SEED, seed);
+        int variant = getLaunchVariant();
+        if (variant >= 0) {
+            activity.nativeStartMenuResultWithSeedAndVariant(
+                StartMenu.CHOICE_PLAY_SEED, seed, variant);
+        } else {
+            activity.nativeStartMenuResultWithSeed(StartMenu.CHOICE_PLAY_SEED, seed);
+        }
     }
 }

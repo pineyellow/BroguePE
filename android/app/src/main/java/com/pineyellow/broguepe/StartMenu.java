@@ -23,6 +23,10 @@ final class StartMenu {
     static final int CHOICE_RESUME    = 1;
     static final int CHOICE_PLAY_SEED = 2;
 
+    static final int VARIANT_BROGUE = 0;
+    static final int VARIANT_RAPID  = 1;
+    static final int VARIANT_BULLET = 2;
+
     private final BrogueActivity activity;
     private View overlay;
 

@@ -37,15 +37,24 @@ final class NewGameSeedModal extends SeedDetailsModal {
     // the header visually consistent with what players see in-engine.
     private static final long RANDOM_SEED_MIN = 100_000_000L;
     private static final long RANDOM_SEED_MAX = 999_999_999L;
+    private static final String[] VARIANT_LABELS = {
+        "Game Mode: Classic",
+        "Game Mode: Rapid Brogue",
+        "Game Mode: Bullet Brogue"
+    };
 
     private final Random random = new Random();
     private EditText seedEdit;
+    private int selectedVariant = StartMenu.VARIANT_BROGUE;
+    private TextView modeLabelView;
 
     NewGameSeedModal(BrogueActivity activity) { super(activity); }
 
     @Override protected String getTitleUpper() { return "NEW GAME"; }
 
     void show() {
+        selectedVariant = boundedVariant(GameSettings.getInt(activity,
+            GameSettings.PREF_NEW_GAME_VARIANT, StartMenu.VARIANT_BROGUE));
         show(pickRandomSeed());
     }
 
@@ -92,6 +101,48 @@ final class NewGameSeedModal extends SeedDetailsModal {
         });
 
         seedEdit.setText(String.valueOf(seed));
+    }
+
+    @Override
+    protected void onBeforeActionButtons(LinearLayout panel) {
+        panel.addView(ModalChrome.makeEmberSeparator(activity),
+            ModalChrome.emberSeparatorParams(activity, 8, 8, 0, 12));
+
+        View modeRow = StartMenu.addButton(panel, variantLabel(), true, v -> cycleVariant());
+        if (modeRow instanceof LinearLayout) {
+            LinearLayout ll = (LinearLayout) modeRow;
+            View first = ll.getChildCount() > 0 ? ll.getChildAt(0) : null;
+            if (first instanceof TextView) {
+                modeLabelView = (TextView) first;
+            }
+        }
+
+        panel.addView(ModalChrome.makeEmberSeparator(activity),
+            ModalChrome.emberSeparatorParams(activity, 8, 8, 12, 12));
+    }
+
+    @Override
+    protected int getLaunchVariant() {
+        return selectedVariant;
+    }
+
+    private void cycleVariant() {
+        selectedVariant = (selectedVariant + 1) % VARIANT_LABELS.length;
+        GameSettings.setInt(activity, GameSettings.PREF_NEW_GAME_VARIANT,
+            selectedVariant);
+        if (modeLabelView != null) {
+            modeLabelView.setText(variantLabel());
+        }
+    }
+
+    private String variantLabel() {
+        return VARIANT_LABELS[selectedVariant];
+    }
+
+    private int boundedVariant(int variant) {
+        return variant >= 0 && variant < VARIANT_LABELS.length
+            ? variant
+            : StartMenu.VARIANT_BROGUE;
     }
 
     private EditText makeSeedEditText() {

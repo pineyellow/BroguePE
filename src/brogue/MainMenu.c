@@ -25,6 +25,7 @@
 #include "android-stats.h"
 #include "GlobalsBase.h"
 #include "Globals.h"
+#include "GlobalsBrogue.h"
 #include "platform.h"
 #include "tiles.h"
 #include <SDL.h>
@@ -180,11 +181,12 @@ static void initializeTitleFlames(boolean includeTitle,
     }
 
     if (includeTitle) {
-        for (i = 0; i < gameConst->mainMenuTitleWidth; i++) {
-            for (j = 0; j < gameConst->mainMenuTitleHeight; j++) {
-                if (mainMenuTitle[j * gameConst->mainMenuTitleWidth + i] != ' ') {
-                    int tx = (TITLE_COLS - gameConst->mainMenuTitleWidth) / 2 + i + MENU_TITLE_OFFSET_X;
-                    int ty = (ROWS - gameConst->mainMenuTitleHeight) / 2 + j + MENU_TITLE_OFFSET_Y;
+        const char *title = mainMenuTitle_Brogue;
+        for (i = 0; i < MENU_TITLE_WIDTH; i++) {
+            for (j = 0; j < MENU_TITLE_HEIGHT; j++) {
+                if (title[j * MENU_TITLE_WIDTH + i] != ' ') {
+                    int tx = (TITLE_COLS - MENU_TITLE_WIDTH) / 2 + i + MENU_TITLE_OFFSET_X;
+                    int ty = (ROWS - MENU_TITLE_HEIGHT) / 2 + j + MENU_TITLE_OFFSET_Y;
                     colors[tx][ty] = &flameTitleColor;
                     colorSourceCount++;
                     mask[tx][ty] = 100;
@@ -800,6 +802,7 @@ void mainBrogueJunction() {
                 break;
             case NG_NEW_GAME:
             case NG_NEW_GAME_WITH_SEED:
+                initializeGameVariant();
                 rogue.nextGamePath[0] = '\0';
                 randomNumbersGenerated = 0;
 

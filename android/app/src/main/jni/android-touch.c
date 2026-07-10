@@ -407,6 +407,18 @@ Java_com_pineyellow_broguepe_BrogueActivity_nativeStartMenuResultWithSeed(
     }
 }
 
+JNIEXPORT void JNICALL
+Java_com_pineyellow_broguepe_BrogueActivity_nativeStartMenuResultWithSeedAndVariant(
+        JNIEnv *env, jobject thiz, jint choice, jlong seed, jint variant) {
+    if (variant >= VARIANT_BROGUE && variant <= VARIANT_BULLET_BROGUE) {
+        gameVariant = (int)variant;
+    } else {
+        gameVariant = VARIANT_BROGUE;
+    }
+    Java_com_pineyellow_broguepe_BrogueActivity_nativeStartMenuResultWithSeed(
+        env, thiz, choice, seed);
+}
+
 /*
  * Remove the fixed mobile save file. Called from the Play button of any
  * seed-details modal that starts a new run — a fresh run overwrites the
