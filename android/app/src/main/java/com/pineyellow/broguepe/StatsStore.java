@@ -110,9 +110,9 @@ final class StatsStore {
         post("recordPlayerWon", s -> s.withPlayerWon(superVictory, depth, turns));
     }
 
-    void recordSeedPlayed(final long seed) {
+    void recordSeedPlayed(final long seed, final int variant, final int difficulty) {
         if (seed <= 0) return;
-        post("recordSeedPlayed", s -> s.withSeedPlayed(seed));
+        post("recordSeedPlayed", s -> s.withSeedPlayed(seed, variant, difficulty));
     }
 
     void recordPlayerQuit() {

@@ -27,6 +27,9 @@ final class StartMenu {
     static final int VARIANT_RAPID  = 1;
     static final int VARIANT_BULLET = 2;
 
+    static final int DIFFICULTY_DEFAULT = 0;
+    static final int DIFFICULTY_EASY = 1;
+
     private final BrogueActivity activity;
     private View overlay;
 
@@ -34,7 +37,8 @@ final class StartMenu {
         this.activity = activity;
     }
 
-    void show(final boolean hasSave, final boolean saveCompatible) {
+    void show(final boolean hasSave, final boolean saveCompatible,
+              final int saveVariant, final int saveDifficulty) {
         android.util.Log.d("BrogueModal", "showStartMenu(hasSave=" + hasSave + ")");
         activity.runOnUiThread(() -> {
             dismiss();
@@ -47,7 +51,7 @@ final class StartMenu {
 
             // Resume is disabled when there is no compatible save.
             boolean canResume = hasSave && saveCompatible;
-            addButton(panel, "Resume Game", canResume, v -> {
+            addButton(panel, resumeLabel(saveVariant, saveDifficulty), canResume, v -> {
                 activity.modalStack.clear();
                 dismiss();
                 activity.nextGameIsResume = true;
@@ -80,13 +84,25 @@ final class StartMenu {
                 FrameLayout.LayoutParams.MATCH_PARENT));
 
             panel.setAlpha(0f);
-            panel.setTranslationX(activity.dpToPx(24));
             panel.animate()
-                .alpha(1f).translationX(0f)
+                .alpha(1f)
                 .setDuration(250)
                 .setInterpolator(new DecelerateInterpolator(1.5f))
                 .start();
         });
+    }
+
+    private static String resumeLabel(int saveVariant, int saveDifficulty) {
+        String mode = "";
+        if (saveVariant == VARIANT_RAPID) {
+            mode = "Rapid";
+        } else if (saveVariant == VARIANT_BULLET) {
+            mode = "Bullet";
+        }
+        if (saveDifficulty == DIFFICULTY_EASY) {
+            mode += mode.isEmpty() ? "Easy" : "/Easy";
+        }
+        return mode.isEmpty() ? "Resume Game" : "Resume Game (" + mode + ")";
     }
 
     void dismiss() {

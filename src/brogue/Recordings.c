@@ -526,13 +526,6 @@ void initRecording() {
             rogue.gameHasEnded = true;
             rogue.gameExitStatusCode = EXIT_STATUS_FAILURE_RECORDING_WRONG_VERSION;
 
-            // Remove the incompatible Android save so the title screen
-            // doesn't auto-load it again in an infinite loop.
-            {
-                char savePath[BROGUE_FILENAME_MAX];
-                snprintf(savePath, sizeof(savePath), "%s%s", ANDROID_SAVE_NAME, GAME_SUFFIX);
-                remove(savePath);
-            }
         }
 
         rogue.seed              = recallNumber(8);          // master random seed
@@ -1156,7 +1149,7 @@ static void getDefaultFilePath(char *defaultPath, boolean gameOver) {
     }
     if (rogue.mode == GAME_MODE_WIZARD) {
         strcat(defaultPath, " (wizard)");
-    } else if (rogue.mode == GAME_MODE_EASY) {
+    } else if (EASY_MODE) {
         strcat(defaultPath, " (easy)");
     }
 }
@@ -1221,6 +1214,50 @@ boolean androidSaveFileExists(void) {
     char filePath[BROGUE_FILENAME_MAX];
     snprintf(filePath, sizeof(filePath), "%s%s", ANDROID_SAVE_NAME, GAME_SUFFIX);
     return fileExists(filePath);
+}
+
+// Return the game variant encoded by the recording version header. Android
+// saves created before variant-aware resume already contain these prefixes,
+// so no save migration or sidecar metadata is needed.
+int androidSaveVariant(void) {
+    char filePath[BROGUE_FILENAME_MAX];
+    snprintf(filePath, sizeof(filePath), "%s%s", ANDROID_SAVE_NAME, GAME_SUFFIX);
+
+    FILE *f = fopen(filePath, "rb");
+    if (!f) return -1;
+
+    char versionStr[16];
+    size_t n = fread(versionStr, 1, 15, f);
+    fclose(f);
+    if (n < 15) return -1;
+    versionStr[15] = '\0';
+
+    if (strncmp(versionStr, "CE ", 3) == 0) return VARIANT_BROGUE;
+    if (strncmp(versionStr, "RB ", 3) == 0) return VARIANT_RAPID_BROGUE;
+    if (strncmp(versionStr, "BB ", 3) == 0) return VARIANT_BULLET_BROGUE;
+    return -1;
+}
+
+// Return the user-facing difficulty stored immediately after the 15-byte
+// recording version. Saves predating difficulty selection store normal mode
+// here and therefore migrate to Default without a format change.
+int androidSaveDifficulty(void) {
+    char filePath[BROGUE_FILENAME_MAX];
+    snprintf(filePath, sizeof(filePath), "%s%s", ANDROID_SAVE_NAME, GAME_SUFFIX);
+
+    FILE *f = fopen(filePath, "rb");
+    if (!f) return GAME_DIFFICULTY_DEFAULT;
+
+    if (fseek(f, 15, SEEK_SET) != 0) {
+        fclose(f);
+        return GAME_DIFFICULTY_DEFAULT;
+    }
+    int mode = fgetc(f);
+    fclose(f);
+
+    return mode == GAME_MODE_EASY || mode == GAME_MODE_BALANCED_EASY
+        ? GAME_DIFFICULTY_EASY
+        : GAME_DIFFICULTY_DEFAULT;
 }
 
 // Check whether the fixed mobile save file is compatible with the current version.
@@ -1353,6 +1390,7 @@ static void copyFile(char *fromFilePath, char *toFilePath, unsigned long fromFil
 void switchToPlaying() {
     char lastGamePath[BROGUE_FILENAME_MAX];
 
+    displayMonsterFlashes(false);
     getAvailableFilePath(lastGamePath, LAST_GAME_NAME, GAME_SUFFIX);
     strcat(lastGamePath, GAME_SUFFIX);
 

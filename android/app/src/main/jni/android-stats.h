@@ -13,7 +13,7 @@
  * a load-from-save to re-count every kill in the player's history.
  */
 
-void androidNotifyGameStart(unsigned long long seed);
+void androidNotifyGameStart(unsigned long long seed, int variant, int difficulty);
 void androidNotifyMonsterKilled(const char *monsterName);
 void androidNotifyAllyFreed(const char *monsterName);
 void androidNotifyAllyDied(const char *monsterName);

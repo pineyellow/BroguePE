@@ -366,13 +366,15 @@ Java_com_pineyellow_broguepe_BrogueActivity_nativeEndDpadAutoMove(
 extern volatile enum NGCommands startMenuChoice; // defined in MainMenu.c
 extern volatile boolean startMenuCancelled;      // defined in MainMenu.c
 
-void androidShowStartMenu(boolean hasSave, boolean saveCompatible) {
+void androidShowStartMenu(boolean hasSave, boolean saveCompatible,
+                          int saveVariant, int saveDifficulty) {
     JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();
     jobject activity = (jobject)SDL_AndroidGetActivity();
     jclass cls = (*env)->GetObjectClass(env, activity);
-    jmethodID mid = (*env)->GetMethodID(env, cls, "showStartMenu", "(ZZ)V");
+    jmethodID mid = (*env)->GetMethodID(env, cls, "showStartMenu", "(ZZII)V");
     if (mid) (*env)->CallVoidMethod(env, activity, mid,
-                                    (jboolean)hasSave, (jboolean)saveCompatible);
+                                    (jboolean)hasSave, (jboolean)saveCompatible,
+                                    (jint)saveVariant, (jint)saveDifficulty);
     (*env)->DeleteLocalRef(env, cls);
     (*env)->DeleteLocalRef(env, activity);
 }
@@ -417,6 +419,17 @@ Java_com_pineyellow_broguepe_BrogueActivity_nativeStartMenuResultWithSeedAndVari
     }
     Java_com_pineyellow_broguepe_BrogueActivity_nativeStartMenuResultWithSeed(
         env, thiz, choice, seed);
+}
+
+JNIEXPORT void JNICALL
+Java_com_pineyellow_broguepe_BrogueActivity_nativeStartMenuResultWithSeedVariantAndDifficulty(
+        JNIEnv *env, jobject thiz, jint choice, jlong seed, jint variant,
+        jint difficulty) {
+    rogue.mode = difficulty == GAME_DIFFICULTY_EASY
+        ? GAME_MODE_BALANCED_EASY
+        : GAME_MODE_NORMAL;
+    Java_com_pineyellow_broguepe_BrogueActivity_nativeStartMenuResultWithSeedAndVariant(
+        env, thiz, choice, seed, variant);
 }
 
 /*

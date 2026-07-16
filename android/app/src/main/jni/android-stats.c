@@ -15,12 +15,13 @@
 #include <jni.h>
 #include "android-stats.h"
 
-void androidNotifyGameStart(unsigned long long seed) {
+void androidNotifyGameStart(unsigned long long seed, int variant, int difficulty) {
     JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();
     jobject activity = (jobject)SDL_AndroidGetActivity();
     jclass cls = (*env)->GetObjectClass(env, activity);
-    jmethodID mid = (*env)->GetMethodID(env, cls, "onGameStart", "(J)V");
-    if (mid) (*env)->CallVoidMethod(env, activity, mid, (jlong)seed);
+    jmethodID mid = (*env)->GetMethodID(env, cls, "onGameStart", "(JII)V");
+    if (mid) (*env)->CallVoidMethod(env, activity, mid,
+                                    (jlong)seed, (jint)variant, (jint)difficulty);
     (*env)->DeleteLocalRef(env, cls);
     (*env)->DeleteLocalRef(env, activity);
 }

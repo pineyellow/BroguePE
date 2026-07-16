@@ -54,7 +54,6 @@ public class BrogueActivity extends SDLActivity {
     final StartMenu startMenu = new StartMenu(this);
     // Offline seed modals share one visual frame.
     final NewGameSeedModal newGameSeedModal = new NewGameSeedModal(this);
-    final ReplayRecentSeedModal replayRecentSeedModal = new ReplayRecentSeedModal(this);
     final DeathModal deathModal = new DeathModal(this);
     private SettingsPanel settingsPanel;
     private ActionsToolbar actionsToolbar;
@@ -307,8 +306,9 @@ public class BrogueActivity extends SDLActivity {
     // Java_com_pineyellow_broguepe_BrogueActivity_* binding names match. Each is
     // a thin forward to the feature class that actually handles the work.
 
-    public void showStartMenu(final boolean hasSave, final boolean saveCompatible) {
-        startMenu.show(hasSave, saveCompatible);
+    public void showStartMenu(final boolean hasSave, final boolean saveCompatible,
+                              final int saveVariant, final int saveDifficulty) {
+        startMenu.show(hasSave, saveCompatible, saveVariant, saveDifficulty);
     }
 
     public void showInventory(final String json) {
@@ -352,14 +352,14 @@ public class BrogueActivity extends SDLActivity {
     // be told apart from fresh runs without threading a flag through C.
     boolean nextGameIsResume;
 
-    public void onGameStart(long seed) {
+    public void onGameStart(long seed, int variant, int difficulty) {
         boolean isResume = nextGameIsResume;
         nextGameIsResume = false;
         if (isResume) {
             // Resuming continues an already-counted local run.
         } else {
             StatsStore.get(this).recordGameStart();
-            StatsStore.get(this).recordSeedPlayed(seed);
+            StatsStore.get(this).recordSeedPlayed(seed, variant, difficulty);
         }
     }
 
@@ -540,6 +540,8 @@ public class BrogueActivity extends SDLActivity {
     native void nativeStartMenuResult(int choice);
     native void nativeStartMenuResultWithSeed(int choice, long seed);
     native void nativeStartMenuResultWithSeedAndVariant(int choice, long seed, int variant);
+    native void nativeStartMenuResultWithSeedVariantAndDifficulty(
+        int choice, long seed, int variant, int difficulty);
     native void nativeStartMenuCancel();
     native void nativeTextInputResult(boolean confirmed, String text);
     native void nativeConfirmationResult(boolean confirmed);

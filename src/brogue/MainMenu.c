@@ -255,9 +255,19 @@ static void titleMenu() {
     updateScreen();
 
     boolean hasSave = androidSaveFileExists();
-    boolean saveCompat = hasSave ? androidSaveIsCompatible() : false;
+    int saveVariant = hasSave ? androidSaveVariant() : -1;
+    int saveDifficulty = hasSave
+        ? androidSaveDifficulty()
+        : GAME_DIFFICULTY_DEFAULT;
+    if (saveVariant >= VARIANT_BROGUE && saveVariant < NUMBER_VARIANTS) {
+        gameVariant = saveVariant;
+        initializeGameVariant();
+    }
+    boolean saveCompat = saveVariant >= VARIANT_BROGUE
+        && saveVariant < NUMBER_VARIANTS
+        && androidSaveIsCompatible();
     if (startMenuChoice == NG_NOTHING) {
-        androidShowStartMenu(hasSave, saveCompat);
+        androidShowStartMenu(hasSave, saveCompat, saveVariant, saveDifficulty);
     }
     startMenuCancelled = false;
 
@@ -853,7 +863,10 @@ void mainBrogueJunction() {
                 androidSetOverlayVisible(true);
 
                 if (!rogue.playbackMode) {
-                    androidNotifyGameStart(rogue.seed);
+                    androidNotifyGameStart(rogue.seed, gameVariant,
+                        rogue.mode == GAME_MODE_BALANCED_EASY
+                            ? GAME_DIFFICULTY_EASY
+                            : GAME_DIFFICULTY_DEFAULT);
                 }
 
                 mainInputLoop();
@@ -877,7 +890,10 @@ void mainBrogueJunction() {
                 if (openFile(path)) {
                     if (loadSavedGame()) {
                         if (!rogue.playbackMode) {
-                            androidNotifyGameStart(rogue.seed);
+                            androidNotifyGameStart(rogue.seed, gameVariant,
+                                rogue.mode == GAME_MODE_BALANCED_EASY
+                                    ? GAME_DIFFICULTY_EASY
+                                    : GAME_DIFFICULTY_DEFAULT);
                         }
                         mainInputLoop();
                     }

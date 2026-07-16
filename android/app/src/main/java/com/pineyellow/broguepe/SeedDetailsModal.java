@@ -63,15 +63,20 @@ class SeedDetailsModal {
 
     protected int getLaunchVariant() { return -1; }
 
+    protected int getLaunchDifficulty() { return StartMenu.DIFFICULTY_DEFAULT; }
+
+    protected void onBeforeLaunch() {}
+
     private void launchRun() {
+        onBeforeLaunch();
         if (seed <= 0) return;
         activity.modalStack.clear();
         activity.startMenu.dismiss();
         activity.nativeDeleteSaveFile();
         int variant = getLaunchVariant();
         if (variant >= 0) {
-            activity.nativeStartMenuResultWithSeedAndVariant(
-                StartMenu.CHOICE_PLAY_SEED, seed, variant);
+            activity.nativeStartMenuResultWithSeedVariantAndDifficulty(
+                StartMenu.CHOICE_PLAY_SEED, seed, variant, getLaunchDifficulty());
         } else {
             activity.nativeStartMenuResultWithSeed(StartMenu.CHOICE_PLAY_SEED, seed);
         }

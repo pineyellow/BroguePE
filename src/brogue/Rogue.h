@@ -48,6 +48,7 @@
 #define BROGUE_VERSION_ATLEAST(a,b,c) (BROGUE_MAJOR != (a) ? BROGUE_MAJOR > (a) : BROGUE_MINOR != (b) ? BROGUE_MINOR > (b) : rogue.patchVersion >= (c))
 
 #define WIZARD_MODE                     (rogue.mode == GAME_MODE_WIZARD)
+#define EASY_MODE                       (rogue.mode == GAME_MODE_EASY || rogue.mode == GAME_MODE_BALANCED_EASY)
 
 #define DEBUG                           if (WIZARD_MODE)
 #define MONSTERS_ENABLED                (!WIZARD_MODE || 1) // Quest room monsters can be generated regardless.
@@ -2432,7 +2433,13 @@ typedef struct gameConstants {
 enum gameMode {
     GAME_MODE_NORMAL,
     GAME_MODE_WIZARD,
-    GAME_MODE_EASY
+    GAME_MODE_EASY,
+    GAME_MODE_BALANCED_EASY
+};
+
+enum gameDifficulty {
+    GAME_DIFFICULTY_DEFAULT,
+    GAME_DIFFICULTY_EASY
 };
 
 // these are basically global variables pertaining to the game state and player's unique variables:
@@ -3474,8 +3481,10 @@ extern "C" {
     void androidAbandonGame(void);
     void androidDeleteSaveFile(void);
     boolean androidSaveFileExists(void);
+    int androidSaveVariant(void);
+    int androidSaveDifficulty(void);
     boolean androidSaveIsCompatible(void);
-    void androidShowStartMenu(boolean hasSave, boolean saveCompatible);
+    void androidShowStartMenu(boolean hasSave, boolean saveCompatible, int saveVariant, int saveDifficulty);
     void saveRecording(char *filePath);
     void saveRecordingNoPrompt(char *filePath);
     void parseFile(void);

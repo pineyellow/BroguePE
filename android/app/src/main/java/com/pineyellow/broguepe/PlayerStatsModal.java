@@ -198,8 +198,8 @@ final class PlayerStatsModal {
         if (stats.recentSeeds.isEmpty()) {
             content.addView(makeEmptyPlaceholder());
         } else {
-            for (Long seed : stats.recentSeeds) {
-                content.addView(makeRecentSeedRow(seed));
+            for (PlayerStats.RecentSeed recent : stats.recentSeeds) {
+                content.addView(makeRecentSeedRow(recent));
             }
         }
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
@@ -217,9 +217,13 @@ final class PlayerStatsModal {
         });
     }
 
-    private View makeRecentSeedRow(long seed) {
+    private View makeRecentSeedRow(PlayerStats.RecentSeed recent) {
         TextView row = new TextView(activity);
-        row.setText(String.valueOf(seed));
+        String mode = variantName(recent.variant);
+        if (recent.difficulty == StartMenu.DIFFICULTY_EASY) {
+            mode += "/easy";
+        }
+        row.setText(recent.seed + " (" + mode + ")");
         row.setTextColor(Palette.GHOST_WHITE);
         row.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         row.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
@@ -235,7 +239,8 @@ final class PlayerStatsModal {
 
         row.setOnClickListener(v -> {
             activity.modalStack.pop();
-            activity.replayRecentSeedModal.show(seed);
+            activity.newGameSeedModal.show(
+                recent.seed, recent.variant, recent.difficulty);
         });
 
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
@@ -244,6 +249,14 @@ final class PlayerStatsModal {
         p.setMargins(0, activity.dpToPx(2), 0, activity.dpToPx(2));
         row.setLayoutParams(p);
         return row;
+    }
+
+    private static String variantName(int variant) {
+        switch (variant) {
+            case StartMenu.VARIANT_RAPID:  return "rapid";
+            case StartMenu.VARIANT_BULLET: return "bullet";
+            default:                       return "classic";
+        }
     }
 
     private View makeTagPill(PlayerStats.Tally t) {

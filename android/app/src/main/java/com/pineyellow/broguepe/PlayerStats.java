@@ -41,8 +41,8 @@ final class PlayerStats {
     final List<Tally> alliesFreed;
     /** Sorted by count descending. Allies killed by enemies — not player-caused. */
     final List<Tally> alliesLost;
-    /** Most-recent-first, deduplicated, capped at RECENT_SEEDS_MAX. */
-    final List<Long> recentSeeds;
+    /** Most-recent-first, deduplicated by seed, capped at RECENT_SEEDS_MAX. */
+    final List<RecentSeed> recentSeeds;
     /** Count of player deaths at each depth. Index 0 unused; valid range 1..MAX_DEPTH. */
     private final int[] deathsPerDepth;
 
@@ -50,7 +50,7 @@ final class PlayerStats {
                         int deepestDepth, int longestRunTurns, int fastestWinTurns,
                         List<Tally> kills, List<Tally> deathCauses,
                         List<Tally> alliesFreed, List<Tally> alliesLost,
-                        List<Long> recentSeeds, int[] deathsPerDepth) {
+                        List<RecentSeed> recentSeeds, int[] deathsPerDepth) {
         this.gamesPlayed = gamesPlayed;
         this.wins = wins;
         this.masteryWins = masteryWins;
@@ -98,13 +98,26 @@ final class PlayerStats {
         }
     }
 
+    /** Seed, game variant, and difficulty used for its most recent play. */
+    static final class RecentSeed {
+        final long seed;
+        final int variant;
+        final int difficulty;
+
+        RecentSeed(long seed, int variant, int difficulty) {
+            this.seed = seed;
+            this.variant = normalizedVariant(variant);
+            this.difficulty = normalizedDifficulty(difficulty);
+        }
+    }
+
     static PlayerStats empty() {
         return new PlayerStats(
             0, 0, 0, 0,
             0, 0, 0,
             new ArrayList<Tally>(), new ArrayList<Tally>(),
             new ArrayList<Tally>(), new ArrayList<Tally>(),
-            new ArrayList<Long>(),
+            new ArrayList<RecentSeed>(),
             new int[MAX_DEPTH + 1]);
     }
 
@@ -199,14 +212,15 @@ final class PlayerStats {
             copyDepths(deathsPerDepth));
     }
 
-    /** Adds a seed to the front of `recentSeeds`, removing any prior
-     *  occurrence so each seed appears once, then truncates to the cap. */
-    PlayerStats withSeedPlayed(long seed) {
+    /** Adds a seed and its launch settings to the front of `recentSeeds`,
+     *  removing any prior occurrence so each seed appears once, then truncates
+     *  to the cap. */
+    PlayerStats withSeedPlayed(long seed, int variant, int difficulty) {
         if (seed <= 0) return this;
-        List<Long> next = new ArrayList<>(recentSeeds.size() + 1);
-        next.add(seed);
-        for (Long existing : recentSeeds) {
-            if (existing == null || existing == seed) continue;
+        List<RecentSeed> next = new ArrayList<>(recentSeeds.size() + 1);
+        next.add(new RecentSeed(seed, variant, difficulty));
+        for (RecentSeed existing : recentSeeds) {
+            if (existing == null || existing.seed == seed) continue;
             next.add(existing);
             if (next.size() >= RECENT_SEEDS_MAX) break;
         }
@@ -248,7 +262,13 @@ final class PlayerStats {
         o.put("alliesFreed", tallyListToJson(alliesFreed));
         o.put("alliesLost", tallyListToJson(alliesLost));
         JSONArray seedsArr = new JSONArray();
-        for (Long s : recentSeeds) seedsArr.put(s);
+        for (RecentSeed recent : recentSeeds) {
+            JSONObject entry = new JSONObject();
+            entry.put("seed", recent.seed);
+            entry.put("variant", recent.variant);
+            entry.put("difficulty", recent.difficulty);
+            seedsArr.put(entry);
+        }
         o.put("recentSeeds", seedsArr);
         o.put("deathsPerDepth", deathsPerDepthToJson(deathsPerDepth));
         return o;
@@ -301,15 +321,43 @@ final class PlayerStats {
         return out;
     }
 
-    private static List<Long> recentSeedsFromJson(JSONArray arr) {
-        List<Long> out = new ArrayList<>();
+    private static List<RecentSeed> recentSeedsFromJson(JSONArray arr) {
+        List<RecentSeed> out = new ArrayList<>();
         if (arr == null) return out;
         int n = Math.min(arr.length(), RECENT_SEEDS_MAX);
         for (int i = 0; i < n; i++) {
-            long v = arr.optLong(i, 0L);
-            if (v > 0) out.add(v);
+            JSONObject entry = arr.optJSONObject(i);
+            if (entry != null) {
+                long seed = entry.optLong("seed", 0L);
+                if (seed > 0) {
+                    out.add(new RecentSeed(seed,
+                        entry.optInt("variant", StartMenu.VARIANT_BROGUE),
+                        entry.optInt("difficulty", StartMenu.DIFFICULTY_DEFAULT)));
+                }
+            } else {
+                // Legacy stats stored bare seed numbers and predate variant
+                // metadata, so replay them as standard Brogue.
+                long seed = arr.optLong(i, 0L);
+                if (seed > 0) {
+                    out.add(new RecentSeed(seed, StartMenu.VARIANT_BROGUE,
+                        StartMenu.DIFFICULTY_DEFAULT));
+                }
+            }
         }
         return out;
+    }
+
+    private static int normalizedVariant(int variant) {
+        return variant >= StartMenu.VARIANT_BROGUE
+            && variant <= StartMenu.VARIANT_BULLET
+            ? variant
+            : StartMenu.VARIANT_BROGUE;
+    }
+
+    private static int normalizedDifficulty(int difficulty) {
+        return difficulty == StartMenu.DIFFICULTY_EASY
+            ? StartMenu.DIFFICULTY_EASY
+            : StartMenu.DIFFICULTY_DEFAULT;
     }
 
     private static JSONObject tallyListToJson(List<Tally> tallies) throws JSONException {

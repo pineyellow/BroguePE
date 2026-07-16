@@ -1129,6 +1129,8 @@ void gameOver(char *killedBy, boolean useCustomPhrasing) {
 
     if (rogue.mode == GAME_MODE_EASY) {
         theEntry.score /= 10;
+    } else if (rogue.mode == GAME_MODE_BALANCED_EASY) {
+        theEntry.score /= 2;
     }
     strcpy(highScoreText, buf);
     if (theEntry.score > 0) {
@@ -1305,6 +1307,8 @@ void victory(boolean superVictory) {
 
     if (rogue.mode == GAME_MODE_EASY) {
         theEntry.score /= 10;
+    } else if (rogue.mode == GAME_MODE_BALANCED_EASY) {
+        theEntry.score /= 2;
     }
 
     if (rogue.mode != GAME_MODE_WIZARD && !rogue.playbackMode) {
@@ -1350,7 +1354,7 @@ void victory(boolean superVictory) {
 }
 
 void enableEasyMode() {
-    if (rogue.mode == GAME_MODE_EASY) {
+    if (EASY_MODE) {
         message("Alas, all hope of salvation is lost. You shed scalding tears at your plight.", 0);
         return;
     }

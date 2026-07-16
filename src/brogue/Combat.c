@@ -1562,6 +1562,10 @@ boolean inflictDamage(creature *attacker, creature *defender,
         && rogue.mode == GAME_MODE_EASY
         && damage > 0) {
         damage = max(1, damage/5);
+    } else if (defender == &player
+               && rogue.mode == GAME_MODE_BALANCED_EASY
+               && damage > 0) {
+        damage = max(1, (damage + 1) / 2);
     }
 
     if (((attacker == &player && rogue.transference) || (attacker && attacker != &player && (attacker->info.abilityFlags & MA_TRANSFERENCE)))

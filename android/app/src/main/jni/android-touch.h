@@ -45,7 +45,8 @@ void androidHideDiscoveries(void);
 
 /* Show the start menu overlay (New Game / Resume / Play Seed).
  * Non-blocking — the Java callback sets rogue.nextGame when the user picks. */
-void androidShowStartMenu(boolean hasSave, boolean saveCompatible);
+void androidShowStartMenu(boolean hasSave, boolean saveCompatible,
+                          int saveVariant, int saveDifficulty);
 
 /* Show a native Android text input dialog.
  * Blocks until the user confirms or cancels.

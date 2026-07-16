@@ -42,20 +42,41 @@ final class NewGameSeedModal extends SeedDetailsModal {
         "Game Mode: Rapid Brogue",
         "Game Mode: Bullet Brogue"
     };
+    private static final String[] DIFFICULTY_LABELS = {
+        "Difficulty: Default",
+        "Difficulty: Easy"
+    };
 
     private final Random random = new Random();
     private EditText seedEdit;
     private int selectedVariant = StartMenu.VARIANT_BROGUE;
+    private int selectedDifficulty = StartMenu.DIFFICULTY_DEFAULT;
     private TextView modeLabelView;
+    private TextView difficultyLabelView;
 
     NewGameSeedModal(BrogueActivity activity) { super(activity); }
 
     @Override protected String getTitleUpper() { return "NEW GAME"; }
 
     void show() {
-        selectedVariant = boundedVariant(GameSettings.getInt(activity,
-            GameSettings.PREF_NEW_GAME_VARIANT, StartMenu.VARIANT_BROGUE));
-        show(pickRandomSeed());
+        show(pickRandomSeed(),
+            GameSettings.getInt(activity, GameSettings.PREF_NEW_GAME_VARIANT,
+                StartMenu.VARIANT_BROGUE),
+            GameSettings.getInt(activity, GameSettings.PREF_NEW_GAME_DIFFICULTY,
+                StartMenu.DIFFICULTY_DEFAULT));
+    }
+
+    void show(long seed, int variant) {
+        show(seed, variant, StartMenu.DIFFICULTY_DEFAULT);
+    }
+
+    void show(long seed, int variant, int difficulty) {
+        selectedVariant = boundedVariant(variant);
+        selectedDifficulty = boundedDifficulty(difficulty);
+        seedEdit = null;
+        modeLabelView = null;
+        difficultyLabelView = null;
+        super.show(seed);
     }
 
     @Override
@@ -109,13 +130,11 @@ final class NewGameSeedModal extends SeedDetailsModal {
             ModalChrome.emberSeparatorParams(activity, 8, 8, 0, 12));
 
         View modeRow = StartMenu.addButton(panel, variantLabel(), true, v -> cycleVariant());
-        if (modeRow instanceof LinearLayout) {
-            LinearLayout ll = (LinearLayout) modeRow;
-            View first = ll.getChildCount() > 0 ? ll.getChildAt(0) : null;
-            if (first instanceof TextView) {
-                modeLabelView = (TextView) first;
-            }
-        }
+        modeLabelView = labelFromRow(modeRow);
+
+        View difficultyRow = StartMenu.addButton(panel, difficultyLabel(), true,
+            v -> cycleDifficulty());
+        difficultyLabelView = labelFromRow(difficultyRow);
 
         panel.addView(ModalChrome.makeEmberSeparator(activity),
             ModalChrome.emberSeparatorParams(activity, 8, 8, 12, 12));
@@ -124,6 +143,16 @@ final class NewGameSeedModal extends SeedDetailsModal {
     @Override
     protected int getLaunchVariant() {
         return selectedVariant;
+    }
+
+    @Override
+    protected int getLaunchDifficulty() {
+        return selectedDifficulty;
+    }
+
+    @Override
+    protected void onBeforeLaunch() {
+        commitEdit();
     }
 
     private void cycleVariant() {
@@ -139,10 +168,36 @@ final class NewGameSeedModal extends SeedDetailsModal {
         return VARIANT_LABELS[selectedVariant];
     }
 
+    private void cycleDifficulty() {
+        selectedDifficulty = (selectedDifficulty + 1) % DIFFICULTY_LABELS.length;
+        GameSettings.setInt(activity, GameSettings.PREF_NEW_GAME_DIFFICULTY,
+            selectedDifficulty);
+        if (difficultyLabelView != null) {
+            difficultyLabelView.setText(difficultyLabel());
+        }
+    }
+
+    private String difficultyLabel() {
+        return DIFFICULTY_LABELS[selectedDifficulty];
+    }
+
     private int boundedVariant(int variant) {
         return variant >= 0 && variant < VARIANT_LABELS.length
             ? variant
             : StartMenu.VARIANT_BROGUE;
+    }
+
+    private int boundedDifficulty(int difficulty) {
+        return difficulty >= 0 && difficulty < DIFFICULTY_LABELS.length
+            ? difficulty
+            : StartMenu.DIFFICULTY_DEFAULT;
+    }
+
+    private TextView labelFromRow(View row) {
+        if (!(row instanceof LinearLayout)) return null;
+        LinearLayout ll = (LinearLayout) row;
+        View first = ll.getChildCount() > 0 ? ll.getChildAt(0) : null;
+        return first instanceof TextView ? (TextView) first : null;
     }
 
     private EditText makeSeedEditText() {
@@ -181,10 +236,9 @@ final class NewGameSeedModal extends SeedDetailsModal {
         if (imm != null) imm.showSoftInput(seedEdit, 0);
     }
 
-    /** Called only when the user presses IME Done — the sole "submit" signal.
-     *  Empty / non-numeric / non-positive input retains the original seed;
+    /** Empty / non-numeric / non-positive input retains the original seed;
      *  the display is rewritten from {@code seed} so it matches what's
-     *  actually committed. */
+     *  actually committed. Called by both IME Done and Play. */
     private void commitEdit() {
         if (seedEdit == null || seedEdit.getWindowToken() == null) return;
 

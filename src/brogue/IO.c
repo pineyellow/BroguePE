@@ -277,7 +277,7 @@ static short actionMenu(short x, boolean playingBack) {
             buttons[buttonCount].hotkey[0] = RETHROW_KEY;
             buttonCount++;
 
-            if (rogue.mode != GAME_MODE_EASY) {
+            if (!EASY_MODE) {
                 if (KEYBOARD_LABELS) {
                     sprintf(buttons[buttonCount].text, "  %s&: %sEasy mode  ",              yellowColorEscape, whiteColorEscape);
                 } else {
@@ -2800,9 +2800,14 @@ void executeKeystroke(signed long keystroke, boolean controlKey, boolean shiftKe
             printSeed();
             break;
         case EASY_MODE_KEY:
-            //if (shiftKey) {
+#ifdef BROGUE_ANDROID
+            // Preserve legacy recording playback, but do not expose legacy Easy Mode in live games.
+            if (rogue.playbackMode) {
                 enableEasyMode();
-            //}
+            }
+#else
+            enableEasyMode();
+#endif
             break;
         case PRINTSCREEN_KEY:
             if (takeScreenshot()) {
@@ -3038,7 +3043,7 @@ void displayMonsterFlashes(boolean flashingEnabled) {
 
     rogue.creaturesWillFlashThisTurn = false;
 
-    if (rogue.autoPlayingLevel || rogue.blockCombatText) {
+    if (flashingEnabled && (rogue.autoPlayingLevel || rogue.blockCombatText)) {
         return;
     }
 
@@ -4366,7 +4371,7 @@ void printSeed() {
     char buf[COLS];
     char mode[14] = "";
 
-    if (rogue.mode == GAME_MODE_EASY) {
+    if (EASY_MODE) {
         strcpy(mode,"easy mode; ");
     } else if (WIZARD_MODE) {
         strcpy(mode,"wizard mode; ");
