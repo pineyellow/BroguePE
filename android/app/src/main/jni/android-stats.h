@@ -17,10 +17,12 @@ void androidNotifyGameStart(unsigned long long seed, int variant, int difficulty
 void androidNotifyMonsterKilled(const char *monsterName);
 void androidNotifyAllyFreed(const char *monsterName);
 void androidNotifyAllyDied(const char *monsterName);
-void androidNotifyPlayerDied(const char *killedBy, int depth, int turns);
+void androidNotifyPlayerDied(const char *killedBy, int depth, int turns,
+                             unsigned long gold);
 void androidShowDeathScreen(const char *description, int turns);
 extern volatile boolean deathScreenDismissed;
-void androidNotifyPlayerWon(boolean superVictory, int depth, int turns);
-void androidNotifyPlayerQuit(int depth, int turns);
+void androidNotifyPlayerWon(boolean superVictory, int depth, int turns,
+                            unsigned long gold);
+void androidNotifyPlayerQuit(int depth, int turns, unsigned long gold);
 
 #endif

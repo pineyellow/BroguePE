@@ -20,13 +20,27 @@ import android.widget.TextView;
 /** Detailed local player-stats view opened from the title menu. */
 final class PlayerStatsModal {
 
+    private static final String[] VARIANT_LABELS = {
+        "Classic",
+        "Rapid",
+        "Bullet"
+    };
+    private static final String[] DIFFICULTY_LABELS = {
+        "Default",
+        "Easy"
+    };
+
     private final BrogueActivity activity;
+    private int selectedVariant = StartMenu.VARIANT_BROGUE;
+    private int selectedDifficulty = StartMenu.DIFFICULTY_DEFAULT;
 
     PlayerStatsModal(BrogueActivity activity) {
         this.activity = activity;
     }
 
     void show() {
+        selectedVariant = StartMenu.VARIANT_BROGUE;
+        selectedDifficulty = StartMenu.DIFFICULTY_DEFAULT;
         activity.modalStack.push(this::build);
     }
 
@@ -34,7 +48,70 @@ final class PlayerStatsModal {
         FrameLayout root = new FrameLayout(activity);
         LinearLayout panel = ModalChrome.buildPanel(activity, root, "PERSONAL STATS");
 
-        PlayerStats stats = StatsStore.get(activity).snapshot();
+        LinearLayout statsContent = new LinearLayout(activity);
+        statsContent.setOrientation(LinearLayout.VERTICAL);
+
+        LinearLayout selectors = new LinearLayout(activity);
+        selectors.setOrientation(LinearLayout.HORIZONTAL);
+        selectors.setBaselineAligned(false);
+
+        LinearLayout modeHolder = new LinearLayout(activity);
+        modeHolder.setOrientation(LinearLayout.VERTICAL);
+        View modeRow = StartMenu.addButton(
+            modeHolder, VARIANT_LABELS[selectedVariant], true, null);
+        TextView modeLabel = (TextView) ((LinearLayout) modeRow).getChildAt(0);
+        modeRow.setOnClickListener(v -> {
+            selectedVariant = (selectedVariant + 1) % VARIANT_LABELS.length;
+            modeLabel.setText(VARIANT_LABELS[selectedVariant]);
+            renderStats(statsContent);
+        });
+
+        LinearLayout difficultyHolder = new LinearLayout(activity);
+        difficultyHolder.setOrientation(LinearLayout.VERTICAL);
+        View difficultyRow = StartMenu.addButton(
+            difficultyHolder, DIFFICULTY_LABELS[selectedDifficulty], true, null);
+        TextView difficultyLabel =
+            (TextView) ((LinearLayout) difficultyRow).getChildAt(0);
+        difficultyRow.setOnClickListener(v -> {
+            selectedDifficulty = (selectedDifficulty + 1) % DIFFICULTY_LABELS.length;
+            difficultyLabel.setText(DIFFICULTY_LABELS[selectedDifficulty]);
+            renderStats(statsContent);
+        });
+
+        int selectorGap = activity.dpToPx(3);
+        LinearLayout.LayoutParams modeParams = new LinearLayout.LayoutParams(
+            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        modeParams.rightMargin = selectorGap;
+        selectors.addView(modeHolder, modeParams);
+        LinearLayout.LayoutParams difficultyParams = new LinearLayout.LayoutParams(
+            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
+        difficultyParams.leftMargin = selectorGap;
+        selectors.addView(difficultyHolder, difficultyParams);
+        panel.addView(selectors, new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        panel.addView(ModalChrome.makeEmberSeparator(activity),
+            ModalChrome.emberSeparatorParams(activity, 8, 8, 8, 12));
+        panel.addView(statsContent);
+        renderStats(statsContent);
+
+        // Breathing room between the last section and the Back button so the
+        // button doesn't hug the last row of content when scrolled to bottom.
+        View spacer = new View(activity);
+        panel.addView(spacer, new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, activity.dpToPx(20)));
+
+        StartMenu.addButton(panel, "Back", true, v -> activity.modalStack.pop());
+
+        ModalChrome.present(activity, root, panel);
+        return root;
+    }
+
+    private void renderStats(LinearLayout panel) {
+        panel.removeAllViews();
+        PlayerStats stats = StatsStore.get(activity).snapshot(
+            selectedVariant, selectedDifficulty);
 
         // Top: 3-cell stat grid (played / won / died).
         LinearLayout grid = new LinearLayout(activity);
@@ -53,6 +130,9 @@ final class PlayerStatsModal {
         int deadliest = stats.deadliestDepth();
         addKeyValueRow(panel, "Deadliest depth",
             deadliest > 0 ? "Depth " + deadliest : "—");
+        addKeyValueRow(panel, "Most gold collected",
+            stats.mostGoldCollected > 0
+                ? Long.toString(stats.mostGoldCollected) : "—");
         addKeyValueRow(panel, "Longest game",
             stats.longestRunTurns > 0 ? formatTurns(stats.longestRunTurns) : "—");
         addKeyValueRow(panel, "Mastery wins",
@@ -66,17 +146,6 @@ final class PlayerStatsModal {
         addTallySection(panel, "Monsters Slain",          stats.kills);
         addTallySection(panel, "Allies Freed",            stats.alliesFreed);
         addTallySection(panel, "Allies you let die",      stats.alliesLost);
-
-        // Breathing room between the last section and the Back button so the
-        // button doesn't hug the last row of content when scrolled to bottom.
-        View spacer = new View(activity);
-        panel.addView(spacer, new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, activity.dpToPx(20)));
-
-        StartMenu.addButton(panel, "Back", true, v -> activity.modalStack.pop());
-
-        ModalChrome.present(activity, root, panel);
-        return root;
     }
 
     private void addKeyValueRow(LinearLayout panel, String key, String value) {
@@ -149,7 +218,7 @@ final class PlayerStatsModal {
         return empty;
     }
 
-    /** Last ten distinct seeds this install has played, newest first. Each
+    /** Last ten distinct seeds this install version has played, newest first. Each
      *  row is clickable and can be replayed offline. */
     private void addRecentSeedsSection(LinearLayout panel, PlayerStats stats) {
         LinearLayout header = new LinearLayout(activity);
@@ -161,7 +230,7 @@ final class PlayerStatsModal {
 
         GradientDrawable headerBg = new GradientDrawable();
         headerBg.setShape(GradientDrawable.RECTANGLE);
-        headerBg.setCornerRadius(activity.dpToPx(4));
+        headerBg.setCornerRadius(activity.dpToPx(6));
         headerBg.setColor(Palette.ITEM_BG);
         headerBg.setStroke(1, Palette.BORDER_DIM);
         header.setBackground(new RippleDrawable(
@@ -232,7 +301,7 @@ final class PlayerStatsModal {
 
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(activity.dpToPx(4));
+        bg.setCornerRadius(activity.dpToPx(6));
         bg.setColor(Palette.ITEM_BG);
         row.setBackground(new RippleDrawable(
             ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
@@ -294,7 +363,7 @@ final class PlayerStatsModal {
     }
 
     /** Lays children left-to-right, wrapping to a new line when the next
-     *  child would overflow the parent width. `gap` is used for both inter-
+     *  child would overflow the parent width. `gap` is used for both inter
      *  pill horizontal spacing and inter-row vertical spacing. */
     private static final class TagFlowLayout extends ViewGroup {
         private final int gap;
@@ -363,7 +432,7 @@ final class PlayerStatsModal {
 
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(activity.dpToPx(3));
+        bg.setCornerRadius(activity.dpToPx(6));
         bg.setColor(Palette.ITEM_BG);
         cell.setBackground(bg);
 

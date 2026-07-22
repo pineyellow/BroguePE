@@ -12,10 +12,8 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 
-/** Immutable snapshot of a player's run history for this install. Persisted
- *  as stats.json in the app's private files dir. All "with…" methods return
- *  a new instance with the update applied so this class is safe to publish
- *  across threads via a volatile reference. */
+/** Immutable snapshot for one variant and difficulty combination. All
+ *  "with…" methods return a new instance with the update applied. */
 final class PlayerStats {
 
     /** Max distinct seeds retained in the "Recent Seeds" list. */
@@ -33,6 +31,7 @@ final class PlayerStats {
     final int deepestDepth;
     final int longestRunTurns;
     final int fastestWinTurns;    // 0 while no wins recorded yet
+    final long mostGoldCollected;
     /** Sorted by count descending. */
     final List<Tally> kills;
     /** Sorted by count descending. */
@@ -48,6 +47,7 @@ final class PlayerStats {
 
     private PlayerStats(int gamesPlayed, int wins, int masteryWins, int deaths,
                         int deepestDepth, int longestRunTurns, int fastestWinTurns,
+                        long mostGoldCollected,
                         List<Tally> kills, List<Tally> deathCauses,
                         List<Tally> alliesFreed, List<Tally> alliesLost,
                         List<RecentSeed> recentSeeds, int[] deathsPerDepth) {
@@ -58,6 +58,7 @@ final class PlayerStats {
         this.deepestDepth = deepestDepth;
         this.longestRunTurns = longestRunTurns;
         this.fastestWinTurns = fastestWinTurns;
+        this.mostGoldCollected = mostGoldCollected;
         this.kills = Collections.unmodifiableList(kills);
         this.deathCauses = Collections.unmodifiableList(deathCauses);
         this.alliesFreed = Collections.unmodifiableList(alliesFreed);
@@ -115,6 +116,7 @@ final class PlayerStats {
         return new PlayerStats(
             0, 0, 0, 0,
             0, 0, 0,
+            0,
             new ArrayList<Tally>(), new ArrayList<Tally>(),
             new ArrayList<Tally>(), new ArrayList<Tally>(),
             new ArrayList<RecentSeed>(),
@@ -129,6 +131,7 @@ final class PlayerStats {
             gamesPlayed + 1,
             wins, masteryWins, deaths,
             deepestDepth, longestRunTurns, fastestWinTurns,
+            mostGoldCollected,
             new ArrayList<>(kills),
             new ArrayList<>(deathCauses),
             new ArrayList<>(alliesFreed),
@@ -141,6 +144,7 @@ final class PlayerStats {
         return new PlayerStats(
             gamesPlayed, wins, masteryWins, deaths,
             deepestDepth, longestRunTurns, fastestWinTurns,
+            mostGoldCollected,
             mergeTally(kills, monsterName),
             new ArrayList<>(deathCauses),
             new ArrayList<>(alliesFreed),
@@ -153,6 +157,7 @@ final class PlayerStats {
         return new PlayerStats(
             gamesPlayed, wins, masteryWins, deaths,
             deepestDepth, longestRunTurns, fastestWinTurns,
+            mostGoldCollected,
             new ArrayList<>(kills),
             new ArrayList<>(deathCauses),
             mergeTally(alliesFreed, monsterName),
@@ -165,6 +170,7 @@ final class PlayerStats {
         return new PlayerStats(
             gamesPlayed, wins, masteryWins, deaths,
             deepestDepth, longestRunTurns, fastestWinTurns,
+            mostGoldCollected,
             new ArrayList<>(kills),
             new ArrayList<>(deathCauses),
             new ArrayList<>(alliesFreed),
@@ -173,7 +179,7 @@ final class PlayerStats {
             copyDepths(deathsPerDepth));
     }
 
-    PlayerStats withPlayerDied(String killedBy, int depth, int turns) {
+    PlayerStats withPlayerDied(String killedBy, int depth, int turns, long gold) {
         int[] nextDepths = copyDepths(deathsPerDepth);
         if (depth >= 1 && depth <= MAX_DEPTH) {
             nextDepths[depth]++;
@@ -185,6 +191,7 @@ final class PlayerStats {
             Math.max(deepestDepth, depth),
             Math.max(longestRunTurns, turns),
             fastestWinTurns,
+            Math.max(mostGoldCollected, Math.max(0L, gold)),
             new ArrayList<>(kills),
             mergeTally(deathCauses, killedBy),
             new ArrayList<>(alliesFreed),
@@ -193,7 +200,7 @@ final class PlayerStats {
             nextDepths);
     }
 
-    PlayerStats withPlayerWon(boolean superVictory, int depth, int turns) {
+    PlayerStats withPlayerWon(boolean superVictory, int depth, int turns, long gold) {
         int nextFastest = (fastestWinTurns == 0 || turns < fastestWinTurns)
             ? turns : fastestWinTurns;
         return new PlayerStats(
@@ -204,6 +211,7 @@ final class PlayerStats {
             Math.max(deepestDepth, depth),
             Math.max(longestRunTurns, turns),
             nextFastest,
+            Math.max(mostGoldCollected, Math.max(0L, gold)),
             new ArrayList<>(kills),
             new ArrayList<>(deathCauses),
             new ArrayList<>(alliesFreed),
@@ -227,6 +235,7 @@ final class PlayerStats {
         return new PlayerStats(
             gamesPlayed, wins, masteryWins, deaths,
             deepestDepth, longestRunTurns, fastestWinTurns,
+            mostGoldCollected,
             new ArrayList<>(kills),
             new ArrayList<>(deathCauses),
             new ArrayList<>(alliesFreed),
@@ -235,11 +244,27 @@ final class PlayerStats {
             copyDepths(deathsPerDepth));
     }
 
-    PlayerStats withPlayerQuit() {
+    PlayerStats withoutRecentSeeds() {
+        return new PlayerStats(
+            gamesPlayed, wins, masteryWins, deaths,
+            deepestDepth, longestRunTurns, fastestWinTurns,
+            mostGoldCollected,
+            new ArrayList<>(kills),
+            new ArrayList<>(deathCauses),
+            new ArrayList<>(alliesFreed),
+            new ArrayList<>(alliesLost),
+            new ArrayList<RecentSeed>(),
+            copyDepths(deathsPerDepth));
+    }
+
+    PlayerStats withPlayerQuit(int depth, int turns, long gold) {
         return new PlayerStats(
             gamesPlayed,
             wins, masteryWins, deaths,
-            deepestDepth, longestRunTurns, fastestWinTurns,
+            Math.max(deepestDepth, depth),
+            Math.max(longestRunTurns, turns),
+            fastestWinTurns,
+            Math.max(mostGoldCollected, Math.max(0L, gold)),
             new ArrayList<>(kills),
             new ArrayList<>(deathCauses),
             new ArrayList<>(alliesFreed),
@@ -257,6 +282,7 @@ final class PlayerStats {
         o.put("deepestDepth", deepestDepth);
         o.put("longestRunTurns", longestRunTurns);
         o.put("fastestWinTurns", fastestWinTurns);
+        o.put("mostGoldCollected", mostGoldCollected);
         o.put("kills", tallyListToJson(kills));
         o.put("deathCauses", tallyListToJson(deathCauses));
         o.put("alliesFreed", tallyListToJson(alliesFreed));
@@ -283,6 +309,7 @@ final class PlayerStats {
             o.optInt("deepestDepth"),
             o.optInt("longestRunTurns"),
             o.optInt("fastestWinTurns"),
+            Math.max(0L, o.optLong("mostGoldCollected")),
             tallyListFromJson(o.optJSONObject("kills")),
             tallyListFromJson(o.optJSONObject("deathCauses")),
             tallyListFromJson(o.optJSONObject("alliesFreed")),

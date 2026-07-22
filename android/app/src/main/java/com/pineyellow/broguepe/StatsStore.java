@@ -41,7 +41,11 @@ final class StatsStore {
 
     private final File statsFile;
     private final Handler handler;
-    private volatile PlayerStats current;
+    private volatile PlayerStatsArchive current;
+    // Accessed only on handler's looper. onGameStart is queued before any
+    // events from that run, so every callback uses the correct bucket.
+    private int activeVariant = StartMenu.VARIANT_BROGUE;
+    private int activeDifficulty = StartMenu.DIFFICULTY_DEFAULT;
 
     private StatsStore(Context appContext) {
         this.statsFile = new File(appContext.getFilesDir(), FILENAME);
@@ -52,8 +56,8 @@ final class StatsStore {
     }
 
     /** UI-thread safe. Returns the most recent immutable snapshot. */
-    PlayerStats snapshot() {
-        return current;
+    PlayerStats snapshot(int variant, int difficulty) {
+        return current.bucket(variant, difficulty);
     }
 
     /** Functional shape of every PlayerStats mutator — takes the current
@@ -67,7 +71,10 @@ final class StatsStore {
         handler.post(new Runnable() {
             @Override public void run() {
                 try {
-                    PlayerStats next = mutator.apply(current);
+                    PlayerStats nextBucket = mutator.apply(
+                        current.bucket(activeVariant, activeDifficulty));
+                    PlayerStatsArchive next = current.withBucket(
+                        activeVariant, activeDifficulty, nextBucket);
                     current = next;
                     // Flush every event: if the app is OS-killed mid-run,
                     // brogue's save will replay the run under rogue.playbackMode
@@ -82,8 +89,23 @@ final class StatsStore {
         });
     }
 
-    void recordGameStart() {
-        post("recordGameStart", PlayerStats::withGameStart);
+    void recordGameStart(final long seed, final int variant,
+                         final int difficulty, final boolean isResume) {
+        handler.post(new Runnable() {
+            @Override public void run() {
+                try {
+                    activeVariant = PlayerStatsArchive.normalizeVariant(variant);
+                    activeDifficulty = PlayerStatsArchive.normalizeDifficulty(difficulty);
+                    PlayerStatsArchive next = current.withRunStarted(
+                        seed, activeVariant, activeDifficulty, isResume);
+                    if (isResume) return;
+                    current = next;
+                    writeToDisk(next);
+                } catch (Throwable t) {
+                    Log.w(TAG, "recordGameStart failed", t);
+                }
+            }
+        });
     }
 
     void recordAllyFreed(final String name) {
@@ -101,27 +123,26 @@ final class StatsStore {
         post("recordMonsterKilled", s -> s.withMonsterKilled(name));
     }
 
-    void recordPlayerDied(final String killedBy, final int depth, final int turns) {
+    void recordPlayerDied(final String killedBy, final int depth, final int turns,
+                          final long gold) {
         final String safeKilledBy = killedBy == null ? "" : killedBy;
-        post("recordPlayerDied", s -> s.withPlayerDied(safeKilledBy, depth, turns));
+        post("recordPlayerDied",
+            s -> s.withPlayerDied(safeKilledBy, depth, turns, gold));
     }
 
-    void recordPlayerWon(final boolean superVictory, final int depth, final int turns) {
-        post("recordPlayerWon", s -> s.withPlayerWon(superVictory, depth, turns));
+    void recordPlayerWon(final boolean superVictory, final int depth, final int turns,
+                         final long gold) {
+        post("recordPlayerWon",
+            s -> s.withPlayerWon(superVictory, depth, turns, gold));
     }
 
-    void recordSeedPlayed(final long seed, final int variant, final int difficulty) {
-        if (seed <= 0) return;
-        post("recordSeedPlayed", s -> s.withSeedPlayed(seed, variant, difficulty));
+    void recordPlayerQuit(final int depth, final int turns, final long gold) {
+        post("recordPlayerQuit", s -> s.withPlayerQuit(depth, turns, gold));
     }
 
-    void recordPlayerQuit() {
-        post("recordPlayerQuit", PlayerStats::withPlayerQuit);
-    }
-
-    private PlayerStats loadFromDisk() {
+    private PlayerStatsArchive loadFromDisk() {
         try {
-            if (!statsFile.exists()) return PlayerStats.empty();
+            if (!statsFile.exists()) return PlayerStatsArchive.empty();
             byte[] bytes = new byte[(int) statsFile.length()];
             try (FileInputStream in = new FileInputStream(statsFile)) {
                 int read = 0;
@@ -133,15 +154,15 @@ final class StatsStore {
             }
             String s = new String(bytes, StandardCharsets.UTF_8);
             Object parsed = new JSONTokener(s).nextValue();
-            if (!(parsed instanceof JSONObject)) return PlayerStats.empty();
-            return PlayerStats.fromJson((JSONObject) parsed);
+            if (!(parsed instanceof JSONObject)) return PlayerStatsArchive.empty();
+            return PlayerStatsArchive.fromJson((JSONObject) parsed);
         } catch (Throwable t) {
             Log.w(TAG, "failed to load " + FILENAME + "; starting fresh", t);
-            return PlayerStats.empty();
+            return PlayerStatsArchive.empty();
         }
     }
 
-    private void writeToDisk(PlayerStats stats) {
+    private void writeToDisk(PlayerStatsArchive stats) {
         File tmp = new File(statsFile.getParentFile(), FILENAME + ".tmp");
         try {
             String json = stats.toJson().toString();

@@ -27,6 +27,9 @@
 #include "GlobalsBase.h"
 #include "Globals.h"
 #include "platform.h"
+#ifdef BROGUE_ANDROID
+#include "android-stats.h"
+#endif
 
 #define RECORDING_HEADER_LENGTH     36  // bytes at the start of the recording file to store global data
 
@@ -1185,7 +1188,13 @@ void androidWriteSaveFile(void) {
     // lengthOfPlaybackFile is the on-disk size; recordingLocation excludes the header.
     copyFile(currentFilePath, tmpPath, lengthOfPlaybackFile);
     remove(finalPath);
-    rename(tmpPath, finalPath);
+    if (rename(tmpPath, finalPath) == 0) {
+        // Saving is also how Android preserves an active run when the app is
+        // closed or backgrounded. Record its high-water marks without ending
+        // the run or counting a death, win or additional game.
+        androidNotifyPlayerQuit(rogue.depthLevel,
+                                (int)rogue.playerTurnNumber, rogue.gold);
+    }
 }
 
 void androidSaveGameAndReturnToMenu(void) {

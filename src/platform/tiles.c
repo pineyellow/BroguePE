@@ -23,9 +23,7 @@ static boolean messageArchiveActive = false;
 #define TEXT_BASELINE  46   // height (px) of the blank space below the 'x' outline
 #define MAX_TILE_SIZE  64   // maximum width or height (px) of screen tiles before we switch to linear interpolation
 #define CAMERA_SMOOTH_FOLLOW_LERP 0.10f
-#define CAMERA_SMOOTH_ACCELERATED_LERP 0.40f
 #define CAMERA_FAST_FOLLOW_LERP 0.40f
-#define CAMERA_FAST_ACCELERATED_LERP 0.70f
 #define CAMERA_REFERENCE_FRAME_MS 36.0
 
 // Horizontal position of the top message log and bottom flavor text.
@@ -78,18 +76,14 @@ static float cameraFollowAlpha(float referenceAlpha, double elapsedMs) {
 }
 
 static float cameraReferenceAlpha(void) {
-    boolean accelerated = androidCameraFastRecenter || androidContinuousMoveActive;
-
     switch (androidCameraFollowMode) {
         case ANDROID_CAMERA_FOLLOW_INSTANT:
             return 1.0f;
         case ANDROID_CAMERA_FOLLOW_FAST:
-            return accelerated
-                ? CAMERA_FAST_ACCELERATED_LERP : CAMERA_FAST_FOLLOW_LERP;
+            return CAMERA_FAST_FOLLOW_LERP;
         case ANDROID_CAMERA_FOLLOW_SMOOTH:
         default:
-            return accelerated
-                ? CAMERA_SMOOTH_ACCELERATED_LERP : CAMERA_SMOOTH_FOLLOW_LERP;
+            return CAMERA_SMOOTH_FOLLOW_LERP;
     }
 }
 
@@ -176,8 +170,10 @@ void updateTitleScreenTile(int row, int column, enum displayGlyph glyph,
 static void clearOverlayRegion(void) {
     for (int y = 0; y < ROWS; y++)
         for (int x = 0; x < COLS; x++)
-            if (x >= STAT_BAR_WIDTH && y >= MESSAGE_LINES && y < ROWS - 2)
+            if (x >= STAT_BAR_WIDTH && y >= MESSAGE_LINES && y < ROWS - 2) {
                 uiTiles[y][x] = (ScreenTile){0};
+                uiDisplayBuffer.cells[x][y] = (cellDisplayBuffer){ .character = ' ' };
+            }
 }
 
 void setRenderMode(enum RenderMode mode) {

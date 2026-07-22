@@ -355,12 +355,9 @@ public class BrogueActivity extends SDLActivity {
     public void onGameStart(long seed, int variant, int difficulty) {
         boolean isResume = nextGameIsResume;
         nextGameIsResume = false;
-        if (isResume) {
-            // Resuming continues an already-counted local run.
-        } else {
-            StatsStore.get(this).recordGameStart();
-            StatsStore.get(this).recordSeedPlayed(seed, variant, difficulty);
-        }
+        // Resuming selects the original bucket without counting another game.
+        StatsStore.get(this).recordGameStart(
+            seed, variant, difficulty, isResume);
     }
 
     public void onMonsterKilled(final String monsterName) {
@@ -375,8 +372,9 @@ public class BrogueActivity extends SDLActivity {
         StatsStore.get(this).recordAllyDied(monsterName);
     }
 
-    public void onPlayerDied(final String killedBy, final int depth, final int turns) {
-        StatsStore.get(this).recordPlayerDied(killedBy, depth, turns);
+    public void onPlayerDied(final String killedBy, final int depth, final int turns,
+                             final long gold) {
+        StatsStore.get(this).recordPlayerDied(killedBy, depth, turns, gold);
     }
 
     public void showDeathScreen(String description, int turns) {
@@ -390,12 +388,13 @@ public class BrogueActivity extends SDLActivity {
         deathModal.onFlamesReady();
     }
 
-    public void onPlayerWon(final boolean superVictory, final int depth, final int turns) {
-        StatsStore.get(this).recordPlayerWon(superVictory, depth, turns);
+    public void onPlayerWon(final boolean superVictory, final int depth, final int turns,
+                            final long gold) {
+        StatsStore.get(this).recordPlayerWon(superVictory, depth, turns, gold);
     }
 
-    public void onPlayerQuit(final int depth, final int turns) {
-        StatsStore.get(this).recordPlayerQuit();
+    public void onPlayerQuit(final int depth, final int turns, final long gold) {
+        StatsStore.get(this).recordPlayerQuit(depth, turns, gold);
     }
 
     public void hideGameUI() {

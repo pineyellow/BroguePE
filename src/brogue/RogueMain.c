@@ -1122,6 +1122,8 @@ void gameOver(char *killedBy, boolean useCustomPhrasing) {
                 rogue.depthLevel);
     }
 
+    unsigned long collectedGold = rogue.gold;
+
     // Count gems as 500 gold each
     short numGems = numberOfMatchingPackItems(GEM, 0, 0, false);
     rogue.gold += 500 * numGems;
@@ -1162,10 +1164,12 @@ void gameOver(char *killedBy, boolean useCustomPhrasing) {
     if (!rogue.playbackMode) {
         if (!rogue.quit) {
             notifyEvent(GAMEOVER_DEATH, theEntry.score, 0, theEntry.description, recordingFilename);
-            androidNotifyPlayerDied(killedBy, rogue.depthLevel, (int)rogue.playerTurnNumber);
+            androidNotifyPlayerDied(killedBy, rogue.depthLevel,
+                                    (int)rogue.playerTurnNumber, collectedGold);
         } else {
             notifyEvent(GAMEOVER_QUIT, theEntry.score, 0, theEntry.description, recordingFilename);
-            androidNotifyPlayerQuit(rogue.depthLevel, (int)rogue.playerTurnNumber);
+            androidNotifyPlayerQuit(rogue.depthLevel,
+                                    (int)rogue.playerTurnNumber, collectedGold);
         }
     } else {
         notifyEvent(GAMEOVER_RECORDING, 0, 0, "recording ended", "none");
@@ -1335,7 +1339,8 @@ void victory(boolean superVictory) {
         } else {
             notifyEvent(GAMEOVER_VICTORY, theEntry.score, 0, theEntry.description, recordingFilename);
         }
-        androidNotifyPlayerWon(superVictory, rogue.depthLevel, (int)rogue.playerTurnNumber);
+        androidNotifyPlayerWon(superVictory, rogue.depthLevel,
+                               (int)rogue.playerTurnNumber, rogue.gold);
     } else {
         notifyEvent(GAMEOVER_RECORDING, 0, 0, "recording ended", "none");
     }

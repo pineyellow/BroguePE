@@ -42,6 +42,9 @@ final class StartMenu {
         android.util.Log.d("BrogueModal", "showStartMenu(hasSave=" + hasSave + ")");
         activity.runOnUiThread(() -> {
             dismiss();
+            // Returning to the title menu means any prior resume attempt
+            // ended without reaching onGameStart.
+            activity.nextGameIsResume = false;
 
             FrameLayout root = new FrameLayout(activity);
             overlay = root;
@@ -131,7 +134,7 @@ final class StartMenu {
 
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(activity.dpToPx(4));
+        bg.setCornerRadius(activity.dpToPx(6));
         bg.setColor(enabled ? Palette.ITEM_BG : Palette.DISABLED_BG);
         if (enabled) {
             row.setBackground(new RippleDrawable(
@@ -169,7 +172,7 @@ final class StartMenu {
         BrogueActivity activity = (BrogueActivity) row.getContext();
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(activity.dpToPx(4));
+        bg.setCornerRadius(activity.dpToPx(6));
         bg.setColor(enabled ? Palette.ITEM_BG : Palette.DISABLED_BG);
         if (enabled) {
             row.setBackground(new RippleDrawable(
