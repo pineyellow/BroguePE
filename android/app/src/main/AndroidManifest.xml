@@ -4,6 +4,7 @@
 
     <application
         android:allowBackup="true"
+        android:appCategory="game"
         android:enableOnBackInvokedCallback="true"
         android:icon="@mipmap/app_icon_adaptive"
         android:label="@string/app_name"

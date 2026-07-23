@@ -274,7 +274,8 @@ final class PlayerStatsModal {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.setMargins(activity.dpToPx(4), 0, activity.dpToPx(4), 0);
+        lp.setMargins(activity.dpToPx(4), activity.dpToPx(4),
+                      activity.dpToPx(4), 0);
         panel.addView(content, lp);
 
         header.setClickable(true);

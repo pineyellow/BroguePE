@@ -90,7 +90,7 @@ extern volatile int androidTopLeftCornerCenterYPx;
 extern boolean androidContinuousMoveActive;
 
 /* When true, snap the camera to the player immediately instead of tweening.
- * Set on game load; consumed after the first frame. */
+ * Set on game load and stair transitions; consumed after the first frame. */
 extern boolean androidCameraSnap;
 
 /* Reattach the gameplay camera to the player and snap to center on the next

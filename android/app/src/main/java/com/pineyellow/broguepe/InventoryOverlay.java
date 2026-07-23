@@ -141,7 +141,7 @@ final class InventoryOverlay {
                 if (items.length() == 0) {
                     TextView emptyMsg = new TextView(activity);
                     emptyMsg.setText(R.string.inventory_empty);
-                    emptyMsg.setTextColor(Color.argb(160, 140, 150, 190));
+                    emptyMsg.setTextColor(Color.argb(160, 144, 148, 190));
                     emptyMsg.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
                     emptyMsg.setTypeface(Typeface.MONOSPACE, Typeface.ITALIC);
                     emptyMsg.setPadding(activity.dpToPx(8), activity.dpToPx(16),
@@ -305,7 +305,7 @@ final class InventoryOverlay {
 
         TextView chevron = new TextView(activity);
         chevron.setText("\u25BE"); // ▾
-        chevron.setTextColor(Color.argb(120, 140, 150, 190));
+        chevron.setTextColor(Color.argb(120, 144, 148, 190));
         chevron.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         chevron.setPadding(activity.dpToPx(4), 0, 0, 0);
         headerRow.addView(chevron);
@@ -323,7 +323,7 @@ final class InventoryOverlay {
         detailBg.setCornerRadii(new float[]{
             0, 0, 0, 0, activity.dpToPx(3), activity.dpToPx(3),
             activity.dpToPx(3), activity.dpToPx(3)});
-        detailBg.setColor(Color.argb(180, 15, 12, 32));
+        detailBg.setColor(Color.argb(180, 20, 13, 34));
         detailSection.setBackground(detailBg);
 
         if (!desc.isEmpty()) {

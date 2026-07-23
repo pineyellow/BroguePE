@@ -42,7 +42,6 @@ final class ActionsToolbar {
 
     private static final float BASE_BUTTON_SIZE_DP = 44f;
     private static final float BASE_BUTTON_PADDING_DP = 10f;
-    private static final float BASE_GLYPH_TEXT_SP = 14f;
 
     // Registered actions: {key, human label}. The pinned subset of this set
     // appears in the toolbar; the full set appears in the Actions panel.
@@ -292,6 +291,7 @@ final class ActionsToolbar {
     private int actionIconRes(String key) {
         switch (key) {
             case "inventory": return R.drawable.ic_money_bag;
+            case "throw":     return R.drawable.ic_target;
             case "click":     return R.drawable.ic_left_click;
             case "show_log":  return R.drawable.ic_show_log;
             case "search":    return R.drawable.ic_search;
@@ -301,10 +301,6 @@ final class ActionsToolbar {
             case "autopilot": return R.drawable.ic_autoplay;
             default:          return R.drawable.ic_menu;
         }
-    }
-
-    private String actionGlyph(String key) {
-        return "throw".equals(key) ? "T" : null;
     }
 
     // ---- Action execution --------------------------------------------------
@@ -351,10 +347,7 @@ final class ActionsToolbar {
             String key = order.get(i);
             if (!pinned.contains(key)) continue;
 
-            String glyph = actionGlyph(key);
-            View btn = glyph != null
-                ? makeGlyphBarButton(glyph)
-                : makeIconBarButton(actionIconRes(key));
+            View btn = makeIconBarButton(actionIconRes(key));
             btn.setTag(R.id.action_key_tag, key);
             btn.setContentDescription(actionLabel(key));
 
@@ -837,52 +830,7 @@ final class ActionsToolbar {
         return btn;
     }
 
-    @SuppressLint("ClickableViewAccessibility")
-    private TextView makeGlyphBarButton(String glyph) {
-        TextView btn = new TextView(activity);
-        btn.setText(glyph);
-        btn.setTextColor(Palette.PALE_BLUE);
-        float scale = buttonSizeScale();
-        btn.setTextSize(TypedValue.COMPLEX_UNIT_SP, BASE_GLYPH_TEXT_SP * scale);
-        btn.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-        btn.setGravity(Gravity.CENTER);
-        setBarButtonPadding(btn, scale);
-
-        GradientDrawable bg = new GradientDrawable();
-        bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(dp(2));
-        bg.setColor(Palette.ACTION_BUTTON_BG);
-        bg.setStroke(1, Palette.BORDER_DIM);
-
-        btn.setBackground(new RippleDrawable(
-            ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
-
-        btn.setOnTouchListener((v, e) -> {
-            if (e.getAction() == MotionEvent.ACTION_DOWN) {
-                v.animate().scaleX(0.92f).scaleY(0.92f).setDuration(60).start();
-            } else if (e.getAction() == MotionEvent.ACTION_UP
-                    || e.getAction() == MotionEvent.ACTION_CANCEL) {
-                v.animate().scaleX(1f).scaleY(1f).setDuration(120)
-                    .setInterpolator(new OvershootInterpolator(2.5f)).start();
-            }
-            return false;
-        });
-
-        return btn;
-    }
-
     private View makeActionListIcon(String key) {
-        String glyph = actionGlyph(key);
-        if (glyph != null) {
-            TextView icon = new TextView(activity);
-            icon.setText(glyph);
-            icon.setTextColor(Palette.PALE_BLUE);
-            icon.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-            icon.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-            icon.setGravity(Gravity.CENTER);
-            return icon;
-        }
-
         ImageView icon = new ImageView(activity);
         icon.setImageResource(actionIconRes(key));
         icon.setColorFilter(Palette.PALE_BLUE);

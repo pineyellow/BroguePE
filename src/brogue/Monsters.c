@@ -4483,6 +4483,9 @@ static void summarizePack (packSummary *pack) {
 void monsterDetails(char buf[], creature *monst) {
     char monstName[COLS], capMonstName[COLS], theItemName[COLS * 3], newText[20*COLS];
     short i, combatMath, combatMath2, playerKnownAverageDamage, playerKnownMaxDamage, realArmorValue;
+    short rawMinMonsterDamage, rawMaxMonsterDamage, maxMonsterDamage;
+    int typicalMonsterDamagePercent;
+    fixpt monsterDamageAdjustment;
     item *theItem;
 
     buf[0] = '\0';
@@ -4553,6 +4556,17 @@ void monsterDetails(char buf[], creature *monst) {
         player.info.defense = realArmorValue;
     }
 
+    monsterDamageAdjustment = monsterDamageAdjustmentAmount(monst);
+    rawMinMonsterDamage = monst->info.damage.lowerBound * monsterDamageAdjustment / FP_FACTOR;
+    rawMaxMonsterDamage = monst->info.damage.upperBound * monsterDamageAdjustment / FP_FACTOR;
+    maxMonsterDamage = adjustPlayerDamageForDifficulty(rawMaxMonsterDamage);
+    if (EASY_MODE) {
+        typicalMonsterDamagePercent = 50 * (adjustPlayerDamageForDifficulty(rawMinMonsterDamage) + maxMonsterDamage) / player.currentHP;
+    } else {
+        // Preserve the original Default-mode calculation, including its fractional midpoint.
+        typicalMonsterDamagePercent = 100 * (monst->info.damage.lowerBound + monst->info.damage.upperBound)
+                * monsterDamageAdjustment / 2 / player.currentHP / FP_FACTOR;
+    }
     // Combat info for the monster attacking the player
     if ((monst->info.flags & MONST_RESTRICTED_TO_LIQUID) && !cellHasTMFlag(monst->loc, TM_ALLOWS_SUBMERGING)) {
         sprintf(newText, "     %s writhes helplessly on dry land.\n     ", capMonstName);
@@ -4564,15 +4578,16 @@ void monsterDetails(char buf[], creature *monst) {
 
         itemName(rogue.armor, theItemName, false, false, NULL);
         sprintf(newText, "Your %s renders you immune to %s.\n     ", theItemName, monstName);
-    } else if (monst->info.damage.upperBound * monsterDamageAdjustmentAmount(monst) / FP_FACTOR == 0) {
+    } else if (rawMaxMonsterDamage == 0) {
         sprintf(newText, "%s deals no direct damage.\n     ", capMonstName);
     } else {
         i = strlen(buf);
         i = encodeMessageColor(buf, i, &badMessageColor);
         if (monst->info.abilityFlags & MA_POISONS) {
+            // Poison duration is unmodified; each eventual damage tick is not.
             combatMath = player.status[STATUS_POISONED]; // combatMath is poison duration
-            for (i = 0; combatMath * (player.poisonAmount + i) < player.currentHP; i++) {
-                combatMath += monst->info.damage.upperBound * monsterDamageAdjustmentAmount(monst) / FP_FACTOR;
+            for (i = 0; combatMath * adjustPlayerDamageForDifficulty(player.poisonAmount + i) < player.currentHP; i++) {
+                combatMath += rawMaxMonsterDamage;
             }
             if (i == 0) {
                 // Already fatally poisoned.
@@ -4589,15 +4604,14 @@ void monsterDetails(char buf[], creature *monst) {
                     (i > 1 ? "s" : ""));
             }
         } else {
-            combatMath = ((player.currentHP + (monst->info.damage.upperBound * monsterDamageAdjustmentAmount(monst) / FP_FACTOR) - 1) * FP_FACTOR)
-                    / (monst->info.damage.upperBound * monsterDamageAdjustmentAmount(monst));
+            combatMath = (player.currentHP + maxMonsterDamage - 1) / maxMonsterDamage;
             if (combatMath < 1) {
                 combatMath = 1;
             }
             sprintf(newText, "%s has a %i%% chance to hit you, typically hits for %i%% of your current health, and at worst, could defeat you in %i hit%s.\n     ",
                     capMonstName,
                     combatMath2,
-                    (int) (100 * (monst->info.damage.lowerBound + monst->info.damage.upperBound) * monsterDamageAdjustmentAmount(monst) / 2 / player.currentHP / FP_FACTOR),
+                    typicalMonsterDamagePercent,
                     combatMath,
                     (combatMath > 1 ? "s" : ""));
         }

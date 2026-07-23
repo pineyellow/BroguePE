@@ -919,6 +919,13 @@ void startLevel(short oldLevelNumber, short stairDirection) {
         updateMonsterState(monst);
     }
 
+    // A stair transition can place the player far from the previous floor's
+    // camera target. Snap before drawing the new floor so it never lerps
+    // across two unrelated level positions.
+    if (stairDirection != 0) {
+        androidCameraSnap = true;
+    }
+
     rogue.playbackBetweenTurns = true;
     displayLevel();
     refreshSideBar(-1, -1, false);

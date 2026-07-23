@@ -3262,6 +3262,7 @@ extern "C" {
     void processStaggerHit(creature *attacker, creature *defender);
     boolean attack(creature *attacker, creature *defender, boolean lungeAttack);
     void inflictLethalDamage(creature *attacker, creature *defender);
+    short adjustPlayerDamageForDifficulty(short damage);
     boolean inflictDamage(creature *attacker, creature *defender,
                           short damage, const color *flashColor, boolean ignoresProtectionShield);
     void addPoison(creature *monst, short totalDamage, short concentrationIncrement);

@@ -1517,6 +1517,21 @@ void inflictLethalDamage(creature *attacker, creature *defender) {
     inflictDamage(attacker, defender, defender->currentHP, NULL, true);
 }
 
+// Canonical difficulty adjustment for any positive damage ultimately dealt
+// to the player. Keep estimates and safety checks routed through this helper.
+short adjustPlayerDamageForDifficulty(short damage) {
+    if (damage <= 0) {
+        return damage;
+    }
+    if (rogue.mode == GAME_MODE_EASY) {
+        return max(1, damage / 5);
+    }
+    if (rogue.mode == GAME_MODE_BALANCED_EASY) {
+        return max(1, (damage + 1) / 2);
+    }
+    return damage;
+}
+
 // returns true if this was a killing stroke; does NOT call killCreature
 // flashColor indicates the color that the damage will cause the creature to flash
 boolean inflictDamage(creature *attacker, creature *defender,
@@ -1558,14 +1573,8 @@ boolean inflictDamage(creature *attacker, creature *defender,
         wakeUp(defender);
     }
 
-    if (defender == &player
-        && rogue.mode == GAME_MODE_EASY
-        && damage > 0) {
-        damage = max(1, damage/5);
-    } else if (defender == &player
-               && rogue.mode == GAME_MODE_BALANCED_EASY
-               && damage > 0) {
-        damage = max(1, (damage + 1) / 2);
+    if (defender == &player) {
+        damage = adjustPlayerDamageForDifficulty(damage);
     }
 
     if (((attacker == &player && rogue.transference) || (attacker && attacker != &player && (attacker->info.abilityFlags & MA_TRANSFERENCE)))
