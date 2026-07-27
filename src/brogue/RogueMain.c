@@ -1138,8 +1138,6 @@ void gameOver(char *killedBy, boolean useCustomPhrasing) {
 
     if (rogue.mode == GAME_MODE_EASY) {
         theEntry.score /= 10;
-    } else if (rogue.mode == GAME_MODE_BALANCED_EASY) {
-        theEntry.score /= 2;
     }
     strcpy(highScoreText, buf);
     if (theEntry.score > 0) {
@@ -1318,8 +1316,6 @@ void victory(boolean superVictory) {
 
     if (rogue.mode == GAME_MODE_EASY) {
         theEntry.score /= 10;
-    } else if (rogue.mode == GAME_MODE_BALANCED_EASY) {
-        theEntry.score /= 2;
     }
 
     if (rogue.mode != GAME_MODE_WIZARD && !rogue.playbackMode) {

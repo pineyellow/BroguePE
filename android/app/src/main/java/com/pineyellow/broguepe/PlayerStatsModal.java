@@ -51,6 +51,14 @@ final class PlayerStatsModal {
         LinearLayout statsContent = new LinearLayout(activity);
         statsContent.setOrientation(LinearLayout.VERTICAL);
 
+        View playtimeCard = makePlaytimeCard();
+        LinearLayout.LayoutParams playtimeParams = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT);
+        playtimeParams.setMargins(activity.dpToPx(2), 0,
+                                  activity.dpToPx(2), activity.dpToPx(6));
+        panel.addView(playtimeCard, playtimeParams);
+
         LinearLayout selectors = new LinearLayout(activity);
         selectors.setOrientation(LinearLayout.HORIZONTAL);
         selectors.setBaselineAligned(false);
@@ -422,6 +430,69 @@ final class PlayerStatsModal {
 
     private static String formatTurns(int turns) {
         return String.format(java.util.Locale.US, "%,d turns", turns);
+    }
+
+    private View makePlaytimeCard() {
+        LinearLayout card = new LinearLayout(activity);
+        card.setOrientation(LinearLayout.VERTICAL);
+        card.setGravity(Gravity.CENTER);
+        card.setPadding(activity.dpToPx(10), activity.dpToPx(10),
+                        activity.dpToPx(10), activity.dpToPx(10));
+
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.RECTANGLE);
+        bg.setCornerRadius(activity.dpToPx(6));
+        bg.setColor(Palette.ITEM_BG);
+        card.setBackground(bg);
+
+        TextView time = new TextView(activity);
+        time.setTextColor(Palette.GHOST_WHITE);
+        time.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
+        time.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        time.setGravity(Gravity.CENTER);
+        card.addView(time, new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        TextView label = new TextView(activity);
+        label.setText("Total Playtime");
+        label.setTextColor(Palette.PALE_BLUE);
+        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
+        label.setTypeface(Typeface.MONOSPACE);
+        label.setLetterSpacing(0.05f);
+        label.setGravity(Gravity.CENTER);
+        label.setPadding(0, activity.dpToPx(2), 0, 0);
+        card.addView(label, new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        Runnable ticker = new Runnable() {
+            @Override
+            public void run() {
+                time.setText(formatPlaytime(activity.totalPlaytimeMillis()));
+                if (time.isAttachedToWindow()) time.postDelayed(this, 1000L);
+            }
+        };
+        time.setText(formatPlaytime(activity.totalPlaytimeMillis()));
+        time.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+            @Override
+            public void onViewAttachedToWindow(View v) {
+                time.removeCallbacks(ticker);
+                time.postDelayed(ticker, 1000L);
+            }
+
+            @Override
+            public void onViewDetachedFromWindow(View v) {
+                time.removeCallbacks(ticker);
+            }
+        });
+
+        return card;
+    }
+
+    static String formatPlaytime(long millis) {
+        long totalMinutes = Math.max(0L, millis) / 60_000L;
+        return (totalMinutes / 60L) + "h " + (totalMinutes % 60L) + "m";
     }
 
     private void addStatCell(LinearLayout grid, int value, String label) {

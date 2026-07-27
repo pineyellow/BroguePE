@@ -58,7 +58,7 @@ static float lastPinchDistance;
 
 static boolean pendingMouseUp = false;
 static int pendingUpX, pendingUpY;
-static boolean autoMoveSessionActive = false;
+static SDL_atomic_t autoMoveSessionActive;
 boolean androidContinuousMoveActive = false;
 boolean androidQuickTargetSelectionRequested = false;
 boolean androidTargetingActive = false;
@@ -91,11 +91,10 @@ Java_com_pineyellow_broguepe_BrogueActivity_nativeRequestRendererRecovery(
 }
 
 static void beginAutoMoveSession(void) {
-    if (autoMoveSessionActive) {
+    if (!SDL_AtomicCAS(&autoMoveSessionActive, 0, 1)) {
         return;
     }
 
-    autoMoveSessionActive = true;
     androidContinuousMoveActive = false;
     rogue.disturbed = false;
     rogue.automationActive = true;
@@ -110,22 +109,30 @@ static void beginAutoMoveSession(void) {
 }
 
 static boolean shouldStopAutoMoveSession(void) {
-    return autoMoveSessionActive && rogue.disturbed;
+    return SDL_AtomicGet(&autoMoveSessionActive) && rogue.disturbed;
 }
 
 static void endAutoMoveSession(void) {
-    if (!autoMoveSessionActive) {
+    if (!SDL_AtomicGet(&autoMoveSessionActive)) {
         return;
     }
 
-    autoMoveSessionActive = false;
+    // Match Brogue's other automation paths: leave the game disturbed so
+    // quiet turns after releasing the D-pad continue to refresh flavor text.
+    // Set this before clearing the session flag so updateFlavorText() always
+    // sees at least one of the two refresh conditions during a concurrent turn.
+    rogue.disturbed = true;
+    SDL_AtomicSet(&autoMoveSessionActive, 0);
     androidContinuousMoveActive = false;
     rogue.automationActive = false;
-    rogue.disturbed = false;
     for (creatureIterator it = iterateCreatures(monsters); hasNextCreature(it);) {
         creature *monst = nextCreature(&it);
         monst->bookkeepingFlags &= ~MB_ALREADY_SEEN;
     }
+}
+
+boolean androidDpadAutoMoveSessionActive(void) {
+    return SDL_AtomicGet(&autoMoveSessionActive) != 0;
 }
 
 void androidResetTouchState(void) {

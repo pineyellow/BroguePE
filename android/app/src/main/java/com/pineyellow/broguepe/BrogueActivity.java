@@ -45,6 +45,7 @@ public class BrogueActivity extends SDLActivity {
     private SurfaceHolder.Callback rendererSurfaceCallback;
     private boolean hasPaused;
     private Object appBackCallback;
+    private PlaytimeTracker playtimeTracker;
 
     // Feature classes. Package-private so related UI components can reference
     // one another directly.
@@ -72,6 +73,7 @@ public class BrogueActivity extends SDLActivity {
     @Override
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
+        playtimeTracker = new PlaytimeTracker(this);
         requestHighestRefreshRate();
         configureRoundedCornerInsets();
 
@@ -158,6 +160,7 @@ public class BrogueActivity extends SDLActivity {
     @Override
     protected void onResume() {
         super.onResume();
+        playtimeTracker.onResume();
         requestHighestRefreshRate();
         getWindow().getDecorView().requestApplyInsets();
         requestRendererRecoveryIfSurfaceReady();
@@ -186,12 +189,25 @@ public class BrogueActivity extends SDLActivity {
 
     @Override
     protected void onPause() {
+        playtimeTracker.onPause();
         hasPaused = true;
         captureResumeSnapshot();
         if (dpadOverlay != null) {
             dpadOverlay.cancelInput();
         }
         super.onPause();
+    }
+
+    @Override
+    public void onWindowFocusChanged(boolean hasFocus) {
+        super.onWindowFocusChanged(hasFocus);
+        if (playtimeTracker != null) {
+            playtimeTracker.onWindowFocusChanged(hasFocus);
+        }
+    }
+
+    long totalPlaytimeMillis() {
+        return playtimeTracker == null ? 0L : playtimeTracker.totalMillis();
     }
 
     @Override

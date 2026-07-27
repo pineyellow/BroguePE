@@ -104,6 +104,7 @@ void androidResetTouchState(void);
 extern boolean androidCameraSnap;
 extern boolean androidAppInBackground;
 void androidRecenterCameraOnPlayer(void);
+boolean androidDpadAutoMoveSessionActive(void);
 #define TITLE_COLS 140
 void updateTitleScreenTile(int row, int column, enum displayGlyph glyph,
     short foreRed, short foreGreen, short foreBlue,

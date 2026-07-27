@@ -1,6 +1,6 @@
 import java.util.Properties
 
-val broguePeVersionName = "1.1.3"
+val broguePeVersionName = "1.1.4"
 
 plugins {
     id("com.android.application")
@@ -44,7 +44,7 @@ android {
         applicationId = "com.pineyellow.broguepe"
         minSdk = 24
         targetSdk = 35
-        versionCode = 8
+        versionCode = 9
         versionName = broguePeVersionName
 
         externalNativeBuild {

@@ -53,7 +53,13 @@ void exposeCreatureToFire(creature *monst) {
 
 void updateFlavorText() {
     char buf[DCOLS * 3];
-    if (rogue.disturbed && !rogue.gameHasEnded) {
+    boolean shouldRefresh = rogue.disturbed;
+#ifdef BROGUE_ANDROID
+    // D-pad repeat uses rogue.disturbed to detect reasons to stop, but that
+    // should not suppress the location line while the player is moving.
+    shouldRefresh |= androidDpadAutoMoveSessionActive();
+#endif
+    if (shouldRefresh && !rogue.gameHasEnded) {
         if (rogue.armor
             && (rogue.armor->flags & ITEM_RUNIC)
             && rogue.armor->enchant2 == A_RESPIRATION
