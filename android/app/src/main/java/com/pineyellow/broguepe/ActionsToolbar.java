@@ -39,6 +39,10 @@ final class ActionsToolbar {
     static final float DEFAULT_BUTTON_SIZE   = 1f;
     static final float MIN_BUTTON_SIZE       = 0.5f;
     static final float MAX_BUTTON_SIZE       = 2f;
+    static final String PREF_BUTTON_ORIENTATION = "action_button_orientation";
+    static final int BUTTONS_HORIZONTAL      = 0;
+    static final int BUTTONS_VERTICAL        = 1;
+    static final int DEFAULT_BUTTON_ORIENTATION = BUTTONS_HORIZONTAL;
 
     private static final float BASE_BUTTON_SIZE_DP = 44f;
     private static final float BASE_BUTTON_PADDING_DP = 10f;
@@ -154,21 +158,27 @@ final class ActionsToolbar {
             FrameLayout.LayoutParams.WRAP_CONTENT,
             FrameLayout.LayoutParams.WRAP_CONTENT,
             Gravity.TOP | Gravity.END);
-        topParams.setMargins(0, dp(8), dp(4), 0);
-        controlsLayer.addView(topGroup, topParams);
+        // The action icon's right edge includes the frame margin, bar padding,
+        // and its own margin (4 + 4 + 3dp). Match that inset here.
+        topParams.setMargins(0, dp(8), dp(11), 0);
 
         FrameLayout.LayoutParams bottomParams = new FrameLayout.LayoutParams(
             LinearLayout.LayoutParams.WRAP_CONTENT,
             LinearLayout.LayoutParams.WRAP_CONTENT,
             Gravity.BOTTOM | Gravity.END);
         bottomParams.setMargins(0, 0, dp(4), 0);
+
+        // Later FrameLayout children draw above earlier ones and receive
+        // overlapping touches first. Keep the menu and its expanded contents
+        // usable even when oversized action buttons reach the top-right.
         controlsLayer.addView(toolbarContainer, bottomParams);
+        controlsLayer.addView(topGroup, topParams);
 
         rebuildToolbar();
         return controlsLayer;
     }
 
-    /** Applies the saved size to both the pinned actions and hamburger button. */
+    /** Applies the saved size and orientation to the action controls. */
     void applyButtonSizeSetting() {
         float scale = buttonSizeScale();
 
@@ -338,9 +348,18 @@ final class ActionsToolbar {
         if (toolbarContainer == null) return;
         toolbarContainer.removeAllViews();
 
+        boolean vertical = buttonOrientation() == BUTTONS_VERTICAL;
+        toolbarContainer.setOrientation(vertical
+            ? LinearLayout.VERTICAL
+            : LinearLayout.HORIZONTAL);
+        toolbarContainer.setGravity(vertical
+            ? Gravity.BOTTOM | Gravity.CENTER_HORIZONTAL
+            : Gravity.END | Gravity.CENTER_VERTICAL);
+
         java.util.Set<String> pinned = getPinned();
         int btnSize = buttonSizePx();
         int btnMargin = dp(3);
+        int addedButtonCount = 0;
 
         java.util.List<String> order = getActionOrder();
         for (int i = order.size() - 1; i >= 0; i--) {
@@ -358,8 +377,17 @@ final class ActionsToolbar {
             });
 
             LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(btnSize, btnSize);
-            p.setMargins(btnMargin, 0, btnMargin, 0);
+            if (vertical) {
+                // Keep the final (first-ordered) action at the existing
+                // bottom-right anchor and place each earlier child above it.
+                p.setMargins(btnMargin,
+                    addedButtonCount == 0 ? btnMargin : btnMargin * 2,
+                    btnMargin, 0);
+            } else {
+                p.setMargins(btnMargin, 0, btnMargin, 0);
+            }
             toolbarContainer.addView(btn, p);
+            addedButtonCount++;
         }
 
     }
@@ -488,7 +516,7 @@ final class ActionsToolbar {
 
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(dp(3));
+        bg.setCornerRadius(dp(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         bg.setColor(Palette.ITEM_BG);
         row.setBackground(new RippleDrawable(
             ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
@@ -802,7 +830,7 @@ final class ActionsToolbar {
         ImageButton btn = new ImageButton(activity);
         btn.setImageResource(drawableResId);
         btn.setColorFilter(Palette.ACTION_BUTTON_TEXT);
-        btn.setScaleType(ImageButton.ScaleType.CENTER_INSIDE);
+        btn.setScaleType(ImageButton.ScaleType.FIT_CENTER);
         setBarButtonPadding(btn, buttonSizeScale());
         btn.setStateListAnimator(null);
         btn.setElevation(0);
@@ -843,15 +871,15 @@ final class ActionsToolbar {
         LinearLayout row = new LinearLayout(activity);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(dp(12), dp(6), dp(10), dp(6));
-        row.setMinimumHeight(dp(40));
+        row.setPadding(dp(10), dp(6), dp(10), dp(6));
+        row.setMinimumHeight(dp(36));
         row.setClickable(true);
         row.setFocusable(true);
 
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(dp(2));
-        bg.setColor(Color.TRANSPARENT);
+        bg.setCornerRadius(dp(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
+        bg.setColor(Palette.ITEM_BG);
         row.setBackground(new RippleDrawable(
             ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
 
@@ -870,6 +898,7 @@ final class ActionsToolbar {
         labelView.setTextColor(Palette.GHOST_WHITE);
         labelView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         labelView.setTypeface(Typeface.MONOSPACE);
+        labelView.setGravity(Gravity.CENTER);
         row.addView(labelView, new LinearLayout.LayoutParams(
             0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
@@ -881,14 +910,14 @@ final class ActionsToolbar {
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT);
-        p.setMargins(0, dp(1), 0, dp(1));
+        p.setMargins(dp(3), dp(2), dp(3), dp(2));
         return p;
     }
 
     private GradientDrawable makeSubmenuBackground() {
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(dp(3));
+        bg.setCornerRadius(dp(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         bg.setColor(Palette.SUBMENU_BG);
         bg.setStroke(1, Palette.BORDER_DIM);
         return bg;
@@ -920,6 +949,18 @@ final class ActionsToolbar {
 
     private int buttonSizePx(float scale) {
         return dp(BASE_BUTTON_SIZE_DP * scale);
+    }
+
+    private int buttonOrientation() {
+        int saved = GameSettings.getInt(activity, PREF_BUTTON_ORIENTATION,
+            DEFAULT_BUTTON_ORIENTATION);
+        int orientation = saved == BUTTONS_VERTICAL
+            ? BUTTONS_VERTICAL
+            : BUTTONS_HORIZONTAL;
+        if (saved != orientation) {
+            GameSettings.setInt(activity, PREF_BUTTON_ORIENTATION, orientation);
+        }
+        return orientation;
     }
 
     private void setBarButtonPadding(View button, float scale) {

@@ -1,6 +1,6 @@
 import java.util.Properties
 
-val broguePeVersionName = "1.1.4"
+val broguePeVersionName = "1.1.5"
 
 plugins {
     id("com.android.application")
@@ -37,14 +37,14 @@ val hasInjectedSigning =
 
 android {
     namespace = "com.pineyellow.broguepe"
-    compileSdk = 35
+    compileSdk = 36
     ndkVersion = "28.0.13004108"
 
     defaultConfig {
         applicationId = "com.pineyellow.broguepe"
         minSdk = 24
-        targetSdk = 35
-        versionCode = 9
+        targetSdk = 36
+        versionCode = 10
         versionName = broguePeVersionName
 
         externalNativeBuild {

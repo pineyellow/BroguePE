@@ -98,7 +98,8 @@ final class SettingsPanel {
         addStepperSetting(panel, "Action Button Size", ActionsToolbar.PREF_BUTTON_SIZE,
             ActionsToolbar.DEFAULT_BUTTON_SIZE,
             ActionsToolbar.MIN_BUTTON_SIZE, ActionsToolbar.MAX_BUTTON_SIZE, 0.1f,
-            "Action button size multiplier", activity::applyActionButtonSettings);
+            "Action button size multiplier", activity::applyActionButtonSettings, true);
+        addActionBarLayoutSetting(panel);
         addAppToggle(panel, "Enable DPAD", DPadOverlay.PREF_ENABLED, true,
             enabled -> {
                 activity.setDpadEnabled(enabled);
@@ -107,20 +108,20 @@ final class SettingsPanel {
         if (dpadEnabled) {
             addStepperSetting(panel, "DPAD X", DPadOverlay.PREF_OFFSET_X,
                 0f, null, null, 1f,
-                "DPAD X position offset in dp\n(+ goes right, - goes left)",
-                activity::applyDpadSettings);
+                "DPAD X position offset in dp\n(- goes left, + goes right)",
+                activity::applyDpadSettings, true);
             addStepperSetting(panel, "DPAD Y", DPadOverlay.PREF_OFFSET_Y,
                 0f, null, null, 1f,
-                "DPAD Y position offset in dp\n(+ goes up, - goes down)",
-                activity::applyDpadSettings);
+                "DPAD Y position offset in dp\n(- goes down, + goes up)",
+                activity::applyDpadSettings, true);
             addStepperSetting(panel, "DPAD Size", DPadOverlay.PREF_SIZE,
                 DPadOverlay.DEFAULT_SIZE, DPadOverlay.MIN_SIZE, DPadOverlay.MAX_SIZE, 0.1f,
-                "DPAD overall size multiplier", activity::applyDpadSettings);
+                "DPAD overall size multiplier", activity::applyDpadSettings, true);
             addStepperSetting(panel, "DPAD Button Width", DPadOverlay.PREF_BUTTON_WIDTH,
                 DPadOverlay.DEFAULT_BUTTON_WIDTH,
                 DPadOverlay.MIN_BUTTON_WIDTH, DPadOverlay.MAX_BUTTON_WIDTH, 0.1f,
                 "DPAD button width multiplier\n(1 = square buttons)",
-                activity::applyDpadSettings);
+                activity::applyDpadSettings, true);
         }
         addGraphicsModeCycler(panel);
 
@@ -196,7 +197,7 @@ final class SettingsPanel {
 
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(activity.dpToPx(3));
+        bg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         bg.setColor(Palette.ITEM_BG);
         row.setBackground(new RippleDrawable(
             ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
@@ -241,7 +242,7 @@ final class SettingsPanel {
 
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(activity.dpToPx(3));
+        bg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         bg.setColor(Palette.ITEM_BG);
         row.setBackground(new RippleDrawable(
             ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
@@ -391,7 +392,8 @@ final class SettingsPanel {
 
     private void addStepperSetting(LinearLayout panel, String label, String prefKey,
                                    float defaultValue, Float minValue, Float maxValue,
-                                   float step, String prompt, Runnable onChange) {
+                                   float step, String prompt, Runnable onChange,
+                                   boolean hideSettingsWhileAdjusting) {
         LinearLayout row = addRow(panel, label);
         TextView valueView = makeValueIndicator(formatFloat(
             GameSettings.getFloat(activity, prefKey, defaultValue)));
@@ -399,6 +401,10 @@ final class SettingsPanel {
 
         row.setOnClickListener(v -> {
             float originalValue = GameSettings.getFloat(activity, prefKey, defaultValue);
+            if (hideSettingsWhileAdjusting) {
+                host.setVisibility(View.GONE);
+                host.removeAllViews();
+            }
             activity.textInputDialog.showStepper(
                 prompt, originalValue, minValue, maxValue, step,
                 preview -> {
@@ -416,7 +422,8 @@ final class SettingsPanel {
     }
 
     private void addGraphicsModeCycler(LinearLayout panel) {
-        int mode = GameSettings.getInt(activity, "graphics_mode", 1);
+        int mode = GameSettings.getInt(activity, GameSettings.PREF_GRAPHICS_MODE,
+            GameSettings.DEFAULT_GRAPHICS_MODE);
         if (mode < 0 || mode > 2) mode = 1;
 
         LinearLayout row = addRow(panel, GRAPHICS_MODE_LABELS[mode]);
@@ -425,10 +432,42 @@ final class SettingsPanel {
         final int[] currentMode = {mode};
         row.setOnClickListener(v -> {
             currentMode[0] = (currentMode[0] + 1) % GRAPHICS_MODE_LABELS.length;
-            GameSettings.setInt(activity, "graphics_mode", currentMode[0]);
+            GameSettings.setInt(activity, GameSettings.PREF_GRAPHICS_MODE, currentMode[0]);
             labelView.setText(GRAPHICS_MODE_LABELS[currentMode[0]]);
             activity.nativeApplyGameSettings();
         });
+    }
+
+    private void addActionBarLayoutSetting(LinearLayout panel) {
+        int saved = GameSettings.getInt(activity, ActionsToolbar.PREF_BUTTON_ORIENTATION,
+            ActionsToolbar.DEFAULT_BUTTON_ORIENTATION);
+        int orientation = saved == ActionsToolbar.BUTTONS_VERTICAL
+            ? ActionsToolbar.BUTTONS_VERTICAL
+            : ActionsToolbar.BUTTONS_HORIZONTAL;
+        if (saved != orientation) {
+            GameSettings.setInt(activity, ActionsToolbar.PREF_BUTTON_ORIENTATION, orientation);
+        }
+
+        LinearLayout row = addRow(panel, actionBarLayoutLabel(orientation));
+        TextView labelView = (TextView) row.getChildAt(0);
+
+        final int[] currentOrientation = {orientation};
+        row.setOnClickListener(v -> {
+            currentOrientation[0] = currentOrientation[0] == ActionsToolbar.BUTTONS_HORIZONTAL
+                ? ActionsToolbar.BUTTONS_VERTICAL
+                : ActionsToolbar.BUTTONS_HORIZONTAL;
+            GameSettings.setInt(activity, ActionsToolbar.PREF_BUTTON_ORIENTATION,
+                currentOrientation[0]);
+            labelView.setText(actionBarLayoutLabel(currentOrientation[0]));
+            activity.applyActionButtonSettings();
+        });
+    }
+
+    private String actionBarLayoutLabel(int orientation) {
+        String layout = orientation == ActionsToolbar.BUTTONS_VERTICAL
+            ? "Vertical"
+            : "Horizontal";
+        return "Action Bar Layout: " + layout;
     }
 
     private void addCameraFollowModeCycler(LinearLayout panel) {

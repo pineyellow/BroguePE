@@ -1,5 +1,6 @@
 package com.pineyellow.broguepe;
 
+import android.app.Dialog;
 import android.graphics.Color;
 import android.graphics.Bitmap;
 import android.graphics.Point;
@@ -16,6 +17,7 @@ import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
+import android.view.Window;
 import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
@@ -33,6 +35,13 @@ public class BrogueActivity extends SDLActivity {
 
     /** Shared right-edge gutter for side drawers. */
     static final int EDGE_SAFE_DP = 4;
+    private static final int IMMERSIVE_UI_FLAGS =
+        View.SYSTEM_UI_FLAG_FULLSCREEN
+        | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+        | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+        | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+        | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
+        | View.SYSTEM_UI_FLAG_LAYOUT_STABLE;
 
     // Overlay roots — allocated in onCreate, shared with feature classes.
     FrameLayout gameOverlay;
@@ -132,7 +141,7 @@ public class BrogueActivity extends SDLActivity {
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT));
 
-        dpadOverlay = new DPadOverlay(this);
+        dpadOverlay = new DPadOverlay(this, actionsToolbar::collapseSubmenu);
         dpadView = dpadOverlay.getView();
         FrameLayout.LayoutParams dpadParams = new FrameLayout.LayoutParams(
             dpToPx(DPadOverlay.SIZE_DP),
@@ -201,8 +210,39 @@ public class BrogueActivity extends SDLActivity {
     @Override
     public void onWindowFocusChanged(boolean hasFocus) {
         super.onWindowFocusChanged(hasFocus);
+        if (hasFocus) {
+            hideSystemBars();
+        }
         if (playtimeTracker != null) {
             playtimeTracker.onWindowFocusChanged(hasFocus);
+        }
+    }
+
+    /** Shows a separately focused dialog without briefly exposing system bars. */
+    void showImmersiveDialog(Dialog dialog) {
+        Window dialogWindow = dialog.getWindow();
+        if (dialogWindow == null) {
+            dialog.show();
+            return;
+        }
+
+        // Prevent the dialog's initial focus handoff from resetting immersive
+        // mode. Once visible with matching flags, it can safely accept focus.
+        dialogWindow.addFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
+        applyImmersiveFlags(dialogWindow);
+        dialog.setOnDismissListener(d -> hideSystemBars());
+        dialog.show();
+        applyImmersiveFlags(dialogWindow);
+        dialogWindow.clearFlags(WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE);
+    }
+
+    private void hideSystemBars() {
+        applyImmersiveFlags(getWindow());
+    }
+
+    private void applyImmersiveFlags(Window window) {
+        if (window != null) {
+            window.getDecorView().setSystemUiVisibility(IMMERSIVE_UI_FLAGS);
         }
     }
 
@@ -573,6 +613,7 @@ public class BrogueActivity extends SDLActivity {
     native boolean nativeShouldStopDpadAutoMove();
     native void nativeEndDpadAutoMove();
     native void nativeDeleteSaveFile();
+    native int[] nativeMonsterTileInfo(String monsterName);
 
     // ---- Navigation ------------------------------------------------------
 

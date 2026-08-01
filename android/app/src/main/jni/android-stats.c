@@ -13,7 +13,55 @@
 
 #include <SDL.h>
 #include <jni.h>
+#include <string.h>
 #include "android-stats.h"
+#include "Globals.h"
+#include "platform.h"
+
+static int clampColorComponent(int component) {
+    return component < 0 ? 0 : (component > 100 ? 100 : component);
+}
+
+/*
+ * Returns both graphical and text-font atlas indices plus a stable
+ * representative catalog color for a saved monster name.
+ */
+JNIEXPORT jintArray JNICALL
+Java_com_pineyellow_broguepe_BrogueActivity_nativeMonsterTileInfo(
+        JNIEnv *env, jobject thiz, jstring monsterName) {
+    (void)thiz;
+    if (!monsterName) return NULL;
+
+    const char *name = (*env)->GetStringUTFChars(env, monsterName, NULL);
+    if (!name) return NULL;
+
+    const creatureType *match = NULL;
+    for (int i = 1; i < NUMBER_MONSTER_KINDS; i++) {
+        if (strcmp(monsterCatalog[i].monsterName, name) == 0) {
+            match = &monsterCatalog[i];
+            break;
+        }
+    }
+    (*env)->ReleaseStringUTFChars(env, monsterName, name);
+
+    if (!match || match->displayChar < 128 || !match->foreColor) return NULL;
+
+    const color *fore = match->foreColor;
+    int sharedRand = fore->rand / 2;
+    jint values[5] = {
+        (jint)match->displayChar + 126,
+        clampColorComponent(fore->red + fore->redRand / 2 + sharedRand),
+        clampColorComponent(fore->green + fore->greenRand / 2 + sharedRand),
+        clampColorComponent(fore->blue + fore->blueRand / 2 + sharedRand),
+        textFontIndex(match->displayChar)
+    };
+
+    jintArray result = (*env)->NewIntArray(env, 5);
+    if (result) {
+        (*env)->SetIntArrayRegion(env, result, 0, 5, values);
+    }
+    return result;
+}
 
 void androidNotifyGameStart(unsigned long long seed, int variant, int difficulty) {
     JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();

@@ -1,5 +1,6 @@
 package com.pineyellow.broguepe;
 
+import android.annotation.SuppressLint;
 import android.app.AlertDialog;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
@@ -26,6 +27,9 @@ import java.text.DecimalFormat;
  *  dispatch feed the result back into the native thread via
  *  {@link BrogueActivity#nativeTextInputResult}. */
 final class TextInputDialog {
+
+    private static final long STEPPER_REPEAT_DELAY_MS = 500;
+    private static final long STEPPER_REPEAT_INTERVAL_MS = 10;
 
     private enum InputMode { TEXT, INTEGER, DECIMAL }
 
@@ -106,13 +110,13 @@ final class TextInputDialog {
                 plusBtn.setEnabled(canIncrease);
                 plusBtn.setAlpha(canIncrease ? 1f : 0.4f);
             };
-            minusBtn.setOnClickListener(v -> {
+            setRepeatingClickListener(minusBtn, () -> {
                 value[0] = Math.round((value[0] - step) / step) * step;
                 if (minValue != null) value[0] = Math.max(minValue, value[0]);
                 refreshValue.run();
                 onPreview.accept(value[0]);
             });
-            plusBtn.setOnClickListener(v -> {
+            setRepeatingClickListener(plusBtn, () -> {
                 value[0] = Math.round((value[0] + step) / step) * step;
                 if (maxValue != null) value[0] = Math.min(maxValue, value[0]);
                 refreshValue.run();
@@ -135,7 +139,7 @@ final class TextInputDialog {
 
             Button cancelBtn = makeDialogButton("CANCEL", Palette.PALE_BLUE,
                 Typeface.MONOSPACE, Color.TRANSPARENT, false);
-            Button okBtn = makeDialogButton("OK", Palette.DIM_WHITE_BLUE,
+            Button okBtn = makeDialogButton("CONFIRM", Palette.DIM_WHITE_BLUE,
                 Typeface.create(Typeface.MONOSPACE, Typeface.BOLD),
                 Palette.ACTION_BG, true);
             LinearLayout buttonRow = new LinearLayout(activity);
@@ -177,6 +181,7 @@ final class TextInputDialog {
                 .setCancelable(true)
                 .setOnCancelListener(d -> onResult.accept(null))
                 .create();
+            dialog.setCanceledOnTouchOutside(false);
             cancelBtn.setOnClickListener(v -> {
                 onResult.accept(null);
                 dialog.dismiss();
@@ -191,6 +196,7 @@ final class TextInputDialog {
             // a horizontal jump on devices with side-mounted navigation bars.
             Window window = dialog.getWindow();
             if (window != null) {
+                window.clearFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
                 window.setBackgroundDrawable(dialogBg);
                 window.setGravity(Gravity.CENTER);
                 window.setSoftInputMode(
@@ -201,15 +207,8 @@ final class TextInputDialog {
                 window.setLayout(Math.max(realSize.x / 3,
                         activity.dpToPx(280)),
                     ViewGroup.LayoutParams.WRAP_CONTENT);
-                window.getDecorView().setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_FULLSCREEN
-                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                    | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
             }
-            dialog.show();
+            activity.showImmersiveDialog(dialog);
         });
     }
 
@@ -384,5 +383,72 @@ final class TextInputDialog {
         btn.setBackground(new RippleDrawable(
             ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
         return btn;
+    }
+
+    /**
+     * Runs once as soon as the button is pressed, then repeats after a short
+     * hold. Touch gestures are consumed so Button cannot queue a second click
+     * on release; keyboard and accessibility clicks still use OnClick.
+     */
+    @SuppressLint("ClickableViewAccessibility")
+    private void setRepeatingClickListener(Button button, Runnable action) {
+        final boolean[] held = { false };
+        final boolean[] reportingTouchClick = { false };
+        final Runnable[] repeat = new Runnable[1];
+
+        repeat[0] = () -> {
+            if (!held[0] || !button.isEnabled()) return;
+
+            action.run();
+            if (held[0] && button.isEnabled()) {
+                button.postDelayed(repeat[0], STEPPER_REPEAT_INTERVAL_MS);
+            } else {
+                held[0] = false;
+                button.setPressed(false);
+            }
+        };
+
+        button.setOnClickListener(v -> {
+            if (!reportingTouchClick[0]) {
+                action.run();
+            }
+        });
+
+        button.setOnTouchListener((v, event) -> {
+            switch (event.getActionMasked()) {
+                case android.view.MotionEvent.ACTION_DOWN:
+                    button.removeCallbacks(repeat[0]);
+                    held[0] = true;
+                    button.setPressed(true);
+                    action.run();
+                    if (button.isEnabled()) {
+                        button.postDelayed(repeat[0], STEPPER_REPEAT_DELAY_MS);
+                    } else {
+                        held[0] = false;
+                        button.setPressed(false);
+                    }
+                    break;
+
+                case android.view.MotionEvent.ACTION_UP:
+                    held[0] = false;
+                    button.removeCallbacks(repeat[0]);
+                    button.setPressed(false);
+                    // Report a semantic click without applying another step.
+                    reportingTouchClick[0] = true;
+                    button.performClick();
+                    reportingTouchClick[0] = false;
+                    break;
+
+                case android.view.MotionEvent.ACTION_CANCEL:
+                    held[0] = false;
+                    button.removeCallbacks(repeat[0]);
+                    button.setPressed(false);
+                    break;
+
+                default:
+                    break;
+            }
+            return true;
+        });
     }
 }

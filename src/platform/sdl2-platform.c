@@ -413,11 +413,8 @@ static void _nextKeyOrMouseEvent(rogueEvent *returnEvent, boolean textInput, boo
 }
 
 
-/*
-Returns the index of the sprite representing the given glyph. Sprites <256 are
-from the text font sheet, 256+ are from the tiles sheet.
-*/
-int fontIndex(enum displayGlyph glyph) {
+/* Returns the atlas index for the text-font version of a glyph. */
+int textFontIndex(enum displayGlyph glyph) {
     // These are the only non-ASCII glyphs which always come from the font sheet
     if (glyph == G_UP_ARROW) return 0x90;
     if (glyph == G_DOWN_ARROW) return 0x91;
@@ -425,10 +422,6 @@ int fontIndex(enum displayGlyph glyph) {
     if (glyph < 128) {
         // ASCII characters map directly
         return glyph;
-    } else if (showGraphics == TILES_GRAPHICS || (showGraphics == HYBRID_GRAPHICS && isEnvironmentGlyph(glyph))) {
-        // Tile glyphs have sprite indices starting at 256
-        // -2 to disregard the up and down arrow glyphs
-        return glyph + 128 - 2;
     } else {
         unsigned int code = glyphToUnicode(glyph);
         switch (code) {
@@ -460,6 +453,23 @@ int fontIndex(enum displayGlyph glyph) {
                 return code;
         }
     }
+}
+
+/*
+Returns the index of the sprite representing the given glyph. Sprites <256 are
+from the text font sheet, 256+ are from the tiles sheet.
+*/
+int fontIndex(enum displayGlyph glyph) {
+    if (glyph >= 128
+            && glyph != G_UP_ARROW
+            && glyph != G_DOWN_ARROW
+            && (showGraphics == TILES_GRAPHICS
+                || (showGraphics == HYBRID_GRAPHICS && isEnvironmentGlyph(glyph)))) {
+        // Tile glyphs have sprite indices starting at 256.
+        // -2 disregards the two font-only arrow glyphs.
+        return glyph + 128 - 2;
+    }
+    return textFontIndex(glyph);
 }
 
 

@@ -5,16 +5,13 @@ import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
 import android.graphics.PixelFormat;
-import android.graphics.Typeface;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Looper;
-import android.util.TypedValue;
-import android.view.Gravity;
 import android.view.MotionEvent;
 import android.view.View;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.TextView;
 
 /** Transparent 3x3 Android DPAD shown at the bottom-left during gameplay
  *  when enabled from Settings. Each cell consumes its own touches and leaves
@@ -47,22 +44,21 @@ final class DPadOverlay {
 
     private static final int GRID_LINE_COLOR = Color.argb(105, 255, 255, 255);
     private static final int GLYPH_COLOR = Color.argb(235, 255, 255, 255);
-    private static final int ARROW_TEXT_SP = 18;
-    private static final int CENTER_TEXT_SP = 16;
-    private static final String CENTER_GLYPH = "\u25CB";
 
     private final BrogueActivity activity;
+    private final Runnable onInteraction;
     private final Handler repeatHandler = new Handler(Looper.getMainLooper());
     private final LinearLayout root;
     private Runnable repeatRunnable;
-    private TextView activeView;
+    private View activeView;
     private char activeCommand;
     private boolean repeatArmed;
     private boolean automationSessionActive;
     private boolean continuousRepeatActive;
 
-    DPadOverlay(BrogueActivity activity) {
+    DPadOverlay(BrogueActivity activity, Runnable onInteraction) {
         this.activity = activity;
+        this.onInteraction = onInteraction;
         this.root = build();
     }
 
@@ -78,19 +74,28 @@ final class DPadOverlay {
         // Child cells handle DPAD presses. The clickable padded area around
         // them consumes near-misses so they cannot become dungeon-map taps.
         grid.setClickable(true);
+        grid.setOnClickListener(v -> { });
+        grid.setOnTouchListener((v, event) -> {
+            if (event.getActionMasked() == MotionEvent.ACTION_DOWN) {
+                onInteraction.run();
+            } else if (event.getActionMasked() == MotionEvent.ACTION_UP) {
+                v.performClick();
+            }
+            return true;
+        });
 
         addRow(grid, 0,
-            new Cell("\u2196", 'y'),
-            new Cell("\u2191", 'k'),
-            new Cell("\u2197", 'u'));
+            new Cell(-135f, "Move up-left", 'y'),
+            new Cell(-90f, "Move up", 'k'),
+            new Cell(-45f, "Move up-right", 'u'));
         addRow(grid, 1,
-            new Cell("\u2190", 'h'),
-            new Cell(CENTER_GLYPH, '.'),
-            new Cell("\u2192", 'l'));
+            new Cell(180f, "Move left", 'h'),
+            new Cell("Wait", '.'),
+            new Cell(0f, "Move right", 'l'));
         addRow(grid, 2,
-            new Cell("\u2199", 'b'),
-            new Cell("\u2193", 'j'),
-            new Cell("\u2198", 'n'));
+            new Cell(135f, "Move down-left", 'b'),
+            new Cell(90f, "Move down", 'j'),
+            new Cell(45f, "Move down-right", 'n'));
 
         return grid;
     }
@@ -110,25 +115,26 @@ final class DPadOverlay {
     // handleTouch calls performClick on release; lint cannot follow the helper.
     @SuppressLint("ClickableViewAccessibility")
     private void addCell(LinearLayout row, int rowIndex, int colIndex, Cell cell) {
-        TextView view = new TextView(activity);
-        view.setText(cell.glyph);
-        view.setTextColor(GLYPH_COLOR);
-        view.setTextSize(TypedValue.COMPLEX_UNIT_SP,
-            CENTER_GLYPH.equals(cell.glyph) ? CENTER_TEXT_SP : ARROW_TEXT_SP);
-        view.setTypeface(Typeface.MONOSPACE);
-        view.setGravity(Gravity.CENTER);
-        view.setIncludeFontPadding(false);
+        ScaledIconView view = new ScaledIconView(activity, cell.rotationDegrees,
+            activity.dpToPx(SIZE_DP / 3f));
+        view.setImageResource(cell.center
+            ? R.drawable.ic_dpad_center
+            : R.drawable.ic_dpad_arrow);
+        view.setColorFilter(GLYPH_COLOR);
+        view.setScaleType(ImageView.ScaleType.CENTER);
+        view.setContentDescription(cell.contentDescription);
         view.setBackground(new CellBorderDrawable(rowIndex == 0, colIndex == 0));
         view.setOnClickListener(v -> { });
-        view.setOnTouchListener((v, event) -> handleTouch((TextView) v, event, cell.command));
+        view.setOnTouchListener((v, event) -> handleTouch(v, event, cell.command));
 
         row.addView(view, new LinearLayout.LayoutParams(
             0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
     }
 
-    private boolean handleTouch(TextView view, MotionEvent event, char command) {
+    private boolean handleTouch(View view, MotionEvent event, char command) {
         switch (event.getActionMasked()) {
             case MotionEvent.ACTION_DOWN:
+                onInteraction.run();
                 startHold(view, command);
                 return true;
             case MotionEvent.ACTION_UP:
@@ -142,7 +148,7 @@ final class DPadOverlay {
         }
     }
 
-    private void startHold(TextView view, char command) {
+    private void startHold(View view, char command) {
         cancelRepeat(false);
         activeView = view;
         activeCommand = command;
@@ -176,7 +182,7 @@ final class DPadOverlay {
         repeatHandler.postDelayed(repeatRunnable, HOLD_REPEAT_DELAY_MS);
     }
 
-    private void stopHold(TextView view) {
+    private void stopHold(View view) {
         if (view == activeView) {
             cancelRepeat(true);
         } else {
@@ -226,23 +232,61 @@ final class DPadOverlay {
         return true;
     }
 
-    private void pressVisual(TextView view) {
+    private void pressVisual(View view) {
         view.animate().alpha(0.65f).scaleX(0.94f).scaleY(0.94f)
             .setDuration(50).start();
     }
 
-    private void releaseVisual(TextView view) {
+    private void releaseVisual(View view) {
         view.animate().alpha(1f).scaleX(1f).scaleY(1f)
             .setDuration(90).start();
     }
 
     private static final class Cell {
-        final String glyph;
+        final boolean center;
+        final float rotationDegrees;
+        final String contentDescription;
         final char command;
 
-        Cell(String glyph, char command) {
-            this.glyph = glyph;
+        Cell(float rotationDegrees, String contentDescription, char command) {
+            this.center = false;
+            this.rotationDegrees = rotationDegrees;
+            this.contentDescription = contentDescription;
             this.command = command;
+        }
+
+        Cell(String contentDescription, char command) {
+            this.center = true;
+            this.rotationDegrees = 0f;
+            this.contentDescription = contentDescription;
+            this.command = command;
+        }
+    }
+
+    /** Scales and rotates only the icon, leaving its cell border untouched. */
+    private static final class ScaledIconView extends ImageView {
+        private final float rotationDegrees;
+        private final float defaultCellSizePx;
+
+        ScaledIconView(BrogueActivity activity, float rotationDegrees,
+                       float defaultCellSizePx) {
+            super(activity);
+            this.rotationDegrees = rotationDegrees;
+            this.defaultCellSizePx = defaultCellSizePx;
+        }
+
+        @Override
+        protected void onDraw(Canvas canvas) {
+            int saveCount = canvas.save();
+            float centerX = getWidth() / 2f;
+            float centerY = getHeight() / 2f;
+            float iconScale = defaultCellSizePx > 0f
+                ? Math.min(getWidth(), getHeight()) / defaultCellSizePx
+                : 1f;
+            canvas.scale(iconScale, iconScale, centerX, centerY);
+            canvas.rotate(rotationDegrees, centerX, centerY);
+            super.onDraw(canvas);
+            canvas.restoreToCount(saveCount);
         }
     }
 

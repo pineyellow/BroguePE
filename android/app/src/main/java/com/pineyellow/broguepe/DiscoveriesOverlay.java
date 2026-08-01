@@ -1,9 +1,11 @@
 package com.pineyellow.broguepe;
 
 import android.annotation.SuppressLint;
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -161,7 +163,14 @@ final class DiscoveriesOverlay {
 
         ImageButton inventoryBtn = makeHeaderIcon(R.drawable.ic_money_bag, "Back to inventory");
         inventoryBtn.setOnClickListener(v -> KeyInput.sendChar(activity, 'i'));
-        row.addView(inventoryBtn);
+        int headerButtonSize = activity.dpToPx(UiStyle.HEADER_ICON_BUTTON_SIZE_DP);
+        LinearLayout.LayoutParams headerButtonParams = new LinearLayout.LayoutParams(
+            headerButtonSize, headerButtonSize);
+        headerButtonParams.setMargins(0,
+            activity.dpToPx(UiStyle.HEADER_ICON_TOP_GAP_DP),
+            activity.dpToPx(UiStyle.HEADER_ICON_RIGHT_INSET_DP),
+            activity.dpToPx(UiStyle.HEADER_ICON_BOTTOM_GAP_DP));
+        row.addView(inventoryBtn, headerButtonParams);
 
         LinearLayout column = new LinearLayout(activity);
         column.setOrientation(LinearLayout.VERTICAL);
@@ -246,11 +255,17 @@ final class DiscoveriesOverlay {
         btn.setImageResource(drawableRes);
         btn.setColorFilter(Palette.PALE_BLUE);
         btn.setScaleType(ImageButton.ScaleType.CENTER_INSIDE);
-        btn.setBackground(null);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.RECTANGLE);
+        bg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
+        bg.setColor(Palette.ITEM_BG);
+        bg.setStroke(1, Palette.BORDER_ACTIVE);
+        btn.setBackground(new RippleDrawable(
+            ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
         btn.setStateListAnimator(null);
         btn.setElevation(0);
         btn.setContentDescription(contentDesc);
-        int size = activity.dpToPx(36);
+        int size = activity.dpToPx(UiStyle.HEADER_ICON_BUTTON_SIZE_DP);
         btn.setMinimumWidth(size);
         btn.setMinimumHeight(size);
         int p = activity.dpToPx(6);

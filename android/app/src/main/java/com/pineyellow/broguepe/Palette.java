@@ -18,7 +18,7 @@ final class Palette {
     static final int PALE_BLUE      = Color.argb(255, 144, 148, 190); // flameTitleColor text
     static final int GHOST_WHITE    = Color.argb(255, 210, 205, 220);
     static final int VOID_BLACK     = Color.argb(240, 10, 6, 18);
-    static final int SUBMENU_BG     = Color.argb(235, 16, 10, 30);
+    static final int SUBMENU_BG     = Color.argb(255, 16, 10, 30);
     static final int RIPPLE_GLOW    = Color.argb(80, 154, 143, 191);
     static final int BORDER_DIM     = Color.argb(120, 91, 82, 120);
     static final int BORDER_ACTIVE  = Color.argb(200, 154, 143, 191);

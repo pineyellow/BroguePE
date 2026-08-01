@@ -9,8 +9,13 @@ final class GameSettings {
 
     private static final String PREFS = "brogue_settings";
     static final String PREF_CAMERA_FOLLOW_MODE = "camera_follow_mode";
+    static final String PREF_GRAPHICS_MODE = "graphics_mode";
     static final String PREF_NEW_GAME_VARIANT = "new_game_variant";
     static final String PREF_NEW_GAME_DIFFICULTY = "new_game_difficulty";
+    static final int GRAPHICS_ASCII = 0;
+    static final int GRAPHICS_TILES = 1;
+    static final int GRAPHICS_HYBRID = 2;
+    static final int DEFAULT_GRAPHICS_MODE = GRAPHICS_TILES;
     static final int CAMERA_FOLLOW_SMOOTH = 0;
     static final int CAMERA_FOLLOW_FAST = 1;
     static final int CAMERA_FOLLOW_INSTANT = 2;
@@ -49,5 +54,14 @@ final class GameSettings {
     static void setFloat(Context c, String key, float value) {
         c.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .edit().putFloat(key, value).apply();
+    }
+
+    /** Hybrid uses text glyphs for items and creatures, just like ASCII. */
+    static boolean useTileCreatureAndItemGlyphs(Context c) {
+        int mode = getInt(c, PREF_GRAPHICS_MODE, DEFAULT_GRAPHICS_MODE);
+        if (mode < GRAPHICS_ASCII || mode > GRAPHICS_HYBRID) {
+            mode = DEFAULT_GRAPHICS_MODE;
+        }
+        return mode == GRAPHICS_TILES;
     }
 }

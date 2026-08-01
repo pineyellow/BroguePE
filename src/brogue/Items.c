@@ -3012,6 +3012,7 @@ char displayInventory(unsigned short categoryMask,
         int iconBlue = clamp(theItem->foreColor->blue, 0, 100) * 255 / 100;
         // Tile sprites start at atlas index 256; the two arrow glyphs are font-only.
         int tileGlyph = theItem->displayChar + 128 - 2;
+        int textGlyph = textFontIndex(theItem->displayChar);
 
         char nameEsc[COLS*6];
         jsonEscape(nameEsc, nameClean, sizeof(nameEsc));
@@ -3050,28 +3051,30 @@ char displayInventory(unsigned short categoryMask,
                 "%s{\"letter\":\"%c\",\"name\":\"%s\",\"desc\":\"%s\","
                 "\"category\":%u,\"equipped\":%s,\"selectable\":%s,"
                 "\"actions\":\"%s\",\"equippedCount\":%d,\"magicPolarity\":%d,"
-                "\"tileGlyph\":%d,\"iconRed\":%d,\"iconGreen\":%d,\"iconBlue\":%d}",
+                "\"tileGlyph\":%d,\"textGlyph\":%d,"
+                "\"iconRed\":%d,\"iconGreen\":%d,\"iconBlue\":%d}",
                 (visibleItemCount > 0 ? "," : ""),
                 theItem->inventoryLetter, nameEsc, descEsc,
                 theItem->category,
                 (theItem->flags & ITEM_EQUIPPED) ? "true" : "false",
                 selectable ? "true" : "false",
                 actions, visibleEquippedCount, magicPol,
-                tileGlyph, iconRed, iconGreen, iconBlue);
+                tileGlyph, textGlyph, iconRed, iconGreen, iconBlue);
         } else {
             // Selection mode: no description or actions needed.
             pos += snprintf(json + pos, sizeof(json) - pos,
                 "%s{\"letter\":\"%c\",\"name\":\"%s\","
                 "\"category\":%u,\"equipped\":%s,\"selectable\":%s,"
                 "\"equippedCount\":%d,\"magicPolarity\":%d,"
-                "\"tileGlyph\":%d,\"iconRed\":%d,\"iconGreen\":%d,\"iconBlue\":%d}",
+                "\"tileGlyph\":%d,\"textGlyph\":%d,"
+                "\"iconRed\":%d,\"iconGreen\":%d,\"iconBlue\":%d}",
                 (visibleItemCount > 0 ? "," : ""),
                 theItem->inventoryLetter, nameEsc,
                 theItem->category,
                 (theItem->flags & ITEM_EQUIPPED) ? "true" : "false",
                 selectable ? "true" : "false",
                 visibleEquippedCount, magicPol,
-                tileGlyph, iconRed, iconGreen, iconBlue);
+                tileGlyph, textGlyph, iconRed, iconGreen, iconBlue);
         }
         visibleItemCount++;
     }

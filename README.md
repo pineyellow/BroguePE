@@ -6,12 +6,12 @@ This is an unofficial derivative project. It is not an official release of Brogu
 
 ## Highlights
 
-- Configurable 8-way DPAD with held movement
+- Configurable 8-way d-pad with held movement
 - Gesture-based free look camera with smooth tracking
 - Camera zoom controls using pinch gestures
 - VSync and high refresh rate support with framerate-independent effects
 - SDL renderer recovery after surface or context loss
-- Improved replay loading speed, camera-transformed render layers, and rounded corner inset handling
+- Camera-transformed render layers, and rounded corner inset handling
 - Many small UI, layout, interaction, and mobile usability refinements
 
 ## Downloads

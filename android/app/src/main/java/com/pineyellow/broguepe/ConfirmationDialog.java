@@ -86,7 +86,6 @@ final class ConfirmationDialog {
                 dialog.dismiss();
             });
 
-            dialog.show();
             Window window = dialog.getWindow();
             if (window != null) {
                 Point size = new Point();
@@ -98,14 +97,8 @@ final class ConfirmationDialog {
                 window.setBackgroundDrawableResource(android.R.color.transparent);
                 window.setDimAmount(0.45f);
                 window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
-                window.getDecorView().setSystemUiVisibility(
-                    View.SYSTEM_UI_FLAG_FULLSCREEN
-                    | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
-                    | View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
-                    | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
-                    | View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION
-                    | View.SYSTEM_UI_FLAG_LAYOUT_STABLE);
             }
+            activity.showImmersiveDialog(dialog);
         });
     }
 
@@ -127,7 +120,7 @@ final class ConfirmationDialog {
         GradientDrawable background = new GradientDrawable();
         background.setColor(Palette.INVENTORY_BG);
         background.setCornerRadius(activity.dpToPx(5));
-        background.setStroke(1, Palette.BORDER_ACTIVE);
+        background.setStroke(1, Palette.BORDER_DIM);
         return background;
     }
 

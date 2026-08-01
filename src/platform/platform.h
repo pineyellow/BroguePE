@@ -98,6 +98,7 @@ extern int windowWidth;
 extern int windowHeight;
 extern boolean fullScreen;
 extern boolean softwareRendering;
+int textFontIndex(enum displayGlyph glyph);
 int fontIndex(enum displayGlyph glyph);
 
 void androidResetTouchState(void);

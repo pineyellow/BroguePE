@@ -2738,7 +2738,7 @@ void executeKeystroke(signed long keystroke, boolean controlKey, boolean shiftKe
                 return;
             }
 #ifdef BROGUE_ANDROID
-            if (confirm("Are you sure? (Game will be saved).", false)) {
+            if (confirm("Are you sure?\n(Game will be saved)", false)) {
                 androidSaveGameAndReturnToMenu();
             }
 #else

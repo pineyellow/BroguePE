@@ -3,14 +3,11 @@ package com.pineyellow.broguepe;
 import android.annotation.SuppressLint;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
-import android.graphics.BitmapFactory;
-import android.graphics.BitmapRegionDecoder;
 import android.graphics.Color;
-import android.graphics.Rect;
 import android.graphics.Typeface;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
-import android.util.SparseArray;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -29,21 +26,14 @@ import android.widget.TextView;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
-import java.io.InputStream;
-
 /** Slides the player's inventory in from the right when the engine asks for
  *  it (either to browse or to select an item for an action). The JSON blob
  *  the engine pushes over JNI describes each item; each row expands on tap
  *  to reveal the item's description + available verbs as inline buttons. */
 final class InventoryOverlay {
 
-    private static final int TILE_ATLAS_COLUMNS = 16;
-    private static final int TILE_ATLAS_ROWS = 24;
-    private static final int TILE_SOURCE_SAMPLE = 4;
-
     private final BrogueActivity activity;
     private final FrameLayout host;
-    private final SparseArray<Bitmap> tileMasks = new SparseArray<>();
     private View currentlyExpandedDetail;
 
     InventoryOverlay(BrogueActivity activity, FrameLayout host) {
@@ -124,7 +114,14 @@ final class InventoryOverlay {
                 ImageButton discoveriesBtn = makeHeaderIcon(R.drawable.ic_visibility,
                     "View discovered items");
                 discoveriesBtn.setOnClickListener(v -> KeyInput.sendChar(activity, 'D'));
-                headerBar.addView(discoveriesBtn);
+                int headerButtonSize = activity.dpToPx(UiStyle.HEADER_ICON_BUTTON_SIZE_DP);
+                LinearLayout.LayoutParams headerButtonParams = new LinearLayout.LayoutParams(
+                    headerButtonSize, headerButtonSize);
+                headerButtonParams.setMargins(0,
+                    activity.dpToPx(UiStyle.HEADER_ICON_TOP_GAP_DP),
+                    activity.dpToPx(UiStyle.HEADER_ICON_RIGHT_INSET_DP),
+                    activity.dpToPx(UiStyle.HEADER_ICON_BOTTOM_GAP_DP));
+                headerBar.addView(discoveriesBtn, headerButtonParams);
 
                 panel.addView(headerBar);
 
@@ -444,11 +441,17 @@ final class InventoryOverlay {
         btn.setImageResource(drawableRes);
         btn.setColorFilter(Palette.PALE_BLUE);
         btn.setScaleType(ImageButton.ScaleType.CENTER_INSIDE);
-        btn.setBackground(null);
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.RECTANGLE);
+        bg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
+        bg.setColor(Palette.ITEM_BG);
+        bg.setStroke(1, Palette.BORDER_ACTIVE);
+        btn.setBackground(new RippleDrawable(
+            ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
         btn.setStateListAnimator(null);
         btn.setElevation(0);
         btn.setContentDescription(contentDesc);
-        int size = activity.dpToPx(36);
+        int size = activity.dpToPx(UiStyle.HEADER_ICON_BUTTON_SIZE_DP);
         btn.setMinimumWidth(size);
         btn.setMinimumHeight(size);
         int p = activity.dpToPx(6);
@@ -466,11 +469,18 @@ final class InventoryOverlay {
     }
 
     private void addItemIcon(LinearLayout row, JSONObject item, boolean enabled) {
-        Bitmap mask = getTileMask(item.optInt("tileGlyph", -1));
+        int iconWidth = activity.dpToPx(28);
+        int iconHeight = activity.dpToPx(32);
+        String glyphKey = GameSettings.useTileCreatureAndItemGlyphs(activity)
+            ? "tileGlyph" : "textGlyph";
+        Bitmap mask = TileAtlasMask.get(activity,
+            item.optInt(glyphKey, -1), iconWidth, iconHeight, false);
         if (mask == null) return;
 
         ImageView icon = new ImageView(activity);
-        icon.setImageBitmap(mask);
+        BitmapDrawable drawable = new BitmapDrawable(activity.getResources(), mask);
+        drawable.setFilterBitmap(false);
+        icon.setImageDrawable(drawable);
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
         icon.setColorFilter(Color.rgb(
             item.optInt("iconRed", 255),
@@ -480,56 +490,9 @@ final class InventoryOverlay {
         icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
 
         LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(
-            activity.dpToPx(28), activity.dpToPx(32));
+            iconWidth, iconHeight);
         iconParams.setMargins(0, 0, activity.dpToPx(2), 0);
         row.addView(icon, iconParams);
-    }
-
-    private Bitmap getTileMask(int glyph) {
-        if (glyph < 0 || glyph >= TILE_ATLAS_COLUMNS * TILE_ATLAS_ROWS) return null;
-
-        Bitmap cached = tileMasks.get(glyph);
-        if (cached != null) return cached;
-
-        Bitmap source = null;
-        BitmapRegionDecoder decoder = null;
-        try (InputStream stream = activity.getAssets().open("tiles.png")) {
-            decoder = BitmapRegionDecoder.newInstance(stream, false);
-            int tileWidth = decoder.getWidth() / TILE_ATLAS_COLUMNS;
-            int tileHeight = decoder.getHeight() / TILE_ATLAS_ROWS;
-            int left = (glyph % TILE_ATLAS_COLUMNS) * tileWidth;
-            int top = (glyph / TILE_ATLAS_COLUMNS) * tileHeight;
-            BitmapFactory.Options options = new BitmapFactory.Options();
-            options.inSampleSize = TILE_SOURCE_SAMPLE;
-            options.inPreferredConfig = Bitmap.Config.ARGB_8888;
-            source = decoder.decodeRegion(
-                new Rect(left, top, left + tileWidth, top + tileHeight), options);
-        } catch (Exception ignored) {
-            return null;
-        } finally {
-            if (decoder != null) decoder.recycle();
-        }
-        if (source == null) return null;
-
-        int tileWidth = source.getWidth();
-        int tileHeight = source.getHeight();
-        int[] pixels = new int[tileWidth * tileHeight];
-        source.getPixels(pixels, 0, tileWidth, 0, 0, tileWidth, tileHeight);
-
-        // The atlas uses white artwork on opaque black. Convert luminance to
-        // alpha so Android can tint the tile without drawing a black box.
-        for (int i = 0; i < pixels.length; i++) {
-            int pixel = pixels[i];
-            int alpha = Math.max(Color.red(pixel),
-                Math.max(Color.green(pixel), Color.blue(pixel)));
-            pixels[i] = Color.argb(alpha, 255, 255, 255);
-        }
-
-        Bitmap mask = Bitmap.createBitmap(tileWidth, tileHeight, Bitmap.Config.ARGB_8888);
-        mask.setPixels(pixels, 0, tileWidth, 0, 0, tileWidth, tileHeight);
-        source.recycle();
-        tileMasks.put(glyph, mask);
-        return mask;
     }
 
     private void addMagicIndicator(LinearLayout row, int magicPolarity) {

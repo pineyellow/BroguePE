@@ -5,15 +5,12 @@ import android.content.res.ColorStateList;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
-import android.text.SpannableString;
-import android.text.Spanned;
-import android.text.style.ForegroundColorSpan;
-import android.text.style.StyleSpan;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
 import android.view.ViewGroup;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
@@ -338,30 +335,49 @@ final class PlayerStatsModal {
     }
 
     private View makeTagPill(PlayerStats.Tally t) {
-        // Count portion is ember+bold, label portion is white+regular, packed
-        // into one TextView so the whole pill sizes and wraps as one unit.
-        String countPart = t.count + "\u00D7 ";
-        SpannableString text = new SpannableString(countPart + capitalize(t.label));
-        text.setSpan(new ForegroundColorSpan(Palette.DIM_WHITE_BLUE),
-                     0, countPart.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        text.setSpan(new StyleSpan(Typeface.BOLD),
-                     0, countPart.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        LinearLayout container = new LinearLayout(activity);
+        container.setOrientation(LinearLayout.HORIZONTAL);
+        container.setGravity(Gravity.CENTER_VERTICAL);
 
-        TextView pill = new TextView(activity);
-        pill.setText(text);
-        pill.setTextColor(Palette.GHOST_WHITE);
-        pill.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        pill.setTypeface(Typeface.MONOSPACE);
-        pill.setPadding(activity.dpToPx(10), activity.dpToPx(5),
-                        activity.dpToPx(10), activity.dpToPx(5));
+        TextView count = new TextView(activity);
+        count.setText(t.count + "\u00D7");
+        count.setTextColor(Palette.DIM_WHITE_BLUE);
+        count.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        count.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        LinearLayout.LayoutParams countParams = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT);
+        countParams.rightMargin = activity.dpToPx(4);
+        container.addView(count, countParams);
+
+        ImageView icon = MonsterTileIcon.makeView(activity, t.label);
+        if (icon != null) {
+            int iconSize = activity.dpToPx(MonsterTileIcon.sizeDp(activity));
+            LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(
+                iconSize, iconSize);
+            iconParams.rightMargin = activity.dpToPx(4);
+            container.addView(icon, iconParams);
+            container.setPadding(activity.dpToPx(6), activity.dpToPx(4),
+                                 activity.dpToPx(10), activity.dpToPx(4));
+        } else {
+            container.setPadding(activity.dpToPx(10), activity.dpToPx(5),
+                                 activity.dpToPx(10), activity.dpToPx(5));
+        }
+
+        TextView label = new TextView(activity);
+        label.setText(capitalize(t.label));
+        label.setTextColor(Palette.GHOST_WHITE);
+        label.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        label.setTypeface(Typeface.MONOSPACE);
+        container.addView(label);
 
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
         bg.setCornerRadius(activity.dpToPx(4));
         bg.setColor(Palette.ITEM_BG);
-        pill.setBackground(bg);
+        container.setBackground(bg);
 
-        return pill;
+        return container;
     }
 
     private static String capitalize(String s) {
