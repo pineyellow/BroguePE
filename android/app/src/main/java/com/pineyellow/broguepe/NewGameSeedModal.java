@@ -10,6 +10,7 @@ import android.text.InputFilter;
 import android.text.InputType;
 import android.util.TypedValue;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.View;
 import android.view.animation.DecelerateInterpolator;
 import android.view.inputmethod.EditorInfo;
@@ -201,17 +202,37 @@ final class NewGameSeedModal extends SeedDetailsModal {
     }
 
     private EditText makeSeedEditText() {
-        EditText v = new EditText(activity);
+        EditText v = new EditText(activity) {
+            @Override
+            public boolean onKeyPreIme(int keyCode, KeyEvent event) {
+                boolean handled = super.onKeyPreIme(keyCode, event);
+                if (keyCode == KeyEvent.KEYCODE_BACK
+                        && event.getAction() == KeyEvent.ACTION_UP) {
+                    // The IME consumes Back before the Activity sees it. Commit
+                    // after that dispatch so a dismissed empty editor becomes 1.
+                    post(NewGameSeedModal.this::commitEdit);
+                }
+                return handled;
+            }
+        };
         v.setTextColor(Palette.GHOST_WHITE);
         v.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
         v.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         v.setGravity(Gravity.CENTER);
         v.setPadding(0, activity.dpToPx(6), 0, activity.dpToPx(6));
         v.setBackground(null);
+        // Preserve WRAP_CONTENT's responsive sizing while preventing the empty,
+        // backgroundless field from collapsing to zero width.
+        v.setMinEms(1);
         v.setInputType(InputType.TYPE_CLASS_NUMBER);
         v.setFilters(new InputFilter[]{ new InputFilter.LengthFilter(MAX_SEED_DIGITS) });
         v.setImeOptions(EditorInfo.IME_ACTION_DONE);
         v.setSingleLine(true);
+        v.setCursorVisible(false);
+        v.setOnClickListener(ignored -> v.setCursorVisible(true));
+        v.setOnFocusChangeListener((ignored, hasFocus) -> {
+            if (!hasFocus) v.setCursorVisible(false);
+        });
         return v;
     }
 
@@ -231,19 +252,20 @@ final class NewGameSeedModal extends SeedDetailsModal {
     private void focusEditor() {
         seedEdit.setText(String.valueOf(seed));
         seedEdit.requestFocus();
+        seedEdit.setCursorVisible(true);
         seedEdit.selectAll();
         InputMethodManager imm = (InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE);
         if (imm != null) imm.showSoftInput(seedEdit, 0);
     }
 
-    /** Empty / non-numeric / non-positive input retains the original seed;
-     *  the display is rewritten from {@code seed} so it matches what's
-     *  actually committed. Called by both IME Done and Play. */
+    /** Empty input becomes seed 1. Invalid, overflowing, or non-positive input
+     *  retains the prior seed. The display is rewritten from {@code seed} so
+     *  it matches what's committed. Called by IME dismissal, Done, and Play. */
     private void commitEdit() {
         if (seedEdit == null || seedEdit.getWindowToken() == null) return;
 
         String trimmed = seedEdit.getText().toString().trim();
-        long parsed = 0L;
+        long parsed = trimmed.isEmpty() ? 1L : 0L;
         if (!trimmed.isEmpty()) {
             try { parsed = Long.parseLong(trimmed); }
             catch (NumberFormatException ignored) { /* parsed stays 0 */ }
@@ -255,6 +277,8 @@ final class NewGameSeedModal extends SeedDetailsModal {
 
         InputMethodManager imm = (InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE);
         if (imm != null) imm.hideSoftInputFromWindow(seedEdit.getWindowToken(), 0);
+        seedEdit.clearFocus();
+        seedEdit.setCursorVisible(false);
     }
 
 

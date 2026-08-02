@@ -124,6 +124,8 @@ final class SettingsPanel {
                 activity::applyDpadSettings, true);
         }
         addGraphicsModeCycler(panel);
+        addAppToggle(panel, "Show Call Button", GameSettings.PREF_SHOW_CALL_BUTTON,
+            false, null);
 
         addSeparator(panel);
 

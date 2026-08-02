@@ -481,6 +481,12 @@ public class BrogueActivity extends SDLActivity {
                 deathModal.fadeOutOverlay();
             }
             gameOverlay.setVisibility(visible ? View.VISIBLE : View.GONE);
+            // Editing a seed moves key focus away from SDL. Restore it when
+            // gameplay appears so synthesized D-pad/action keys reach SDL's
+            // OnKeyListener even if the IME discarded its input connection.
+            if (visible && mSurface != null) {
+                mSurface.requestFocus();
+            }
         });
     }
 

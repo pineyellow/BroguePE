@@ -10,6 +10,7 @@ final class GameSettings {
     private static final String PREFS = "brogue_settings";
     static final String PREF_CAMERA_FOLLOW_MODE = "camera_follow_mode";
     static final String PREF_GRAPHICS_MODE = "graphics_mode";
+    static final String PREF_SHOW_CALL_BUTTON = "show_call_button";
     static final String PREF_NEW_GAME_VARIANT = "new_game_variant";
     static final String PREF_NEW_GAME_DIFFICULTY = "new_game_difficulty";
     static final int GRAPHICS_ASCII = 0;

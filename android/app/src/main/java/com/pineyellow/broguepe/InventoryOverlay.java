@@ -56,6 +56,8 @@ final class InventoryOverlay {
                 String mode = root.optString("mode", "inventory");
                 String prompt = root.optString("prompt", "");
                 boolean selectMode = "select".equals(mode);
+                boolean showCallButton = GameSettings.getBool(activity,
+                    GameSettings.PREF_SHOW_CALL_BUTTON, false);
                 JSONArray items = root.getJSONArray("items");
 
                 int equippedCount = 0;
@@ -160,7 +162,7 @@ final class InventoryOverlay {
                         panel.addView(sep, sepP);
                     }
 
-                    panel.addView(makeRow(item, scrollView, selectMode));
+                    panel.addView(makeRow(item, scrollView, selectMode, showCallButton));
                 }
 
                 scrollView.addView(panel);
@@ -222,7 +224,8 @@ final class InventoryOverlay {
     // Animation listeners return false, leaving performClick to the views'
     // existing OnClickListeners without double-firing inventory actions.
     @SuppressLint("ClickableViewAccessibility")
-    private View makeRow(JSONObject item, ScrollView scrollView, boolean selectMode) {
+    private View makeRow(JSONObject item, ScrollView scrollView, boolean selectMode,
+                         boolean showCallButton) {
         boolean equipped = item.optBoolean("equipped", false);
         boolean selectable = item.optBoolean("selectable", true);
         char letter = item.optString("letter", "?").charAt(0);
@@ -343,6 +346,7 @@ final class InventoryOverlay {
             for (String ak : actions.split(",")) {
                 if (ak.isEmpty()) continue;
                 char actionChar = ak.charAt(0);
+                if (actionChar == 'c' && !showCallButton) continue;
                 String label = actionVerbLabel(actionChar);
 
                 Button actionBtn = new Button(activity);

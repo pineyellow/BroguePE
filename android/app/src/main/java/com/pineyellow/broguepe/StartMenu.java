@@ -136,6 +136,7 @@ final class StartMenu {
         bg.setShape(GradientDrawable.RECTANGLE);
         bg.setCornerRadius(activity.dpToPx(6));
         bg.setColor(enabled ? Palette.ITEM_BG : Palette.DISABLED_BG);
+        bg.setStroke(1, Palette.BORDER_DIM);
         if (enabled) {
             row.setBackground(new RippleDrawable(
                 ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
@@ -174,6 +175,7 @@ final class StartMenu {
         bg.setShape(GradientDrawable.RECTANGLE);
         bg.setCornerRadius(activity.dpToPx(6));
         bg.setColor(enabled ? Palette.ITEM_BG : Palette.DISABLED_BG);
+        bg.setStroke(1, Palette.BORDER_DIM);
         if (enabled) {
             row.setBackground(new RippleDrawable(
                 ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
