@@ -82,8 +82,8 @@ final class DiscoveriesOverlay {
 
                 for (int s = 0; s < sections.length(); s++) {
                     JSONObject section = sections.getJSONObject(s);
-                    panel.addView(makeSectionLabel(section.optString("label", ""),
-                                                   s == 0));
+                    if (s > 0) panel.addView(makeSectionDivider());
+                    panel.addView(makeSectionLabel(section.optString("label", "")));
                     JSONArray items = section.getJSONArray("items");
                     for (int i = 0; i < items.length(); i++) {
                         panel.addView(makeItemRow(items.getJSONObject(i)));
@@ -189,16 +189,27 @@ final class DiscoveriesOverlay {
         return column;
     }
 
-    private TextView makeSectionLabel(String label, boolean first) {
+    private TextView makeSectionLabel(String label) {
         TextView view = new TextView(activity);
         view.setText(activity.getString(R.string.discoveries_section, label));
         view.setTextColor(Palette.PALE_BLUE);
         view.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
         view.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         view.setLetterSpacing(0.1f);
-        view.setPadding(activity.dpToPx(4), activity.dpToPx(first ? 2 : 12),
+        view.setPadding(activity.dpToPx(4), activity.dpToPx(2),
                         0, activity.dpToPx(4));
         return view;
+    }
+
+    private View makeSectionDivider() {
+        View divider = new View(activity);
+        divider.setBackgroundColor(Palette.BORDER_DIM);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 1);
+        params.setMargins(activity.dpToPx(4), activity.dpToPx(8),
+            activity.dpToPx(4), activity.dpToPx(6));
+        divider.setLayoutParams(params);
+        return divider;
     }
 
     private View makeItemRow(JSONObject item) {
@@ -259,7 +270,7 @@ final class DiscoveriesOverlay {
         bg.setShape(GradientDrawable.RECTANGLE);
         bg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         bg.setColor(Palette.ITEM_BG);
-        bg.setStroke(1, Palette.BORDER_ACTIVE);
+        bg.setStroke(1, Palette.BORDER_DIM);
         btn.setBackground(new RippleDrawable(
             ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
         btn.setStateListAnimator(null);

@@ -518,6 +518,7 @@ final class ActionsToolbar {
         bg.setShape(GradientDrawable.RECTANGLE);
         bg.setCornerRadius(dp(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         bg.setColor(Palette.ITEM_BG);
+        bg.setStroke(1, Palette.BORDER_DIM);
         row.setBackground(new RippleDrawable(
             ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
 
@@ -880,6 +881,7 @@ final class ActionsToolbar {
         bg.setShape(GradientDrawable.RECTANGLE);
         bg.setCornerRadius(dp(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         bg.setColor(Palette.ITEM_BG);
+        bg.setStroke(1, Palette.BORDER_DIM);
         row.setBackground(new RippleDrawable(
             ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
 

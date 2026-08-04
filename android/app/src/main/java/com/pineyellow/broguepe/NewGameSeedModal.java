@@ -54,6 +54,7 @@ final class NewGameSeedModal extends SeedDetailsModal {
     private int selectedDifficulty = StartMenu.DIFFICULTY_DEFAULT;
     private TextView modeLabelView;
     private TextView difficultyLabelView;
+    private TextView difficultyHintView;
 
     NewGameSeedModal(BrogueActivity activity) { super(activity); }
 
@@ -77,6 +78,7 @@ final class NewGameSeedModal extends SeedDetailsModal {
         seedEdit = null;
         modeLabelView = null;
         difficultyLabelView = null;
+        difficultyHintView = null;
         super.show(seed);
     }
 
@@ -137,8 +139,20 @@ final class NewGameSeedModal extends SeedDetailsModal {
             v -> cycleDifficulty());
         difficultyLabelView = labelFromRow(difficultyRow);
 
+        difficultyHintView = new TextView(activity);
+        difficultyHintView.setText("-50% damage taken");
+        difficultyHintView.setTextColor(Palette.ACTION_BUTTON_TEXT);
+        difficultyHintView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9);
+        difficultyHintView.setTypeface(Typeface.MONOSPACE);
+        difficultyHintView.setGravity(Gravity.CENTER);
+        difficultyHintView.setIncludeFontPadding(false);
+        updateDifficultyHint();
+        panel.addView(difficultyHintView, new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT));
+
         panel.addView(ModalChrome.makeEmberSeparator(activity),
-            ModalChrome.emberSeparatorParams(activity, 8, 8, 12, 12));
+            ModalChrome.emberSeparatorParams(activity, 8, 8, 2, 12));
     }
 
     @Override
@@ -176,10 +190,19 @@ final class NewGameSeedModal extends SeedDetailsModal {
         if (difficultyLabelView != null) {
             difficultyLabelView.setText(difficultyLabel());
         }
+        updateDifficultyHint();
     }
 
     private String difficultyLabel() {
         return DIFFICULTY_LABELS[selectedDifficulty];
+    }
+
+    private void updateDifficultyHint() {
+        if (difficultyHintView != null) {
+            difficultyHintView.setVisibility(selectedDifficulty == StartMenu.DIFFICULTY_EASY
+                ? View.VISIBLE
+                : View.INVISIBLE);
+        }
     }
 
     private int boundedVariant(int variant) {

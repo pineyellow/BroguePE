@@ -35,6 +35,7 @@ final class InventoryOverlay {
     private final BrogueActivity activity;
     private final FrameLayout host;
     private View currentlyExpandedDetail;
+    private TextView currentlyExpandedChevron;
 
     InventoryOverlay(BrogueActivity activity, FrameLayout host) {
         this.activity = activity;
@@ -50,6 +51,7 @@ final class InventoryOverlay {
             }
             host.removeAllViews();
             currentlyExpandedDetail = null;
+            currentlyExpandedChevron = null;
 
             try {
                 JSONObject root = new JSONObject(json);
@@ -196,6 +198,7 @@ final class InventoryOverlay {
     void hide() {
         activity.runOnUiThread(() -> {
             currentlyExpandedDetail = null;
+            currentlyExpandedChevron = null;
             if (host.getChildCount() < 2) {
                 host.setVisibility(View.GONE);
                 host.removeAllViews();
@@ -250,6 +253,7 @@ final class InventoryOverlay {
         GradientDrawable rowBg = new GradientDrawable();
         rowBg.setShape(GradientDrawable.RECTANGLE);
         rowBg.setCornerRadius(activity.dpToPx(3));
+        rowBg.setStroke(1, Palette.BORDER_DIM);
         if (selectMode) {
             rowBg.setColor(selectable ? Palette.ITEM_BG : Palette.DISABLED_BG);
         } else {
@@ -304,7 +308,7 @@ final class InventoryOverlay {
         row.setOrientation(LinearLayout.VERTICAL);
 
         TextView chevron = new TextView(activity);
-        chevron.setText("\u25BE"); // ▾
+        chevron.setText("\u25B8"); // ▸
         chevron.setTextColor(Color.argb(120, 144, 148, 190));
         chevron.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         chevron.setPadding(activity.dpToPx(4), 0, 0, 0);
@@ -409,12 +413,16 @@ final class InventoryOverlay {
                     View prev = currentlyExpandedDetail;
                     prev.animate().alpha(0f).setDuration(120)
                         .withEndAction(() -> prev.setVisibility(View.GONE)).start();
+                    if (currentlyExpandedChevron != null) {
+                        currentlyExpandedChevron.setText("\u25B8"); // ▸
+                    }
                 }
                 currentlyExpandedDetail = detailSection;
+                currentlyExpandedChevron = chevron;
                 detailSection.setVisibility(View.VISIBLE);
                 detailSection.setAlpha(0f);
                 detailSection.animate().alpha(1f).setDuration(150).start();
-                chevron.setText("\u25B4"); // ▴
+                chevron.setText("\u25BE"); // ▾
                 row.post(() -> {
                     int rowBottom = row.getTop() + row.getHeight();
                     int visibleBottom = scrollView.getScrollY() + scrollView.getHeight();
@@ -426,7 +434,8 @@ final class InventoryOverlay {
                 detailSection.animate().alpha(0f).setDuration(120)
                     .withEndAction(() -> detailSection.setVisibility(View.GONE)).start();
                 currentlyExpandedDetail = null;
-                chevron.setText("\u25BE"); // ▾
+                currentlyExpandedChevron = null;
+                chevron.setText("\u25B8"); // ▸
             }
         });
 
@@ -449,7 +458,7 @@ final class InventoryOverlay {
         bg.setShape(GradientDrawable.RECTANGLE);
         bg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         bg.setColor(Palette.ITEM_BG);
-        bg.setStroke(1, Palette.BORDER_ACTIVE);
+        bg.setStroke(1, Palette.BORDER_DIM);
         btn.setBackground(new RippleDrawable(
             ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
         btn.setStateListAnimator(null);
