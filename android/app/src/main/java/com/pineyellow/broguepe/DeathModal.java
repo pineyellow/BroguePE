@@ -123,7 +123,7 @@ final class DeathModal {
 
         GradientDrawable panelBg = new GradientDrawable();
         panelBg.setShape(GradientDrawable.RECTANGLE);
-        panelBg.setCornerRadius(activity.dpToPx(6));
+        panelBg.setCornerRadius(activity.dpToPx(UiStyle.PANEL_CORNER_RADIUS_DP));
         panelBg.setColor(Palette.INVENTORY_BG);
         panelBg.setStroke(1, Palette.BORDER_DIM);
         panel.setBackground(panelBg);
@@ -139,8 +139,8 @@ final class DeathModal {
         header.setPadding(0, activity.dpToPx(4), 0, activity.dpToPx(8));
         panel.addView(header);
 
-        panel.addView(ModalChrome.makeEmberSeparator(activity),
-                      ModalChrome.emberSeparatorParams(activity, 8, 8, 0, 12));
+        panel.addView(ModalChrome.makeDimSeparator(activity),
+                      ModalChrome.separatorParams(activity, 8, 8, 0, 12));
 
         addLine(panel, description, Palette.GHOST_WHITE, 13);
         addLine(panel, turns + " turns", Palette.PALE_BLUE, 12);

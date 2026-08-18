@@ -129,8 +129,8 @@ final class NewGameSeedModal extends SeedDetailsModal {
 
     @Override
     protected void onBeforeActionButtons(LinearLayout panel) {
-        panel.addView(ModalChrome.makeEmberSeparator(activity),
-            ModalChrome.emberSeparatorParams(activity, 8, 8, 0, 12));
+        panel.addView(ModalChrome.makeDimSeparator(activity),
+            ModalChrome.separatorParams(activity, 8, 8, 0, 12));
 
         View modeRow = StartMenu.addButton(panel, variantLabel(), true, v -> cycleVariant());
         modeLabelView = labelFromRow(modeRow);
@@ -151,8 +151,8 @@ final class NewGameSeedModal extends SeedDetailsModal {
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT));
 
-        panel.addView(ModalChrome.makeEmberSeparator(activity),
-            ModalChrome.emberSeparatorParams(activity, 8, 8, 2, 12));
+        panel.addView(ModalChrome.makeDimSeparator(activity),
+            ModalChrome.separatorParams(activity, 8, 8, 2, 12));
     }
 
     @Override

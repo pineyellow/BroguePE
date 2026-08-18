@@ -2982,9 +2982,10 @@ char displayInventory(unsigned short categoryMask,
     char promptEsc[COLS * 2];
     jsonEscape(promptEsc, androidInventoryPrompt, sizeof(promptEsc));
     pos += snprintf(json, sizeof(json),
-        "{\"mode\":\"%s\",\"prompt\":\"%s\",\"items\":[",
+        "{\"mode\":\"%s\",\"prompt\":\"%s\",\"packCount\":%d,\"packCapacity\":%d,\"items\":[",
         waitForAcknowledge ? "inventory" : "select",
-        promptEsc);
+        promptEsc,
+        numberOfItemsInPack(), MAX_PACK_ITEMS);
 
     for (i = 0; i < itemNumber; i++) {
         theItem = itemList[i];

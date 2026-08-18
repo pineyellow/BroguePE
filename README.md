@@ -1,6 +1,6 @@
 # Brogue PE
 
-Brogue PE is a remastered, Android-focused edition of the classic dungeon-crawling roguelike Brogue. It keeps the original tactical game while rebuilding the mobile experience around touch controls, clearer menus, faster rendering, and a cleaner Android-only project.
+Brogue: Phone Edition is an Android-focused edition of the classic dungeon-crawling roguelike Brogue. It keeps the original tactical gameplay while rebuilding the mobile experience around touch controls.
 
 This is an unofficial derivative project. It is not an official release of Brogue, Brogue: Community Edition, or Brogue CE Android.
 
@@ -9,9 +9,6 @@ This is an unofficial derivative project. It is not an official release of Brogu
 - Configurable 8-way d-pad with held movement
 - Gesture-based free look camera with smooth tracking
 - Camera zoom controls using pinch gestures
-- VSync and high refresh rate support with framerate-independent effects
-- SDL renderer recovery after surface or context loss
-- Camera-transformed render layers, and rounded corner inset handling
 - Many small UI, layout, interaction, and mobile usability refinements
 
 ## Downloads
@@ -23,7 +20,7 @@ Download the latest [release](https://github.com/pineyellow/BroguePE/releases/la
 See [BUILD.md](BUILD.md) for requirements and build instructions.
 
 ## Project lineage and credits
-1. **Brogue**, created by [Brian Walker (Pender)](https://sites.google.com/site/broguegame/)
+1. **[Brogue](https://sites.google.com/site/broguegame/)**, created by Brian Walker (Pender)
 2. **[Brogue: Community Edition](https://github.com/tmewett/BrogueCE)**, maintained by tmewett and the Brogue CE contributors
 3. **[Brogue CE Android](https://github.com/tyrannotorus/c-brogue-ce-android)**, ported and adapted for Android by tyrannotorus
 4. **Brogue PE**, a modified and remastered version of the Android port

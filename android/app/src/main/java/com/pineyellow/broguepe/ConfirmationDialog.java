@@ -119,7 +119,7 @@ final class ConfirmationDialog {
     private GradientDrawable panelBackground() {
         GradientDrawable background = new GradientDrawable();
         background.setColor(Palette.INVENTORY_BG);
-        background.setCornerRadius(activity.dpToPx(5));
+        background.setCornerRadius(activity.dpToPx(UiStyle.PANEL_CORNER_RADIUS_DP));
         background.setStroke(1, Palette.BORDER_DIM);
         return background;
     }

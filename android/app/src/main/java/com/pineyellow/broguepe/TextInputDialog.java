@@ -170,7 +170,7 @@ final class TextInputDialog {
             layout.addView(buttonRow, buttonsParams);
 
             GradientDrawable dialogBg = new GradientDrawable();
-            dialogBg.setCornerRadius(activity.dpToPx(6));
+            dialogBg.setCornerRadius(activity.dpToPx(UiStyle.PANEL_CORNER_RADIUS_DP));
             dialogBg.setColor(Palette.INVENTORY_BG);
             dialogBg.setStroke(1, Palette.BORDER_DIM);
             layout.setBackground(dialogBg);
@@ -289,7 +289,7 @@ final class TextInputDialog {
 
             GradientDrawable dialogBg = new GradientDrawable();
             dialogBg.setShape(GradientDrawable.RECTANGLE);
-            dialogBg.setCornerRadius(activity.dpToPx(6));
+            dialogBg.setCornerRadius(activity.dpToPx(UiStyle.PANEL_CORNER_RADIUS_DP));
             dialogBg.setColor(Palette.INVENTORY_BG);
             dialogBg.setStroke(1, Palette.BORDER_DIM);
             layout.setBackground(dialogBg);

@@ -416,7 +416,9 @@ final class ActionsToolbar {
         GradientDrawable panelBg = new GradientDrawable();
         panelBg.setShape(GradientDrawable.RECTANGLE);
         panelBg.setCornerRadii(new float[]{
-            dp(4), dp(4), 0, 0, 0, 0, dp(4), dp(4)});
+            dp(UiStyle.PANEL_CORNER_RADIUS_DP), dp(UiStyle.PANEL_CORNER_RADIUS_DP),
+            0, 0, 0, 0,
+            dp(UiStyle.PANEL_CORNER_RADIUS_DP), dp(UiStyle.PANEL_CORNER_RADIUS_DP)});
         panelBg.setColor(Palette.INVENTORY_BG);
         panelBg.setStroke(1, Palette.BORDER_DIM);
 
@@ -434,10 +436,7 @@ final class ActionsToolbar {
         panel.addView(header);
 
         View headerSep = new View(activity);
-        GradientDrawable sepGrad = new GradientDrawable(
-            GradientDrawable.Orientation.LEFT_RIGHT,
-            new int[]{ Palette.DIM_BLUE_GRAY, Palette.DIM_WHITE_BLUE, Palette.DIM_BLUE_GRAY });
-        headerSep.setBackground(sepGrad);
+        headerSep.setBackgroundColor(Palette.BORDER_DIM);
         LinearLayout.LayoutParams hSepP = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 1);
         hSepP.setMargins(dp(4), 0, dp(4), dp(8));
@@ -919,7 +918,7 @@ final class ActionsToolbar {
     private GradientDrawable makeSubmenuBackground() {
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(dp(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
+        bg.setCornerRadius(dp(UiStyle.PANEL_CORNER_RADIUS_DP));
         bg.setColor(Palette.SUBMENU_BG);
         bg.setStroke(1, Palette.BORDER_DIM);
         return bg;

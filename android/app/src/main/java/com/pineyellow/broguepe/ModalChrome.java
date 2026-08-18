@@ -19,7 +19,7 @@ final class ModalChrome {
     private ModalChrome() {}
 
     /** Attaches a translucent backdrop to {@code root} (tap to popModal),
-     *  creates the panel with background + header + ember separator, and
+     *  creates the panel with background + header + dim separator, and
      *  returns the panel for callers to append content to.
      *  The caller is responsible for the scroll wrap / addContentView /
      *  animation — see {@link #present(BrogueActivity, FrameLayout, LinearLayout)}. */
@@ -38,7 +38,7 @@ final class ModalChrome {
 
         GradientDrawable panelBg = new GradientDrawable();
         panelBg.setShape(GradientDrawable.RECTANGLE);
-        panelBg.setCornerRadius(activity.dpToPx(6));
+        panelBg.setCornerRadius(activity.dpToPx(UiStyle.PANEL_CORNER_RADIUS_DP));
         panelBg.setColor(Palette.INVENTORY_BG);
         panelBg.setStroke(1, Palette.BORDER_DIM);
         panel.setBackground(panelBg);
@@ -54,23 +54,18 @@ final class ModalChrome {
         header.setPadding(0, activity.dpToPx(4), 0, activity.dpToPx(8));
         panel.addView(header);
 
-        panel.addView(makeEmberSeparator(activity),
-                      emberSeparatorParams(activity, 8, 8, 0, 12));
+        panel.addView(makeDimSeparator(activity),
+                      separatorParams(activity, 8, 8, 0, 12));
         return panel;
     }
 
-    static View makeEmberSeparator(BrogueActivity activity) {
+    static View makeDimSeparator(BrogueActivity activity) {
         View sep = new View(activity);
-        GradientDrawable g = new GradientDrawable(
-            GradientDrawable.Orientation.LEFT_RIGHT,
-            new int[]{ Palette.DIM_BLUE_GRAY,
-                       Palette.DIM_WHITE_BLUE,
-                       Palette.DIM_BLUE_GRAY });
-        sep.setBackground(g);
+        sep.setBackgroundColor(Palette.BORDER_DIM);
         return sep;
     }
 
-    static LinearLayout.LayoutParams emberSeparatorParams(BrogueActivity activity,
+    static LinearLayout.LayoutParams separatorParams(BrogueActivity activity,
             int leftDp, int rightDp, int topDp, int bottomDp) {
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 1);

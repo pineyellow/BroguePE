@@ -72,8 +72,10 @@ final class DiscoveriesOverlay {
                 GradientDrawable panelBg = new GradientDrawable();
                 panelBg.setShape(GradientDrawable.RECTANGLE);
                 panelBg.setCornerRadii(new float[]{
-                    activity.dpToPx(4), activity.dpToPx(4), 0, 0, 0, 0,
-                    activity.dpToPx(4), activity.dpToPx(4)});
+                    activity.dpToPx(UiStyle.PANEL_CORNER_RADIUS_DP),
+                    activity.dpToPx(UiStyle.PANEL_CORNER_RADIUS_DP), 0, 0, 0, 0,
+                    activity.dpToPx(UiStyle.PANEL_CORNER_RADIUS_DP),
+                    activity.dpToPx(UiStyle.PANEL_CORNER_RADIUS_DP)});
                 panelBg.setColor(Palette.INVENTORY_BG);
                 panelBg.setStroke(1, Palette.BORDER_DIM);
                 scrollView.setBackground(panelBg);
@@ -177,10 +179,7 @@ final class DiscoveriesOverlay {
         column.addView(row);
 
         View sep = new View(activity);
-        GradientDrawable sepGrad = new GradientDrawable(
-            GradientDrawable.Orientation.LEFT_RIGHT,
-            new int[]{ Palette.DIM_BLUE_GRAY, Palette.DIM_WHITE_BLUE, Palette.DIM_BLUE_GRAY });
-        sep.setBackground(sepGrad);
+        sep.setBackgroundColor(Palette.BORDER_DIM);
         LinearLayout.LayoutParams sepP = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 1);
         sepP.setMargins(activity.dpToPx(4), 0, activity.dpToPx(4), activity.dpToPx(6));

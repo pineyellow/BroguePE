@@ -90,8 +90,10 @@ final class InventoryOverlay {
                 GradientDrawable panelBg = new GradientDrawable();
                 panelBg.setShape(GradientDrawable.RECTANGLE);
                 panelBg.setCornerRadii(new float[]{
-                    activity.dpToPx(4), activity.dpToPx(4), 0, 0, 0, 0,
-                    activity.dpToPx(4), activity.dpToPx(4)});
+                    activity.dpToPx(UiStyle.PANEL_CORNER_RADIUS_DP),
+                    activity.dpToPx(UiStyle.PANEL_CORNER_RADIUS_DP), 0, 0, 0, 0,
+                    activity.dpToPx(UiStyle.PANEL_CORNER_RADIUS_DP),
+                    activity.dpToPx(UiStyle.PANEL_CORNER_RADIUS_DP)});
                 panelBg.setColor(Palette.INVENTORY_BG);
                 panelBg.setStroke(1, Palette.BORDER_DIM);
                 scrollView.setBackground(panelBg);
@@ -101,8 +103,10 @@ final class InventoryOverlay {
                 headerBar.setGravity(Gravity.CENTER_VERTICAL);
 
                 TextView header = new TextView(activity);
-                // 26 = a–z inventory letter cap (MAX_PACK_ITEMS in the engine).
-                String inventoryHeader = "INVENTORY ( " + items.length() + " / 26 )";
+                int packCount = root.optInt("packCount", items.length());
+                int packCapacity = root.optInt("packCapacity", 26);
+                String inventoryHeader = "INVENTORY ( " + packCount + " / "
+                    + packCapacity + " )";
                 header.setText(selectMode && !prompt.isEmpty() ? prompt
                     : selectMode ? "SELECT ITEM" : inventoryHeader);
                 header.setTextColor(selectMode ? Palette.PALE_BLUE : Palette.DIM_WHITE_BLUE);
@@ -130,10 +134,7 @@ final class InventoryOverlay {
                 panel.addView(headerBar);
 
                 View headerSep = new View(activity);
-                GradientDrawable sepGrad = new GradientDrawable(
-                    GradientDrawable.Orientation.LEFT_RIGHT,
-                    new int[]{ Palette.DIM_BLUE_GRAY, Palette.DIM_WHITE_BLUE, Palette.DIM_BLUE_GRAY });
-                headerSep.setBackground(sepGrad);
+                headerSep.setBackgroundColor(Palette.BORDER_DIM);
                 LinearLayout.LayoutParams hSepP = new LinearLayout.LayoutParams(
                     LinearLayout.LayoutParams.MATCH_PARENT, 1);
                 hSepP.setMargins(activity.dpToPx(4), 0, activity.dpToPx(4), activity.dpToPx(6));
@@ -263,15 +264,17 @@ final class InventoryOverlay {
         headerRow.setBackground(new RippleDrawable(
             ColorStateList.valueOf(Palette.RIPPLE_GLOW), rowBg, null));
 
-        headerRow.setOnTouchListener((v, e) -> {
-            if (e.getAction() == MotionEvent.ACTION_DOWN) {
-                v.animate().scaleX(0.98f).scaleY(0.98f).setDuration(60).start();
-            } else if (e.getAction() == MotionEvent.ACTION_UP
-                    || e.getAction() == MotionEvent.ACTION_CANCEL) {
-                v.animate().scaleX(1f).scaleY(1f).setDuration(100).start();
-            }
-            return false;
-        });
+        if (!selectMode || selectable) {
+            headerRow.setOnTouchListener((v, e) -> {
+                if (e.getAction() == MotionEvent.ACTION_DOWN) {
+                    v.animate().scaleX(0.98f).scaleY(0.98f).setDuration(60).start();
+                } else if (e.getAction() == MotionEvent.ACTION_UP
+                        || e.getAction() == MotionEvent.ACTION_CANCEL) {
+                    v.animate().scaleX(1f).scaleY(1f).setDuration(100).start();
+                }
+                return false;
+            });
+        }
 
         addItemIcon(headerRow, item, selectable);
         addMagicIndicator(headerRow, magicPolarity);

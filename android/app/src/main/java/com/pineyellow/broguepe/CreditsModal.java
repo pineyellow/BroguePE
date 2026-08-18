@@ -59,7 +59,7 @@ final class CreditsModal {
 
         GradientDrawable panelBg = new GradientDrawable();
         panelBg.setShape(GradientDrawable.RECTANGLE);
-        panelBg.setCornerRadius(activity.dpToPx(10));
+        panelBg.setCornerRadius(activity.dpToPx(UiStyle.PANEL_CORNER_RADIUS_DP));
         panelBg.setColor(Palette.INVENTORY_BG);
         panelBg.setStroke(1, Palette.BORDER_DIM);
         panel.setBackground(panelBg);
@@ -76,10 +76,7 @@ final class CreditsModal {
         panel.addView(header);
 
         View sep = new View(activity);
-        GradientDrawable sepGrad = new GradientDrawable(
-            GradientDrawable.Orientation.LEFT_RIGHT,
-            new int[]{ Palette.DIM_BLUE_GRAY, Palette.DIM_WHITE_BLUE, Palette.DIM_BLUE_GRAY });
-        sep.setBackground(sepGrad);
+        sep.setBackgroundColor(Palette.BORDER_DIM);
         LinearLayout.LayoutParams sepP = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 1);
         sepP.setMargins(activity.dpToPx(8), 0, activity.dpToPx(8), activity.dpToPx(12));

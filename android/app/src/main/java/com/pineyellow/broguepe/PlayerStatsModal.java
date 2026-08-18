@@ -96,8 +96,8 @@ final class PlayerStatsModal {
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT));
 
-        panel.addView(ModalChrome.makeEmberSeparator(activity),
-            ModalChrome.emberSeparatorParams(activity, 8, 8, 8, 12));
+        panel.addView(ModalChrome.makeDimSeparator(activity),
+            ModalChrome.separatorParams(activity, 8, 8, 8, 12));
         panel.addView(statsContent);
         renderStats(statsContent);
 
