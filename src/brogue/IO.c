@@ -555,7 +555,7 @@ void mainInputLoop() {
     canceled = false;
     rogue.cursorMode = false; // Controls whether the keyboard moves the cursor or the character.
     steps = 0;
-    boolean androidTextDismissed = false;
+    pos androidDismissedTextLoc = INVALID_POS;
 
     rogue.cursorPathIntensity = (rogue.cursorMode ? 50 : 20);
 
@@ -606,6 +606,12 @@ void mainInputLoop() {
 
         do {
             textDisplayed = false;
+
+            // A dismissed description stays dismissed for its selected tile.
+            // Moving the cursor makes descriptions eligible to appear again.
+            if (!posEq(androidDismissedTextLoc, rogue.cursorLoc)) {
+                androidDismissedTextLoc = INVALID_POS;
+            }
 
             // Draw the cursor and path
             if (isPosInMap(oldTargetLoc)) {
@@ -668,9 +674,9 @@ void mainInputLoop() {
                     rogue.playbackMode = false;
 
                     focusedOnMonster = true;
-                    if (androidTextDismissed) {
-                        androidTextDismissed = false;
-                    } else if (monst != &player && (!player.status[STATUS_HALLUCINATING] || rogue.playbackOmniscience || player.status[STATUS_TELEPATHIC])) {
+                    if (!posEq(androidDismissedTextLoc, rogue.cursorLoc)
+                        && monst != &player
+                        && (!player.status[STATUS_HALLUCINATING] || rogue.playbackOmniscience || player.status[STATUS_TELEPATHIC])) {
                         rbuf = saveDisplayBuffer();
                         enterModalMode();
                         printMonsterDetails(monst);
@@ -682,9 +688,8 @@ void mainInputLoop() {
                     rogue.playbackMode = false;
 
                     focusedOnItem = true;
-                    if (androidTextDismissed) {
-                        androidTextDismissed = false;
-                    } else if (!player.status[STATUS_HALLUCINATING] || rogue.playbackOmniscience) {
+                    if (!posEq(androidDismissedTextLoc, rogue.cursorLoc)
+                        && (!player.status[STATUS_HALLUCINATING] || rogue.playbackOmniscience)) {
                         rbuf = saveDisplayBuffer();
                         enterModalMode();
                         printFloorItemDetails(theItem);
@@ -711,7 +716,7 @@ void mainInputLoop() {
                 targetConfirmed = false;
                 canceled = false;
                 doEvent = false;
-                androidTextDismissed = true;
+                androidDismissedTextLoc = rogue.cursorLoc;
             } else {
             rogue.playbackMode = playingBack;
             doEvent = moveCursor(&targetConfirmed, &canceled, &tabKey, &rogue.cursorLoc, &theEvent, &state, !textDisplayed, rogue.cursorMode, true);
@@ -2625,6 +2630,7 @@ void executeKeystroke(signed long keystroke, boolean controlKey, boolean shiftKe
         case PERIOD_KEY:
         case NUMPAD_5:
             androidRecenterCameraOnPlayer();
+            hideCursor();
             considerCautiousMode();
             rogue.justRested = true;
             recordKeystroke(REST_KEY, false, false);

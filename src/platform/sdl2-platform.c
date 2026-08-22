@@ -8,6 +8,7 @@
 
 #define PAUSE_BETWEEN_EVENT_POLLING     1L
 #define TERRAIN_COLOR_DANCE_INTERVAL_MS 36ULL
+#define AUTOMATION_SCHEDULE_RESET_LAG_MS 100ULL
 #define MAX_REMAPS  128
 
 boolean androidAppInBackground = false;
@@ -347,6 +348,7 @@ static void _gameLoop() {
 }
 
 static long lastDelayTime = 0;
+static Uint64 automationPauseDeadline = 0;
 
 // Like SDL_Delay, but reduces the delay if time has passed since the last delay
 static void _delayUpTo(short ms) {
@@ -365,18 +367,59 @@ static void _delayUpTo(short ms) {
     lastDelayTime = SDL_GetTicks();
 }
 
+static boolean pauseWasInterrupted(PauseBehavior behavior) {
+    if (lastEvent.eventType != EVENT_ERROR
+        && (lastEvent.eventType != MOUSE_ENTERED_CELL || behavior.interuptForMouseMove)) {
+        return true;
+    }
+
+    return pollBrogueEvent(&lastEvent, false)
+        && lastEvent.eventType != EVENT_ERROR
+        && (lastEvent.eventType != MOUSE_ENTERED_CELL || behavior.interuptForMouseMove);
+}
+
 static boolean _pauseForMilliseconds(short ms, PauseBehavior behavior) {
+    if (rogue.automationActive && !androidAppInBackground && ms > 0) {
+        Uint64 now = SDL_GetTicks64();
+
+        if (!automationPauseDeadline) {
+            automationPauseDeadline = now + (Uint64)ms;
+        } else {
+            automationPauseDeadline += (Uint64)ms;
+            if (now > automationPauseDeadline + AUTOMATION_SCHEDULE_RESET_LAG_MS) {
+                // Do not replay missed automation time in a burst after a real stall.
+                automationPauseDeadline = now;
+            }
+        }
+
+        do {
+            Uint64 renderStart = SDL_GetTicks64();
+            updateScreen();
+
+            if (pauseWasInterrupted(behavior)) {
+                automationPauseDeadline = 0;
+                lastDelayTime = SDL_GetTicks();
+                return true;
+            }
+
+            now = SDL_GetTicks64();
+            if (now < automationPauseDeadline && now == renderStart) {
+                // VSync normally paces this loop. Avoid spinning if a driver
+                // returns from presentation without waiting for a refresh.
+                SDL_Delay(1);
+                now = SDL_GetTicks64();
+            }
+        } while (now < automationPauseDeadline);
+
+        lastDelayTime = SDL_GetTicks();
+        return false;
+    }
+
+    automationPauseDeadline = 0;
     updateScreen();
     _delayUpTo(ms);
 
-    if (lastEvent.eventType != EVENT_ERROR
-        && (lastEvent.eventType != MOUSE_ENTERED_CELL || behavior.interuptForMouseMove)) {
-        return true; // SDL already gave us an interrupting event to process
-    }
-
-    return pollBrogueEvent(&lastEvent, false) // ask SDL for a new event if one is available
-        && lastEvent.eventType != EVENT_ERROR // and check if it is interrupting
-        && (lastEvent.eventType != MOUSE_ENTERED_CELL || behavior.interuptForMouseMove);
+    return pauseWasInterrupted(behavior);
 }
 
 

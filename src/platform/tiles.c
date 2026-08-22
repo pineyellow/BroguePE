@@ -26,6 +26,10 @@ static boolean messageArchiveActive = false;
 #define CAMERA_FAST_FOLLOW_LERP 0.40f
 #define CAMERA_REFERENCE_FRAME_MS 36.0
 
+#ifndef NDEBUG
+#define DEBUG_FPS_SAMPLE_MS 500.0
+#endif
+
 // Horizontal position of the top message log and bottom flavor text.
 // Measured in character cells: negative moves left, positive moves right.
 static float androidMessageTextXOffsetCells = 0.0f;
@@ -35,6 +39,11 @@ static float androidMessageTextXOffsetCells = 0.0f;
 static float androidSidebarXOffsetCells = 2.0f;
 
 static Uint64 cameraLastUpdateCounter = 0;
+
+#ifndef NDEBUG
+static Uint64 debugFpsSampleStartCounter = 0;
+static unsigned int debugFpsPresentedFrames = 0;
+#endif
 
 static float constrainCameraPan(float pan, int contentSize, int screenSize) {
     if (contentSize <= screenSize) {
@@ -85,6 +94,35 @@ static float cameraReferenceAlpha(void) {
         default:
             return CAMERA_SMOOTH_FOLLOW_LERP;
     }
+}
+
+#ifndef NDEBUG
+static void recordDebugPresentedFrame(void) {
+    Uint64 now = SDL_GetPerformanceCounter();
+    Uint64 frequency = SDL_GetPerformanceFrequency();
+    if (!debugFpsSampleStartCounter || !frequency) {
+        debugFpsSampleStartCounter = now;
+        debugFpsPresentedFrames = 0;
+        return;
+    }
+
+    debugFpsPresentedFrames++;
+    double elapsedMs = (double)(now - debugFpsSampleStartCounter) * 1000.0
+        / (double)frequency;
+    if (elapsedMs >= DEBUG_FPS_SAMPLE_MS) {
+        int fps = (int)lround(debugFpsPresentedFrames * 1000.0 / elapsedMs);
+        androidUpdateDebugFps(fps);
+        debugFpsSampleStartCounter = now;
+        debugFpsPresentedFrames = 0;
+    }
+}
+#endif
+
+static void presentFrame(SDL_Renderer *renderer) {
+    SDL_RenderPresent(renderer);
+#ifndef NDEBUG
+    recordDebugPresentedFrame();
+#endif
 }
 
 static int sidebarOffsetPixels(int rowCenterY, float cellWidth) {
@@ -994,7 +1032,7 @@ void updateScreen() {
         createTextures(renderer, fitW, fitH);
         renderTiles(renderer, loadingTiles,
                     (screenW - fitW) / 2, (screenH - fitH) / 2, fitW, fitH);
-        SDL_RenderPresent(renderer);
+        presentFrame(renderer);
         return;
     }
 
@@ -1184,7 +1222,7 @@ void updateScreen() {
         }
     }
 
-    SDL_RenderPresent(renderer);
+    presentFrame(renderer);
 
     // Mark all tiles clean
     for (int y = 0; y < ROWS; y++)

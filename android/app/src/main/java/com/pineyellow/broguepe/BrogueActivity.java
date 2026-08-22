@@ -4,10 +4,12 @@ import android.app.Dialog;
 import android.graphics.Color;
 import android.graphics.Bitmap;
 import android.graphics.Point;
+import android.graphics.Typeface;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
+import android.util.TypedValue;
 import android.view.Display;
 import android.view.Gravity;
 import android.view.PixelCopy;
@@ -22,6 +24,7 @@ import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.TextView;
 
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -55,6 +58,7 @@ public class BrogueActivity extends SDLActivity {
     private boolean hasPaused;
     private Object appBackCallback;
     private PlaytimeTracker playtimeTracker;
+    private TextView debugFpsView;
 
     // Feature classes. Package-private so related UI components can reference
     // one another directly.
@@ -161,6 +165,10 @@ public class BrogueActivity extends SDLActivity {
         addContentView(resumeInputBlocker, new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT));
+
+        if (BuildConfig.DEBUG) {
+            addDebugFpsOverlay();
+        }
 
         setBackHandlingEnabled(true);
 
@@ -355,6 +363,40 @@ public class BrogueActivity extends SDLActivity {
             attributes.preferredDisplayModeId = bestMode.getModeId();
             getWindow().setAttributes(attributes);
         }
+    }
+
+    private void addDebugFpsOverlay() {
+        debugFpsView = new TextView(this);
+        debugFpsView.setText("FPS: --");
+        debugFpsView.setTextColor(Color.WHITE);
+        debugFpsView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        debugFpsView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        debugFpsView.setIncludeFontPadding(false);
+        debugFpsView.setBackgroundColor(Color.argb(170, 0, 0, 0));
+        int horizontalPadding = dpToPx(4);
+        int verticalPadding = dpToPx(2);
+        debugFpsView.setPadding(horizontalPadding, verticalPadding,
+            horizontalPadding, verticalPadding);
+        debugFpsView.setClickable(false);
+        debugFpsView.setFocusable(false);
+        debugFpsView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+
+        FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.TOP | Gravity.START);
+        int margin = dpToPx(6);
+        params.setMargins(margin, margin, 0, 0);
+        addContentView(debugFpsView, params);
+    }
+
+    /** Receives the rate of completed SDL frame presentations. Debug builds only. */
+    public void updateDebugFps(final int fps) {
+        if (!BuildConfig.DEBUG || debugFpsView == null) return;
+        debugFpsView.post(() -> {
+            debugFpsView.setText("FPS: " + fps);
+            debugFpsView.bringToFront();
+        });
     }
 
     // ---- JNI entry points -------------------------------------------------

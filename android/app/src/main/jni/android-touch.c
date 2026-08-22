@@ -184,6 +184,18 @@ void androidSetRestoringVisible(boolean visible) {
     (*env)->DeleteLocalRef(env, activity);
 }
 
+#ifndef NDEBUG
+void androidUpdateDebugFps(int fps) {
+    JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();
+    jobject activity = (jobject)SDL_AndroidGetActivity();
+    jclass cls = (*env)->GetObjectClass(env, activity);
+    jmethodID mid = (*env)->GetMethodID(env, cls, "updateDebugFps", "(I)V");
+    if (mid) (*env)->CallVoidMethod(env, activity, mid, (jint)fps);
+    (*env)->DeleteLocalRef(env, cls);
+    (*env)->DeleteLocalRef(env, activity);
+}
+#endif
+
 static boolean androidGetSettingBool(const char *key) {
     JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();
     jobject activity = (jobject)SDL_AndroidGetActivity();

@@ -97,4 +97,9 @@ extern boolean androidCameraSnap;
  * frame. Safe to call repeatedly. */
 void androidRecenterCameraOnPlayer(void);
 
+#ifndef NDEBUG
+/* Update the Java FPS overlay. Not compiled into release native builds. */
+void androidUpdateDebugFps(int fps);
+#endif
+
 #endif
