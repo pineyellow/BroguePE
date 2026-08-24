@@ -22,6 +22,9 @@
  */
 
 
+#include <stdarg.h>
+#include <stdint.h>
+
 #include "Rogue.h"
 #include "GlobalsBase.h"
 #include "Globals.h"
@@ -45,6 +48,70 @@ typedef enum {
 
 static AndroidInventorySelectionFilter androidInventorySelectionFilter = ANDROID_INVENTORY_FILTER_NONE;
 static boolean androidInventoryHideUnselectable = false;
+
+#define JSON_INITIAL_CAPACITY 16384
+
+typedef struct {
+    char *data;
+    size_t length;
+    size_t capacity;
+} jsonBuffer;
+
+static boolean initializeJsonBuffer(jsonBuffer *buffer) {
+    buffer->data = malloc(JSON_INITIAL_CAPACITY);
+    buffer->length = 0;
+    buffer->capacity = buffer->data ? JSON_INITIAL_CAPACITY : 0;
+    if (!buffer->data) {
+        return false;
+    }
+    buffer->data[0] = '\0';
+    return true;
+}
+
+static void freeJsonBuffer(jsonBuffer *buffer) {
+    free(buffer->data);
+    buffer->data = NULL;
+    buffer->length = 0;
+    buffer->capacity = 0;
+}
+
+static boolean appendJsonFormat(jsonBuffer *buffer, const char *format, ...) {
+    while (true) {
+        size_t available = buffer->capacity - buffer->length;
+        va_list args;
+        va_start(args, format);
+        int written = vsnprintf(buffer->data + buffer->length, available, format, args);
+        va_end(args);
+
+        if (written < 0) {
+            return false;
+        }
+        if ((size_t) written < available) {
+            buffer->length += (size_t) written;
+            return true;
+        }
+        if ((size_t) written > SIZE_MAX - buffer->length - 1) {
+            return false;
+        }
+
+        size_t required = buffer->length + (size_t) written + 1;
+        size_t newCapacity = buffer->capacity;
+        while (newCapacity < required) {
+            if (newCapacity > SIZE_MAX / 2) {
+                newCapacity = required;
+                break;
+            }
+            newCapacity *= 2;
+        }
+
+        char *grown = realloc(buffer->data, newCapacity);
+        if (!grown) {
+            return false;
+        }
+        buffer->data = grown;
+        buffer->capacity = newCapacity;
+    }
+}
 
 item *initializeItem() {
     short i;
@@ -2975,19 +3042,21 @@ char displayInventory(unsigned short categoryMask,
     // Serialize inventory to JSON for the native Android UI.
     // mode: "inventory" = full browse with actions, "select" = pick one item.
     extern char androidInventoryPrompt[COLS];
-    char json[16384];
-    int pos = 0;
+    jsonBuffer json;
+    boolean jsonOK = initializeJsonBuffer(&json);
     int visibleItemCount = 0;
     int visibleEquippedCount = 0;
     char promptEsc[COLS * 2];
     jsonEscape(promptEsc, androidInventoryPrompt, sizeof(promptEsc));
-    pos += snprintf(json, sizeof(json),
+    if (jsonOK) {
+        jsonOK = appendJsonFormat(&json,
         "{\"mode\":\"%s\",\"prompt\":\"%s\",\"packCount\":%d,\"packCapacity\":%d,\"items\":[",
         waitForAcknowledge ? "inventory" : "select",
         promptEsc,
         numberOfItemsInPack(), MAX_PACK_ITEMS);
+    }
 
-    for (i = 0; i < itemNumber; i++) {
+    for (i = 0; i < itemNumber && jsonOK; i++) {
         theItem = itemList[i];
 
         // Get plain item name (no color escapes).
@@ -3048,7 +3117,7 @@ char displayInventory(unsigned short categoryMask,
             char descEsc[COLS*200];
             jsonEscape(descEsc, descClean, sizeof(descEsc));
 
-            pos += snprintf(json + pos, sizeof(json) - pos,
+            jsonOK = appendJsonFormat(&json,
                 "%s{\"letter\":\"%c\",\"name\":\"%s\",\"desc\":\"%s\","
                 "\"category\":%u,\"equipped\":%s,\"selectable\":%s,"
                 "\"actions\":\"%s\",\"equippedCount\":%d,\"magicPolarity\":%d,"
@@ -3063,7 +3132,7 @@ char displayInventory(unsigned short categoryMask,
                 tileGlyph, textGlyph, iconRed, iconGreen, iconBlue);
         } else {
             // Selection mode: no description or actions needed.
-            pos += snprintf(json + pos, sizeof(json) - pos,
+            jsonOK = appendJsonFormat(&json,
                 "%s{\"letter\":\"%c\",\"name\":\"%s\","
                 "\"category\":%u,\"equipped\":%s,\"selectable\":%s,"
                 "\"equippedCount\":%d,\"magicPolarity\":%d,"
@@ -3079,11 +3148,19 @@ char displayInventory(unsigned short categoryMask,
         }
         visibleItemCount++;
     }
-    pos += snprintf(json + pos, sizeof(json) - pos, "]}");
+    if (jsonOK) {
+        jsonOK = appendJsonFormat(&json, "]}");
+    }
+    if (!jsonOK) {
+        freeJsonBuffer(&json);
+        message("Unable to display inventory.", 0);
+        restoreRNG;
+        return 0;
+    }
 
     // Show native inventory and wait for user input.
     if (!rogue.playbackMode) {
-        androidShowInventory(json);
+        androidShowInventory(json.data);
     }
 
     // Event loop: wait for item letter then action key, or ESCAPE to cancel.
@@ -3109,7 +3186,7 @@ char displayInventory(unsigned short categoryMask,
             if (displayDiscoveries() != INVENTORY_KEY) {
                 break;
             }
-            androidShowInventory(json);
+            androidShowInventory(json.data);
             waitingForAction = false;
             theItem = NULL;
             continue;
@@ -3140,24 +3217,31 @@ char displayInventory(unsigned short categoryMask,
 
             switch (key) {
                 case APPLY_KEY:
+                    freeJsonBuffer(&json);
                     apply(theItem);
                     return 0;
                 case EQUIP_KEY:
+                    freeJsonBuffer(&json);
                     equip(theItem);
                     return 0;
                 case UNEQUIP_KEY:
+                    freeJsonBuffer(&json);
                     unequip(theItem);
                     return 0;
                 case DROP_KEY:
+                    freeJsonBuffer(&json);
                     drop(theItem);
                     return 0;
                 case THROW_KEY:
+                    freeJsonBuffer(&json);
                     throwCommand(theItem, false);
                     return 0;
                 case CALL_KEY:
+                    freeJsonBuffer(&json);
                     call(theItem);
                     return 0;
                 case ESCAPE_KEY:
+                    freeJsonBuffer(&json);
                     return 0;
                 default:
                     // Unknown action, treat as cancel on this item, go back to list.
@@ -3165,7 +3249,7 @@ char displayInventory(unsigned short categoryMask,
                     waitingForAction = false;
                     theItem = NULL;
                     if (!rogue.playbackMode) {
-                        androidShowInventory(json); // re-show
+                        androidShowInventory(json.data); // re-show
                     }
                     break;
             }
@@ -3175,6 +3259,7 @@ char displayInventory(unsigned short categoryMask,
     if (!rogue.playbackMode) {
         androidHideInventory();
     }
+    freeJsonBuffer(&json);
     restoreRNG;
     return theKey;
 }
@@ -3199,11 +3284,13 @@ char displayDiscoveries(void) {
     };
     const int sectionCount = sizeof(sections) / sizeof(sections[0]);
 
-    char json[16384];
-    int pos = 0;
-    pos += snprintf(json, sizeof(json), "{\"sections\":[");
+    jsonBuffer json;
+    boolean jsonOK = initializeJsonBuffer(&json);
+    if (jsonOK) {
+        jsonOK = appendJsonFormat(&json, "{\"sections\":[");
+    }
 
-    for (int s = 0; s < sectionCount; s++) {
+    for (int s = 0; s < sectionCount && jsonOK; s++) {
         itemTable *theTable = tableForItemCategory(sections[s].category);
         short count = sections[s].count;
 
@@ -3215,10 +3302,10 @@ char displayDiscoveries(void) {
             }
         }
 
-        pos += snprintf(json + pos, sizeof(json) - pos,
+        jsonOK = appendJsonFormat(&json,
             "%s{\"label\":\"%s\",\"items\":[", (s > 0 ? "," : ""), sections[s].label);
 
-        for (short i = 0; i < count; i++) {
+        for (short i = 0; i < count && jsonOK; i++) {
             char nameUpper[COLS];
             strncpy(nameUpper, theTable[i].name, sizeof(nameUpper) - 1);
             nameUpper[sizeof(nameUpper) - 1] = '\0';
@@ -3235,17 +3322,26 @@ char displayDiscoveries(void) {
                 }
             }
 
-            pos += snprintf(json + pos, sizeof(json) - pos,
+            jsonOK = appendJsonFormat(&json,
                 "%s{\"name\":\"%s\",\"identified\":%s,\"polarity\":%d,\"pct\":%d}",
                 (i > 0 ? "," : ""), nameEsc,
                 identified ? "true" : "false", polarity, pct);
         }
 
-        pos += snprintf(json + pos, sizeof(json) - pos, "]}");
+        if (jsonOK) {
+            jsonOK = appendJsonFormat(&json, "]}");
+        }
     }
-    pos += snprintf(json + pos, sizeof(json) - pos, "]}");
+    if (jsonOK) {
+        jsonOK = appendJsonFormat(&json, "]}");
+    }
+    if (!jsonOK) {
+        freeJsonBuffer(&json);
+        message("Unable to display discovered items.", 0);
+        return ESCAPE_KEY;
+    }
 
-    androidShowDiscoveries(json);
+    androidShowDiscoveries(json.data);
 
     // Wait for the inventory icon (go back), or any dismiss (close).
     rogueEvent theEvent;
@@ -3265,6 +3361,7 @@ char displayDiscoveries(void) {
     }
 
     androidHideDiscoveries();
+    freeJsonBuffer(&json);
     return result;
 }
 

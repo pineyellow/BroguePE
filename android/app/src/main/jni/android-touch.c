@@ -594,12 +594,21 @@ Java_com_pineyellow_broguepe_BrogueActivity_nativeConfirmationResult(
 static pthread_mutex_t deathMutex = PTHREAD_MUTEX_INITIALIZER;
 static pthread_cond_t  deathCond  = PTHREAD_COND_INITIALIZER;
 static boolean deathFadeDone = false;
-volatile boolean deathScreenDismissed = false;
+static SDL_atomic_t deathScreenDismissed;
+
+static void signalDeathFadeDone(void) {
+    pthread_mutex_lock(&deathMutex);
+    if (!deathFadeDone) {
+        deathFadeDone = true;
+        pthread_cond_broadcast(&deathCond);
+    }
+    pthread_mutex_unlock(&deathMutex);
+}
 
 void androidShowDeathScreen(const char *description, int turns) {
     pthread_mutex_lock(&deathMutex);
     deathFadeDone = false;
-    deathScreenDismissed = false;
+    SDL_AtomicSet(&deathScreenDismissed, 0);
     pthread_mutex_unlock(&deathMutex);
 
     JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();
@@ -625,16 +634,32 @@ void androidShowDeathScreen(const char *description, int turns) {
 JNIEXPORT void JNICALL
 Java_com_pineyellow_broguepe_BrogueActivity_nativeDeathFadeDone(
         JNIEnv *env, jobject thiz) {
-    pthread_mutex_lock(&deathMutex);
-    deathFadeDone = true;
-    pthread_cond_signal(&deathCond);
-    pthread_mutex_unlock(&deathMutex);
+    (void)env; (void)thiz;
+    signalDeathFadeDone();
 }
 
 JNIEXPORT void JNICALL
 Java_com_pineyellow_broguepe_BrogueActivity_nativeDeathScreenDismissed(
         JNIEnv *env, jobject thiz) {
-    deathScreenDismissed = true;
+    (void)env; (void)thiz;
+    SDL_AtomicSet(&deathScreenDismissed, 1);
+}
+
+JNIEXPORT void JNICALL
+Java_com_pineyellow_broguepe_BrogueActivity_nativeCancelDeathScreen(
+        JNIEnv *env, jobject thiz) {
+    (void)env; (void)thiz;
+    pthread_mutex_lock(&deathMutex);
+    deathFadeDone = true;
+    SDL_AtomicSet(&deathScreenDismissed, 1);
+    // Teardown must release the game thread even if no animation callback can
+    // run. Broadcast also makes this safe if the wait implementation changes.
+    pthread_cond_broadcast(&deathCond);
+    pthread_mutex_unlock(&deathMutex);
+}
+
+boolean androidIsDeathScreenDismissed(void) {
+    return SDL_AtomicGet(&deathScreenDismissed) != 0;
 }
 
 void androidDeathFlamesReady(void) {

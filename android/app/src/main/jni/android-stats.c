@@ -119,16 +119,18 @@ void androidNotifyAllyDied(const char *monsterName) {
     (*env)->DeleteLocalRef(env, activity);
 }
 
-void androidNotifyPlayerDied(const char *killedBy, int depth, int turns,
+void androidNotifyPlayerDied(const char *killedBy, int currentDepth,
+                             int deepestDepthReached, int turns,
                              unsigned long gold) {
     JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();
     jobject activity = (jobject)SDL_AndroidGetActivity();
     jclass cls = (*env)->GetObjectClass(env, activity);
     jmethodID mid = (*env)->GetMethodID(env, cls, "onPlayerDied",
-                                        "(Ljava/lang/String;IIJ)V");
+                                        "(Ljava/lang/String;IIIJ)V");
     if (mid) {
         jstring jcause = (*env)->NewStringUTF(env, killedBy ? killedBy : "");
-        (*env)->CallVoidMethod(env, activity, mid, jcause, (jint)depth,
+        (*env)->CallVoidMethod(env, activity, mid, jcause,
+                               (jint)currentDepth, (jint)deepestDepthReached,
                                (jint)turns, (jlong)gold);
         (*env)->DeleteLocalRef(env, jcause);
     }
@@ -136,25 +138,29 @@ void androidNotifyPlayerDied(const char *killedBy, int depth, int turns,
     (*env)->DeleteLocalRef(env, activity);
 }
 
-void androidNotifyPlayerWon(boolean superVictory, int depth, int turns,
+void androidNotifyPlayerWon(boolean superVictory, int currentDepth,
+                            int deepestDepthReached, int turns,
                             unsigned long gold) {
     JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();
     jobject activity = (jobject)SDL_AndroidGetActivity();
     jclass cls = (*env)->GetObjectClass(env, activity);
-    jmethodID mid = (*env)->GetMethodID(env, cls, "onPlayerWon", "(ZIIJ)V");
+    jmethodID mid = (*env)->GetMethodID(env, cls, "onPlayerWon", "(ZIIIJ)V");
     if (mid) (*env)->CallVoidMethod(env, activity, mid,
-                                    (jboolean)superVictory, (jint)depth,
-                                    (jint)turns, (jlong)gold);
+                                    (jboolean)superVictory, (jint)currentDepth,
+                                    (jint)deepestDepthReached, (jint)turns,
+                                    (jlong)gold);
     (*env)->DeleteLocalRef(env, cls);
     (*env)->DeleteLocalRef(env, activity);
 }
 
-void androidNotifyPlayerQuit(int depth, int turns, unsigned long gold) {
+void androidNotifyPlayerQuit(int currentDepth, int deepestDepthReached,
+                             int turns, unsigned long gold) {
     JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();
     jobject activity = (jobject)SDL_AndroidGetActivity();
     jclass cls = (*env)->GetObjectClass(env, activity);
-    jmethodID mid = (*env)->GetMethodID(env, cls, "onPlayerQuit", "(IIJ)V");
-    if (mid) (*env)->CallVoidMethod(env, activity, mid, (jint)depth,
+    jmethodID mid = (*env)->GetMethodID(env, cls, "onPlayerQuit", "(IIIJ)V");
+    if (mid) (*env)->CallVoidMethod(env, activity, mid,
+                                    (jint)currentDepth, (jint)deepestDepthReached,
                                     (jint)turns, (jlong)gold);
     (*env)->DeleteLocalRef(env, cls);
     (*env)->DeleteLocalRef(env, activity);

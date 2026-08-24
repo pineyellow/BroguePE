@@ -261,6 +261,7 @@ public class BrogueActivity extends SDLActivity {
     @Override
     protected void onDestroy() {
         setBackHandlingEnabled(false);
+        deathModal.onActivityDestroying();
         if (mSurface != null && rendererSurfaceCallback != null) {
             ((SurfaceView) mSurface).getHolder().removeCallback(rendererSurfaceCallback);
             rendererSurfaceCallback = null;
@@ -470,9 +471,11 @@ public class BrogueActivity extends SDLActivity {
         StatsStore.get(this).recordAllyDied(monsterName);
     }
 
-    public void onPlayerDied(final String killedBy, final int depth, final int turns,
+    public void onPlayerDied(final String killedBy, final int currentDepth,
+                             final int deepestDepthReached, final int turns,
                              final long gold) {
-        StatsStore.get(this).recordPlayerDied(killedBy, depth, turns, gold);
+        StatsStore.get(this).recordPlayerDied(
+            killedBy, currentDepth, deepestDepthReached, turns, gold);
     }
 
     public void showDeathScreen(String description, int turns) {
@@ -481,18 +484,23 @@ public class BrogueActivity extends SDLActivity {
 
     public native void nativeDeathFadeDone();
     public native void nativeDeathScreenDismissed();
+    public native void nativeCancelDeathScreen();
 
     public void onDeathFlamesReady() {
         deathModal.onFlamesReady();
     }
 
-    public void onPlayerWon(final boolean superVictory, final int depth, final int turns,
+    public void onPlayerWon(final boolean superVictory, final int currentDepth,
+                            final int deepestDepthReached, final int turns,
                             final long gold) {
-        StatsStore.get(this).recordPlayerWon(superVictory, depth, turns, gold);
+        StatsStore.get(this).recordPlayerWon(
+            superVictory, currentDepth, deepestDepthReached, turns, gold);
     }
 
-    public void onPlayerQuit(final int depth, final int turns, final long gold) {
-        StatsStore.get(this).recordPlayerQuit(depth, turns, gold);
+    public void onPlayerQuit(final int currentDepth, final int deepestDepthReached,
+                             final int turns, final long gold) {
+        StatsStore.get(this).recordPlayerQuit(
+            currentDepth, deepestDepthReached, turns, gold);
     }
 
     public void hideGameUI() {
@@ -682,7 +690,9 @@ public class BrogueActivity extends SDLActivity {
     }
 
     private void handleBackNavigation() {
-        if (startMenu.isShowing()) {
+        if (deathModal.handleBackPressed()) {
+            return;
+        } else if (startMenu.isShowing()) {
             handleMainMenuBack();
         } else if (gameOverlay != null && gameOverlay.getVisibility() == View.VISIBLE) {
             actionsToolbar.collapseSubmenu();

@@ -63,8 +63,10 @@ final class InventoryOverlay {
                 JSONArray items = root.getJSONArray("items");
 
                 int equippedCount = 0;
-                if (items.length() > 0) {
-                    equippedCount = items.getJSONObject(0).optInt("equippedCount", 0);
+                for (int i = 0; i < items.length(); i++) {
+                    if (items.getJSONObject(i).optBoolean("equipped", false)) {
+                        equippedCount++;
+                    }
                 }
 
                 View backdrop = new View(activity);

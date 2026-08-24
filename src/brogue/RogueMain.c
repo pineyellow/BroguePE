@@ -1154,7 +1154,7 @@ void gameOver(char *killedBy, boolean useCustomPhrasing) {
 
     if (!rogue.quit) {
         androidShowDeathScreen(buf, (int)rogue.playerTurnNumber);
-        deathFlameLoop(&deathScreenDismissed);
+        deathFlameLoop();
         blackOutScreen();
     }
 
@@ -1170,10 +1170,11 @@ void gameOver(char *killedBy, boolean useCustomPhrasing) {
         if (!rogue.quit) {
             notifyEvent(GAMEOVER_DEATH, theEntry.score, 0, theEntry.description, recordingFilename);
             androidNotifyPlayerDied(killedBy, rogue.depthLevel,
+                                    rogue.deepestLevel,
                                     (int)rogue.playerTurnNumber, collectedGold);
         } else {
             notifyEvent(GAMEOVER_QUIT, theEntry.score, 0, theEntry.description, recordingFilename);
-            androidNotifyPlayerQuit(rogue.depthLevel,
+            androidNotifyPlayerQuit(rogue.depthLevel, rogue.deepestLevel,
                                     (int)rogue.playerTurnNumber, collectedGold);
         }
     } else {
@@ -1343,6 +1344,7 @@ void victory(boolean superVictory) {
             notifyEvent(GAMEOVER_VICTORY, theEntry.score, 0, theEntry.description, recordingFilename);
         }
         androidNotifyPlayerWon(superVictory, rogue.depthLevel,
+                               rogue.deepestLevel,
                                (int)rogue.playerTurnNumber, rogue.gold);
     } else {
         notifyEvent(GAMEOVER_RECORDING, 0, 0, "recording ended", "none");

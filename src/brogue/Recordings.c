@@ -1192,7 +1192,7 @@ void androidWriteSaveFile(void) {
         // Saving is also how Android preserves an active run when the app is
         // closed or backgrounded. Record its high-water marks without ending
         // the run or counting a death, win or additional game.
-        androidNotifyPlayerQuit(rogue.depthLevel,
+        androidNotifyPlayerQuit(rogue.depthLevel, rogue.deepestLevel,
                                 (int)rogue.playerTurnNumber, rogue.gold);
     }
 }

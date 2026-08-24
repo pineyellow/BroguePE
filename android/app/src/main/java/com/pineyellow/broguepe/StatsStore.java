@@ -123,21 +123,27 @@ final class StatsStore {
         post("recordMonsterKilled", s -> s.withMonsterKilled(name));
     }
 
-    void recordPlayerDied(final String killedBy, final int depth, final int turns,
+    void recordPlayerDied(final String killedBy, final int currentDepth,
+                          final int deepestDepthReached, final int turns,
                           final long gold) {
         final String safeKilledBy = killedBy == null ? "" : killedBy;
         post("recordPlayerDied",
-            s -> s.withPlayerDied(safeKilledBy, depth, turns, gold));
+            s -> s.withPlayerDied(safeKilledBy, currentDepth,
+                deepestDepthReached, turns, gold));
     }
 
-    void recordPlayerWon(final boolean superVictory, final int depth, final int turns,
+    void recordPlayerWon(final boolean superVictory, final int currentDepth,
+                         final int deepestDepthReached, final int turns,
                          final long gold) {
         post("recordPlayerWon",
-            s -> s.withPlayerWon(superVictory, depth, turns, gold));
+            s -> s.withPlayerWon(superVictory, currentDepth,
+                deepestDepthReached, turns, gold));
     }
 
-    void recordPlayerQuit(final int depth, final int turns, final long gold) {
-        post("recordPlayerQuit", s -> s.withPlayerQuit(depth, turns, gold));
+    void recordPlayerQuit(final int currentDepth, final int deepestDepthReached,
+                          final int turns, final long gold) {
+        post("recordPlayerQuit", s -> s.withPlayerQuit(
+            currentDepth, deepestDepthReached, turns, gold));
     }
 
     private PlayerStatsArchive loadFromDisk() {

@@ -18,8 +18,8 @@ public class PlayerStatsArchiveTest {
             .withMonsterKilled("dragon")
             .withAllyFreed("goblin")
             .withAllyDied("goblin")
-            .withPlayerDied("dragon", 8, 1234, 1500)
-            .withPlayerWon(true, 10, 900, 1200);
+            .withPlayerDied("dragon", 8, 8, 1234, 1500)
+            .withPlayerWon(true, 10, 10, 900, 1200);
         archive = archive.withBucket(
             StartMenu.VARIANT_RAPID, StartMenu.DIFFICULTY_EASY, rapidEasy);
 
@@ -56,7 +56,8 @@ public class PlayerStatsArchiveTest {
                 archive = archive.withRunStarted(seed, variant, difficulty, false);
                 PlayerStats stats = archive.bucket(variant, difficulty)
                     .withMonsterKilled("mode-" + variant + "-" + difficulty)
-                    .withPlayerQuit(variant + 1, difficulty + 10, seed);
+                    .withPlayerQuit(variant + 1, variant + 1,
+                        difficulty + 10, seed);
                 archive = archive.withBucket(variant, difficulty, stats);
             }
         }
@@ -87,7 +88,7 @@ public class PlayerStatsArchiveTest {
         PlayerStats legacy = PlayerStats.empty()
             .withGameStart()
             .withMonsterKilled("rat")
-            .withPlayerDied("rat", 3, 200, 75);
+            .withPlayerDied("rat", 3, 3, 200, 75);
         JSONObject json = legacy.toJson();
         json.remove("mostGoldCollected");
         JSONArray seeds = new JSONArray();
@@ -192,7 +193,7 @@ public class PlayerStatsArchiveTest {
     public void quitUpdatesRunRecordsWithoutCountingADeathOrWin() {
         PlayerStats stats = PlayerStats.empty()
             .withGameStart()
-            .withPlayerQuit(12, 3456, 789);
+            .withPlayerQuit(12, 12, 3456, 789);
 
         assertEquals(1, stats.gamesPlayed);
         assertEquals(0, stats.wins);
@@ -202,6 +203,23 @@ public class PlayerStatsArchiveTest {
         assertEquals(0, stats.fastestWinTurns);
         assertEquals(789L, stats.mostGoldCollected);
         assertEquals(0, stats.deadliestDepth());
+    }
+
+    @Test
+    public void terminalEventsKeepCurrentAndDeepestDepthSeparate() {
+        PlayerStats death = PlayerStats.empty()
+            .withPlayerDied("ogre", 4, 5, 500, 100);
+        assertEquals(5, death.deepestDepth);
+        assertEquals(4, death.deadliestDepth());
+
+        PlayerStats victory = PlayerStats.empty()
+            .withPlayerWon(false, 0, 26, 1000, 2000);
+        assertEquals(26, victory.deepestDepth);
+
+        PlayerStats backgroundSave = PlayerStats.empty()
+            .withPlayerQuit(4, 5, 600, 150);
+        assertEquals(5, backgroundSave.deepestDepth);
+        assertEquals(0, backgroundSave.deadliestDepth());
     }
 
     private static int countSeed(PlayerStats stats, long seed) {

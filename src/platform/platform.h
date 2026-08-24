@@ -115,8 +115,9 @@ void androidHideGameUI(void);
 void androidSetLoadingVisible(boolean visible);
 void androidSetRestoringVisible(boolean visible);
 void androidApplySettings(void);
-void deathFlameLoop(volatile boolean *dismissed);
+void deathFlameLoop(void);
 void androidDeathFlamesReady(void);
+boolean androidIsDeathScreenDismissed(void);
 
 enum RenderMode { RENDER_TITLE, RENDER_GAMEPLAY, RENDER_MODAL, RENDER_LOADING };
 void setRenderMode(enum RenderMode mode);

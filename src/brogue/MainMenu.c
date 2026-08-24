@@ -210,7 +210,7 @@ volatile enum NGCommands startMenuChoice = NG_NOTHING;
 // this and unwinds to Phase 1 (title flames) when set.
 volatile boolean startMenuCancelled = false;
 
-void deathFlameLoop(volatile boolean *dismissed) {
+void deathFlameLoop(void) {
     setRenderMode(RENDER_TITLE);
     seedRandomGenerator(0);
     initializeTitleFlames(false, flameColors, flameColorStorage,
@@ -228,7 +228,7 @@ void deathFlameLoop(volatile boolean *dismissed) {
     drawTitleFlames(flameState, flameMask);
     updateScreen();
     androidDeathFlamesReady();
-    while (!*dismissed) {
+    while (!androidIsDeathScreenDismissed()) {
         updateTitleFlames(flameColors, flameColorSources, flameState);
         drawTitleFlames(flameState, flameMask);
         updateScreen();

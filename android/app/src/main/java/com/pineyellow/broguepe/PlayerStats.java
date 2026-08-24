@@ -179,16 +179,17 @@ final class PlayerStats {
             copyDepths(deathsPerDepth));
     }
 
-    PlayerStats withPlayerDied(String killedBy, int depth, int turns, long gold) {
+    PlayerStats withPlayerDied(String killedBy, int currentDepth,
+                               int deepestDepthReached, int turns, long gold) {
         int[] nextDepths = copyDepths(deathsPerDepth);
-        if (depth >= 1 && depth <= MAX_DEPTH) {
-            nextDepths[depth]++;
+        if (currentDepth >= 1 && currentDepth <= MAX_DEPTH) {
+            nextDepths[currentDepth]++;
         }
         return new PlayerStats(
             gamesPlayed,
             wins, masteryWins,
             deaths + 1,
-            Math.max(deepestDepth, depth),
+            Math.max(deepestDepth, deepestDepthReached),
             Math.max(longestRunTurns, turns),
             fastestWinTurns,
             Math.max(mostGoldCollected, Math.max(0L, gold)),
@@ -200,7 +201,8 @@ final class PlayerStats {
             nextDepths);
     }
 
-    PlayerStats withPlayerWon(boolean superVictory, int depth, int turns, long gold) {
+    PlayerStats withPlayerWon(boolean superVictory, int currentDepth,
+                              int deepestDepthReached, int turns, long gold) {
         int nextFastest = (fastestWinTurns == 0 || turns < fastestWinTurns)
             ? turns : fastestWinTurns;
         return new PlayerStats(
@@ -208,7 +210,7 @@ final class PlayerStats {
             wins + 1,
             masteryWins + (superVictory ? 1 : 0),
             deaths,
-            Math.max(deepestDepth, depth),
+            Math.max(deepestDepth, deepestDepthReached),
             Math.max(longestRunTurns, turns),
             nextFastest,
             Math.max(mostGoldCollected, Math.max(0L, gold)),
@@ -257,11 +259,12 @@ final class PlayerStats {
             copyDepths(deathsPerDepth));
     }
 
-    PlayerStats withPlayerQuit(int depth, int turns, long gold) {
+    PlayerStats withPlayerQuit(int currentDepth, int deepestDepthReached,
+                               int turns, long gold) {
         return new PlayerStats(
             gamesPlayed,
             wins, masteryWins, deaths,
-            Math.max(deepestDepth, depth),
+            Math.max(deepestDepth, deepestDepthReached),
             Math.max(longestRunTurns, turns),
             fastestWinTurns,
             Math.max(mostGoldCollected, Math.max(0L, gold)),
