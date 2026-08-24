@@ -50,7 +50,8 @@ void androidShowStartMenu(boolean hasSave, boolean saveCompatible,
 
 /* Show a native Android text input dialog.
  * Blocks until the user confirms or cancels.
- * On confirm, copies input into `outBuf` (up to maxLen-1 chars) and returns true.
+ * On confirm, copies printable ASCII input into `outBuf` (up to maxLen chars,
+ * plus the null terminator) and returns true.
  * On cancel, returns false (outBuf is set to empty string). */
 boolean androidGetTextInput(const char *prompt, const char *defaultText,
                             int maxLen, boolean numericOnly, char *outBuf);

@@ -482,6 +482,22 @@ static boolean textInputReady = false;
 static boolean textInputConfirmed = false;
 static char    textInputResult[256];
 
+static void copyPrintableAscii(char *destination, size_t capacity,
+                               const char *source) {
+    if (!destination || capacity == 0) return;
+
+    size_t written = 0;
+    if (source) {
+        for (size_t i = 0; source[i] && written + 1 < capacity; i++) {
+            unsigned char byte = (unsigned char)source[i];
+            if (byte >= 0x20 && byte <= 0x7e) {
+                destination[written++] = (char)byte;
+            }
+        }
+    }
+    destination[written] = '\0';
+}
+
 boolean androidGetTextInput(const char *prompt, const char *defaultText,
                             int maxLen, boolean numericOnly, char *outBuf) {
     outBuf[0] = '\0';
@@ -513,8 +529,9 @@ boolean androidGetTextInput(const char *prompt, const char *defaultText,
     }
     boolean confirmed = textInputConfirmed;
     if (confirmed) {
+        if (maxLen < 0) maxLen = 0;
         int len = (int)strlen(textInputResult);
-        if (len >= maxLen) len = maxLen - 1;
+        if (len > maxLen) len = maxLen;
         memcpy(outBuf, textInputResult, len);
         outBuf[len] = '\0';
     }
@@ -531,9 +548,8 @@ Java_com_pineyellow_broguepe_BrogueActivity_nativeTextInputResult(
     textInputConfirmed = (boolean)confirmed;
     if (confirmed && text) {
         const char *utf = (*env)->GetStringUTFChars(env, text, NULL);
-        strncpy(textInputResult, utf, sizeof(textInputResult) - 1);
-        textInputResult[sizeof(textInputResult) - 1] = '\0';
-        (*env)->ReleaseStringUTFChars(env, text, utf);
+        copyPrintableAscii(textInputResult, sizeof(textInputResult), utf);
+        if (utf) (*env)->ReleaseStringUTFChars(env, text, utf);
     } else {
         textInputResult[0] = '\0';
     }

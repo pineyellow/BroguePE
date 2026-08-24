@@ -14,6 +14,7 @@ SDL_Surface *captureScreen(void);
 
 void invalidateTextures(void);
 void resetRendererResources(void);
+void shutdownTiles(void);
 void requestRendererRecovery(void);
 int consumeRendererRecoveryRequest(void);
 void resetCameraFrameClock(void);

@@ -769,6 +769,28 @@ void resetRendererResources(void) {
     }
 }
 
+void shutdownTiles(void) {
+    invalidateTextures();
+
+    if (Win != NULL) {
+        SDL_Renderer *renderer = SDL_GetRenderer(Win);
+        if (renderer) {
+            SDL_DestroyRenderer(renderer);
+        }
+        SDL_DestroyWindow(Win);
+        Win = NULL;
+    }
+
+    if (TilesPNG != NULL) {
+        SDL_FreeSurface(TilesPNG);
+        TilesPNG = NULL;
+    }
+
+    numTextures = 0;
+    SDL_AtomicSet(&rendererRecoveryPending, 0);
+    resetCameraFrameClock();
+}
+
 void requestRendererRecovery(void) {
     SDL_AtomicSet(&rendererRecoveryPending, 1);
 }

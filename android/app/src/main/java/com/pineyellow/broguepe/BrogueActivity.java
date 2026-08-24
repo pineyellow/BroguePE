@@ -155,6 +155,18 @@ public class BrogueActivity extends SDLActivity {
         // Keep toolbar controls as an escape hatch if an oversized or moved
         // DPAD overlaps them. Empty areas still fall through to the DPAD.
         controlsOverlay.bringToFront();
+        // The overlay starts GONE, so defer geometry until Android gives it
+        // real bounds. Reapply when those bounds change (for example after an
+        // orientation or other handled configuration change).
+        gameOverlay.addOnLayoutChangeListener((v, left, top, right, bottom,
+                                                oldLeft, oldTop, oldRight, oldBottom) -> {
+            int width = right - left;
+            int height = bottom - top;
+            if (width > 0 && height > 0
+                    && (width != oldRight - oldLeft || height != oldBottom - oldTop)) {
+                applyDpadSettings();
+            }
+        });
         setDpadEnabled(GameSettings.getBool(this, DPadOverlay.PREF_ENABLED, true));
 
         resumeInputBlocker = new View(this);
@@ -517,6 +529,7 @@ public class BrogueActivity extends SDLActivity {
     public void setOverlayVisible(final boolean visible) {
         android.util.Log.d("BrogueModal", "setOverlayVisible(" + visible + ")");
         runOnUiThread(() -> {
+            gameOverlay.setVisibility(visible ? View.VISIBLE : View.GONE);
             if (visible) {
                 // A game is on-screen — drop title-menu modals so they can't
                 // resurface after the engine returns to the title later.
@@ -530,7 +543,6 @@ public class BrogueActivity extends SDLActivity {
                 modalStack.restore();
                 deathModal.fadeOutOverlay();
             }
-            gameOverlay.setVisibility(visible ? View.VISIBLE : View.GONE);
             // Editing a seed moves key focus away from SDL. Restore it when
             // gameplay appears so synthesized D-pad/action keys reach SDL's
             // OnKeyListener even if the IME discarded its input connection.
@@ -581,8 +593,8 @@ public class BrogueActivity extends SDLActivity {
 
     void applyDpadSettings() {
         if (dpadView == null || gameOverlay == null) return;
-        if (gameOverlay.getWidth() == 0 || gameOverlay.getHeight() == 0) {
-            gameOverlay.post(this::applyDpadSettings);
+        if (gameOverlay.getVisibility() != View.VISIBLE
+                || gameOverlay.getWidth() == 0 || gameOverlay.getHeight() == 0) {
             return;
         }
 

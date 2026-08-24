@@ -23,6 +23,32 @@ static size_t nremaps = 0;
 static enum graphicsModes showGraphics = TEXT_GRAPHICS;
 
 static rogueEvent lastEvent;
+static boolean shutdownRequested = false;
+
+
+static void setShutdownEvent(rogueEvent *event) {
+    event->eventType = KEYSTROKE;
+    event->param1 = ESCAPE_KEY;
+    event->param2 = 0;
+    event->controlKey = false;
+    event->shiftKey = false;
+}
+
+
+static void requestShutdown(void) {
+    if (shutdownRequested) return;
+
+    shutdownRequested = true;
+    SDL_Log("Brogue lifecycle: SDL_QUIT received; saving and returning from SDL_main");
+    int statusCode = quitImmediately();
+
+    // Let the current menu or gameplay input unwind through its normal exit
+    // conditions. SDL_main must return to SDLActivity instead of terminating
+    // Android's process from the SDL worker thread.
+    rogue.gameHasEnded = true;
+    rogue.nextGame = NG_QUIT;
+    rogue.gameExitStatusCode = statusCode;
+}
 
 
 static void sdlfatal(char *file, int line) {
@@ -156,6 +182,11 @@ static boolean pollBrogueEvent(rogueEvent *returnEvent, boolean textInput) {
     returnEvent->shiftKey = _modifierHeld(0);
     returnEvent->controlKey = _modifierHeld(1);
 
+    if (shutdownRequested) {
+        setShutdownEvent(returnEvent);
+        return true;
+    }
+
     SDL_Event event;
     boolean ret = false;
 
@@ -168,10 +199,9 @@ static boolean pollBrogueEvent(rogueEvent *returnEvent, boolean textInput) {
         if (androidTouchEvent(&event, returnEvent))
             return true;
         if (event.type == SDL_QUIT) {
-            // the player clicked the X button!
-            SDL_Quit();
-            int statusCode = quitImmediately();
-            exit(statusCode);
+            requestShutdown();
+            setShutdownEvent(returnEvent);
+            return true;
         } else if (event.type == SDL_APP_WILLENTERBACKGROUND) {
             androidAppInBackground = true;
             // Pair restoration UI with SDL's actual lifecycle transition. A
@@ -315,6 +345,11 @@ static boolean pollBrogueEvent(rogueEvent *returnEvent, boolean textInput) {
 
 
 static void _gameLoop() {
+    shutdownRequested = false;
+    // Android may start SDL again in the same process after the Activity was
+    // closed. Do not inherit the previous SDL instance's background state.
+    androidAppInBackground = false;
+
     char *path = SDL_GetPrefPath("Yellow Pine", "Brogue PE");
     if (!path || chdir(path) != 0) {
         fprintf(stderr, "Failed to find or change to the save directory\n");
@@ -340,11 +375,11 @@ static void _gameLoop() {
     fullScreen = true;
     resizeWindow(windowWidth, windowHeight);
 
-    int statusCode = rogueMain();
+    rogueMain();
 
+    shutdownTiles();
+    IMG_Quit();
     SDL_Quit();
-
-    exit(statusCode);
 }
 
 static long lastDelayTime = 0;
@@ -379,6 +414,8 @@ static boolean pauseWasInterrupted(PauseBehavior behavior) {
 }
 
 static boolean _pauseForMilliseconds(short ms, PauseBehavior behavior) {
+    if (shutdownRequested) return true;
+
     if (rogue.automationActive && !androidAppInBackground && ms > 0) {
         Uint64 now = SDL_GetTicks64();
 
@@ -424,6 +461,11 @@ static boolean _pauseForMilliseconds(short ms, PauseBehavior behavior) {
 
 
 static void _nextKeyOrMouseEvent(rogueEvent *returnEvent, boolean textInput, boolean colorsDance) {
+    if (shutdownRequested) {
+        setShutdownEvent(returnEvent);
+        return;
+    }
+
     updateScreen();
 
     if (lastEvent.eventType != EVENT_ERROR) {

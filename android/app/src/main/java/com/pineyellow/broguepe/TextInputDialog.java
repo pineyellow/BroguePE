@@ -21,6 +21,7 @@ import android.widget.EditText;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 import java.text.DecimalFormat;
+import java.text.Normalizer;
 
 /** Engine-driven text prompt (e.g. name, custom seed). Invoked from C when
  *  the engine wants a string from the user. OK/Cancel and the system back
@@ -37,6 +38,35 @@ final class TextInputDialog {
 
     TextInputDialog(BrogueActivity activity) {
         this.activity = activity;
+    }
+
+    static String normalizeEngineText(String text, int maxLen) {
+        if (text == null || maxLen <= 0) return "";
+
+        String decomposed = Normalizer.normalize(text, Normalizer.Form.NFKD);
+        StringBuilder ascii = new StringBuilder(Math.min(decomposed.length(), maxLen));
+        for (int offset = 0; offset < decomposed.length() && ascii.length() < maxLen;) {
+            int codePoint = decomposed.codePointAt(offset);
+            offset += Character.charCount(codePoint);
+
+            // NFKD handles accented Latin letters. These common characters do
+            // not decompose to the plain ASCII form expected by Brogue.
+            if (codePoint == '\u0131') {
+                codePoint = 'i';
+            } else if (codePoint == '\u2018' || codePoint == '\u2019') {
+                codePoint = '\'';
+            } else if (codePoint == '\u201C' || codePoint == '\u201D') {
+                codePoint = '"';
+            } else if ((codePoint >= '\u2010' && codePoint <= '\u2015')
+                    || codePoint == '\u2212') {
+                codePoint = '-';
+            }
+
+            if (codePoint >= 0x20 && codePoint <= 0x7e) {
+                ascii.append((char)codePoint);
+            }
+        }
+        return ascii.toString();
     }
 
     void show(final String prompt, final String defaultText,
@@ -233,7 +263,9 @@ final class TextInputDialog {
                     ? InputType.TYPE_CLASS_NUMBER : InputType.TYPE_CLASS_TEXT);
             }
             input.setFilters(new InputFilter[]{ new InputFilter.LengthFilter(maxLen) });
-            input.setText(defaultText);
+            input.setText(onResult == null
+                ? normalizeEngineText(defaultText, maxLen)
+                : defaultText);
             input.setSelectAllOnFocus(true);
             input.setHighlightColor(Color.argb(80, 180, 120, 50));
 
@@ -319,7 +351,8 @@ final class TextInputDialog {
             okBtn.setOnClickListener(v -> {
                 String text = input.getText().toString();
                 if (onResult != null) onResult.accept(text);
-                else activity.nativeTextInputResult(true, text);
+                else activity.nativeTextInputResult(
+                    true, normalizeEngineText(text, maxLen));
                 dialog.dismiss();
             });
 
