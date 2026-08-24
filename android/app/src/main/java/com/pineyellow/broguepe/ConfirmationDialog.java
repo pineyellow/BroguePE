@@ -15,17 +15,36 @@ import android.widget.Button;
 import android.widget.LinearLayout;
 import android.widget.TextView;
 
+import java.util.concurrent.atomic.AtomicBoolean;
+
 /** Large, centered Android presentation for Brogue's Yes/No prompts. */
 final class ConfirmationDialog {
 
     private final BrogueActivity activity;
+    private final AtomicBoolean activityResumed = new AtomicBoolean(false);
+    private final AtomicBoolean resultPending = new AtomicBoolean(false);
+    private Dialog activeDialog;
 
     ConfirmationDialog(BrogueActivity activity) {
         this.activity = activity;
     }
 
     void show(String prompt) {
+        resultPending.set(true);
+        if (!activityResumed.get()) {
+            completePending(false);
+            return;
+        }
+
         activity.runOnUiThread(() -> {
+            // The lifecycle can move to paused after the engine requests the
+            // dialog but before this UI work runs. In that case onPause has
+            // already answered No; never attach a stale dialog afterward.
+            if (!activityResumed.get() || !resultPending.get()) {
+                completePending(false);
+                return;
+            }
+
             // The game thread blocks while it waits for this dialog. Stop any
             // held DPAD input before showing it so repeat key events do not
             // accumulate in SDL and reopen the same warning after dismissal.
@@ -72,19 +91,14 @@ final class ConfirmationDialog {
 
             Dialog dialog = new Dialog(activity,
                 android.R.style.Theme_DeviceDefault_Dialog_NoActionBar);
+            activeDialog = dialog;
             dialog.setContentView(content);
             dialog.setCancelable(true);
             dialog.setCanceledOnTouchOutside(true);
-            dialog.setOnCancelListener(d -> activity.nativeConfirmationResult(false));
+            dialog.setOnCancelListener(d -> finish(dialog, false));
 
-            noButton.setOnClickListener(v -> {
-                activity.nativeConfirmationResult(false);
-                dialog.dismiss();
-            });
-            yesButton.setOnClickListener(v -> {
-                activity.nativeConfirmationResult(true);
-                dialog.dismiss();
-            });
+            noButton.setOnClickListener(v -> finish(dialog, false));
+            yesButton.setOnClickListener(v -> finish(dialog, true));
 
             Window window = dialog.getWindow();
             if (window != null) {
@@ -100,6 +114,49 @@ final class ConfirmationDialog {
             }
             activity.showImmersiveDialog(dialog);
         });
+    }
+
+    void onActivityResumed() {
+        activityResumed.set(true);
+    }
+
+    void onActivityPaused() {
+        activityResumed.set(false);
+        cancelActiveAsNo();
+    }
+
+    void onActivityDestroying() {
+        activityResumed.set(false);
+        cancelActiveAsNo();
+    }
+
+    private void cancelActiveAsNo() {
+        Dialog dialog = activeDialog;
+        activeDialog = null;
+        if (dialog != null) {
+            dialog.setOnCancelListener(null);
+            if (dialog.isShowing()) {
+                dialog.dismiss();
+            }
+        }
+        completePending(false);
+    }
+
+    private void finish(Dialog dialog, boolean confirmed) {
+        if (dialog != activeDialog) return;
+
+        activeDialog = null;
+        dialog.setOnCancelListener(null);
+        if (dialog.isShowing()) {
+            dialog.dismiss();
+        }
+        completePending(confirmed);
+    }
+
+    private void completePending(boolean confirmed) {
+        if (resultPending.compareAndSet(true, false)) {
+            activity.nativeConfirmationResult(confirmed);
+        }
     }
 
     private Button makeButton(String label, boolean primary) {

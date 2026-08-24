@@ -24,6 +24,7 @@ static enum graphicsModes showGraphics = TEXT_GRAPHICS;
 
 static rogueEvent lastEvent;
 static boolean shutdownRequested = false;
+static boolean foregroundRedrawPending = false;
 
 
 static void setShutdownEvent(rogueEvent *event) {
@@ -204,6 +205,7 @@ static boolean pollBrogueEvent(rogueEvent *returnEvent, boolean textInput) {
             return true;
         } else if (event.type == SDL_APP_WILLENTERBACKGROUND) {
             androidAppInBackground = true;
+            foregroundRedrawPending = false;
             // Pair restoration UI with SDL's actual lifecycle transition. A
             // Java-only cold start behind the lock screen may pause without a
             // corresponding native foreground event.
@@ -238,18 +240,19 @@ static boolean pollBrogueEvent(rogueEvent *returnEvent, boolean textInput) {
             continue;
         } else if (event.type == SDL_APP_DIDENTERFOREGROUND) {
             androidAppInBackground = false;
-            requestRendererRecovery();
+            // SDL restores the existing EGL context itself. If that fails it
+            // sends SDL_RENDER_DEVICE_RESET, which requests the full rebuild.
+            // A healthy context only needs a fresh frame.
+            foregroundRedrawPending = true;
             continue;
         } else if (event.type == SDL_RENDER_TARGETS_RESET
                 || (event.type == SDL_WINDOWEVENT
                     && (event.window.event == SDL_WINDOWEVENT_EXPOSED
                         || event.window.event == SDL_WINDOWEVENT_RESTORED))) {
-            if (event.type == SDL_RENDER_TARGETS_RESET
-                    || event.window.event == SDL_WINDOWEVENT_RESTORED) {
+            if (event.type == SDL_RENDER_TARGETS_RESET) {
                 requestRendererRecovery();
             } else if (!androidAppInBackground) {
-                refreshScreen();
-                updateScreen();
+                foregroundRedrawPending = true;
             }
             continue;
         } else if (event.type == SDL_WINDOWEVENT && event.window.event == SDL_WINDOWEVENT_RESIZED) {
@@ -330,14 +333,23 @@ static boolean pollBrogueEvent(rogueEvent *returnEvent, boolean textInput) {
         }
     }
 
-    if (!androidAppInBackground && consumeRendererRecoveryRequest()) {
-        SDL_Log("Brogue lifecycle: rebuilding renderer on ready foreground surface");
-        resetRendererResources();
-        resetCameraFrameClock();
-        refreshScreen();
-        updateScreen();
-        androidSetRestoringVisible(false);
-        SDL_Log("Brogue lifecycle: renderer recovery complete");
+    if (!androidAppInBackground) {
+        boolean rebuildRenderer = consumeRendererRecoveryRequest();
+        if (rebuildRenderer || foregroundRedrawPending) {
+            if (rebuildRenderer) {
+                SDL_Log("Brogue lifecycle: renderer reset reported; rebuilding resources");
+                resetRendererResources();
+            } else {
+                SDL_Log("Brogue lifecycle: foreground surface ready; reusing renderer");
+            }
+
+            foregroundRedrawPending = false;
+            resetCameraFrameClock();
+            refreshScreen();
+            updateScreen();
+            androidSetRestoringVisible(false);
+            SDL_Log("Brogue lifecycle: foreground frame presented");
+        }
     }
 
     return ret;
@@ -346,6 +358,7 @@ static boolean pollBrogueEvent(rogueEvent *returnEvent, boolean textInput) {
 
 static void _gameLoop() {
     shutdownRequested = false;
+    foregroundRedrawPending = false;
     // Android may start SDL again in the same process after the Activity was
     // closed. Do not inherit the previous SDL instance's background state.
     androidAppInBackground = false;

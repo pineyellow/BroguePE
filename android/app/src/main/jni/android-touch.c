@@ -83,13 +83,6 @@ Java_com_pineyellow_broguepe_BrogueActivity_nativeSetTopLeftRoundedCorner(
     androidTopLeftCornerCenterYPx = max(0, (int)centerY);
 }
 
-JNIEXPORT void JNICALL
-Java_com_pineyellow_broguepe_BrogueActivity_nativeRequestRendererRecovery(
-        JNIEnv *env, jobject thiz) {
-    (void)env; (void)thiz;
-    requestRendererRecovery();
-}
-
 static void beginAutoMoveSession(void) {
     if (!SDL_AtomicCAS(&autoMoveSessionActive, 0, 1)) {
         return;

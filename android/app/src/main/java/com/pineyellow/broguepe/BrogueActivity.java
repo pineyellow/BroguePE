@@ -15,7 +15,6 @@ import android.view.Gravity;
 import android.view.PixelCopy;
 import android.view.RoundedCorner;
 import android.view.Surface;
-import android.view.SurfaceHolder;
 import android.view.SurfaceView;
 import android.view.View;
 import android.view.ViewGroup;
@@ -25,9 +24,6 @@ import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.TextView;
-
-import java.util.concurrent.CountDownLatch;
-import java.util.concurrent.TimeUnit;
 
 import org.libsdl.app.SDLActivity;
 
@@ -54,8 +50,9 @@ public class BrogueActivity extends SDLActivity {
     private Bitmap resumeSnapshotBitmap;
     private HandlerThread snapshotThread;
     private Handler snapshotHandler;
-    private SurfaceHolder.Callback rendererSurfaceCallback;
-    private boolean hasPaused;
+    private int snapshotCaptureGeneration;
+    private boolean restoringVisibleRequested;
+    private boolean activityDestroyed;
     private Object appBackCallback;
     private PlaytimeTracker playtimeTracker;
     private TextView debugFpsView;
@@ -89,23 +86,6 @@ public class BrogueActivity extends SDLActivity {
         playtimeTracker = new PlaytimeTracker(this);
         requestHighestRefreshRate();
         configureRoundedCornerInsets();
-
-        rendererSurfaceCallback = new SurfaceHolder.Callback() {
-            @Override
-            public void surfaceCreated(SurfaceHolder holder) {}
-
-            @Override
-            public void surfaceChanged(SurfaceHolder holder, int format,
-                                       int width, int height) {
-                // SDL registered its callback first, so its EGL surface is
-                // ready before recovery is queued for the game thread.
-                requestRendererRecoveryIfSurfaceReady();
-            }
-
-            @Override
-            public void surfaceDestroyed(SurfaceHolder holder) {}
-        };
-        ((SurfaceView) mSurface).getHolder().addCallback(rendererSurfaceCallback);
 
         snapshotThread = new HandlerThread("BrogueFrameCapture");
         snapshotThread.start();
@@ -188,11 +168,13 @@ public class BrogueActivity extends SDLActivity {
 
     @Override
     protected void onResume() {
+        // Mark the UI available before SDL resumes the game thread; that
+        // thread can request a confirmation immediately after being woken.
+        confirmationDialog.onActivityResumed();
         super.onResume();
         playtimeTracker.onResume();
         requestHighestRefreshRate();
         getWindow().getDecorView().requestApplyInsets();
-        requestRendererRecoveryIfSurfaceReady();
     }
 
     private void configureRoundedCornerInsets() {
@@ -218,8 +200,11 @@ public class BrogueActivity extends SDLActivity {
 
     @Override
     protected void onPause() {
+        // Native confirmation waits block the same game thread that services
+        // SDL lifecycle events. Resolve an open or not-yet-attached prompt as
+        // No before asking SDL to pause that thread.
+        confirmationDialog.onActivityPaused();
         playtimeTracker.onPause();
-        hasPaused = true;
         captureResumeSnapshot();
         if (dpadOverlay != null) {
             dpadOverlay.cancelInput();
@@ -272,12 +257,11 @@ public class BrogueActivity extends SDLActivity {
 
     @Override
     protected void onDestroy() {
+        activityDestroyed = true;
+        snapshotCaptureGeneration++;
         setBackHandlingEnabled(false);
+        confirmationDialog.onActivityDestroying();
         deathModal.onActivityDestroying();
-        if (mSurface != null && rendererSurfaceCallback != null) {
-            ((SurfaceView) mSurface).getHolder().removeCallback(rendererSurfaceCallback);
-            rendererSurfaceCallback = null;
-        }
         if (snapshotThread != null) {
             snapshotThread.quitSafely();
             snapshotThread = null;
@@ -290,50 +274,47 @@ public class BrogueActivity extends SDLActivity {
         super.onDestroy();
     }
 
-    private void requestRendererRecoveryIfSurfaceReady() {
-        if (!hasPaused || mSurface == null) return;
-        Surface surface = ((SurfaceView) mSurface).getHolder().getSurface();
-        if (surface != null && surface.isValid()) {
-            nativeRequestRendererRecovery();
-        }
-    }
-
     private void captureResumeSnapshot() {
-        if (mSurface == null || snapshotHandler == null) return;
+        Handler captureHandler = snapshotHandler;
+        if (mSurface == null || captureHandler == null) return;
         SurfaceView surfaceView = (SurfaceView) mSurface;
         Surface surface = surfaceView.getHolder().getSurface();
         int width = surfaceView.getWidth();
         int height = surfaceView.getHeight();
         if (!surface.isValid() || width <= 0 || height <= 0) return;
 
-        Bitmap candidate = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
-        CountDownLatch finished = new CountDownLatch(1);
-        int[] result = { PixelCopy.ERROR_UNKNOWN };
-
-        try {
-            PixelCopy.request(surface, candidate, copyResult -> {
-                result[0] = copyResult;
-                finished.countDown();
-            }, snapshotHandler);
-
-            boolean completed = finished.await(200, TimeUnit.MILLISECONDS);
-            if (!completed) return;
-            if (result[0] != PixelCopy.SUCCESS) {
-                candidate.recycle();
+        int captureGeneration = ++snapshotCaptureGeneration;
+        captureHandler.post(() -> {
+            Bitmap candidate;
+            try {
+                candidate = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            } catch (RuntimeException e) {
                 return;
             }
 
-            Bitmap previous = resumeSnapshotBitmap;
-            resumeSnapshotBitmap = candidate;
-            resumeSnapshotView.setImageBitmap(candidate);
-            if (previous != null && previous != candidate) {
-                previous.recycle();
+            try {
+                PixelCopy.request(surface, candidate, copyResult -> runOnUiThread(() -> {
+                    if (copyResult != PixelCopy.SUCCESS
+                            || activityDestroyed
+                            || captureGeneration != snapshotCaptureGeneration) {
+                        candidate.recycle();
+                        return;
+                    }
+
+                    Bitmap previous = resumeSnapshotBitmap;
+                    resumeSnapshotBitmap = candidate;
+                    resumeSnapshotView.setImageBitmap(candidate);
+                    if (restoringVisibleRequested) {
+                        showResumeSnapshot();
+                    }
+                    if (previous != null && previous != candidate) {
+                        previous.recycle();
+                    }
+                }), captureHandler);
+            } catch (RuntimeException e) {
+                candidate.recycle();
             }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } catch (RuntimeException e) {
-            candidate.recycle();
-        }
+        });
     }
 
     private void showResumeSnapshot() {
@@ -558,6 +539,7 @@ public class BrogueActivity extends SDLActivity {
 
     public void setRestoringVisible(final boolean visible) {
         runOnUiThread(() -> {
+            restoringVisibleRequested = visible;
             if (visible) {
                 showResumeSnapshot();
             } else {
@@ -669,7 +651,6 @@ public class BrogueActivity extends SDLActivity {
     native void nativeTextInputResult(boolean confirmed, String text);
     native void nativeConfirmationResult(boolean confirmed);
     native void nativeSetTopLeftRoundedCorner(int radius, int centerX, int centerY);
-    native void nativeRequestRendererRecovery();
     native long nativeGetSeed();
     native boolean nativeHasVisibleEnemy();
     native void nativeArmQuickTargetSelection();
