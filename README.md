@@ -1,6 +1,8 @@
 # Brogue PE
 
-Brogue: Phone Edition is an Android-focused edition of the classic dungeon-crawling roguelike Brogue. It keeps the original tactical gameplay while rebuilding the mobile experience around touch controls.
+![Brogue PE gameplay on Android](docs/images/screenshot.png)
+
+Brogue: Phone Edition is an Android-focused version of the classic dungeon-crawling roguelike Brogue. It keeps the original tactical gameplay while rebuilding the mobile experience around touch controls.
 
 This is an unofficial derivative project. It is not an official release of Brogue, Brogue: Community Edition, or Brogue CE Android.
 
