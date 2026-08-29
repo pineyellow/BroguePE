@@ -31,6 +31,7 @@ final class SettingsPanel {
     private static final String[] CAMERA_FOLLOW_MODE_LABELS = {
         "Camera Follow Speed: Smooth",
         "Camera Follow Speed: Fast",
+        "Camera Follow Speed: Very Fast",
         "Camera Follow Speed: Instant"
     };
 

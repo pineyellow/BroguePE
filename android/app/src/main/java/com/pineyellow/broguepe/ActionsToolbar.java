@@ -46,6 +46,8 @@ final class ActionsToolbar {
 
     private static final float BASE_BUTTON_SIZE_DP = 44f;
     private static final float BASE_BUTTON_PADDING_DP = 10f;
+    private static final int BUTTON_HALF_GAP_DP = 2;
+    private static final int TOOLBAR_GUARD_PADDING_DP = 2;
 
     // Registered actions: {key, human label}. The pinned subset of this set
     // appears in the toolbar; the full set appears in the Actions panel.
@@ -137,8 +139,13 @@ final class ActionsToolbar {
         toolbarContainer = new LinearLayout(activity);
         toolbarContainer.setOrientation(LinearLayout.HORIZONTAL);
         toolbarContainer.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
-        toolbarContainer.setBackground(makeBarBackground());
-        int barPad = dp(4);
+        // Child buttons keep their own touches. Absorb background taps instead
+        // of passing them through to the dungeon, still dismissing an open menu.
+        toolbarContainer.setOnClickListener(v -> collapseSubmenu());
+        toolbarContainer.setSoundEffectsEnabled(false);
+        toolbarContainer.setFocusable(false);
+        toolbarContainer.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        int barPad = dp(TOOLBAR_GUARD_PADDING_DP);
         toolbarContainer.setPadding(barPad, barPad, barPad, barPad);
 
         LinearLayout topGroup = new LinearLayout(activity);
@@ -158,9 +165,9 @@ final class ActionsToolbar {
             FrameLayout.LayoutParams.WRAP_CONTENT,
             FrameLayout.LayoutParams.WRAP_CONTENT,
             Gravity.TOP | Gravity.END);
-        // The action icon's right edge includes the frame margin, bar padding,
-        // and its own margin (4 + 4 + 3dp). Match that inset here.
-        topParams.setMargins(0, dp(8), dp(11), 0);
+        // The action icon's right edge includes the frame margin, guard padding,
+        // and its own half-gap (4 + 2 + 2dp). Match that inset here.
+        topParams.setMargins(0, dp(8), dp(8), 0);
 
         FrameLayout.LayoutParams bottomParams = new FrameLayout.LayoutParams(
             LinearLayout.LayoutParams.WRAP_CONTENT,
@@ -358,7 +365,7 @@ final class ActionsToolbar {
 
         java.util.Set<String> pinned = getPinned();
         int btnSize = buttonSizePx();
-        int btnMargin = dp(3);
+        int btnMargin = dp(BUTTON_HALF_GAP_DP);
         int addedButtonCount = 0;
 
         java.util.List<String> order = getActionOrder();
@@ -389,7 +396,7 @@ final class ActionsToolbar {
             toolbarContainer.addView(btn, p);
             addedButtonCount++;
         }
-
+        toolbarContainer.setVisibility(addedButtonCount == 0 ? View.GONE : View.VISIBLE);
     }
 
     // ---- Actions panel -----------------------------------------------------
@@ -837,7 +844,7 @@ final class ActionsToolbar {
 
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(dp(2));
+        bg.setCornerRadius(dp(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         bg.setColor(Palette.ACTION_BUTTON_BG);
         bg.setStroke(1, Palette.BORDER_DIM);
 
@@ -921,14 +928,6 @@ final class ActionsToolbar {
         bg.setCornerRadius(dp(UiStyle.PANEL_CORNER_RADIUS_DP));
         bg.setColor(Palette.SUBMENU_BG);
         bg.setStroke(1, Palette.BORDER_DIM);
-        return bg;
-    }
-
-    private GradientDrawable makeBarBackground() {
-        GradientDrawable bg = new GradientDrawable(
-            GradientDrawable.Orientation.LEFT_RIGHT,
-            new int[]{ Color.TRANSPARENT, Color.TRANSPARENT, Color.TRANSPARENT });
-        bg.setCornerRadius(0);
         return bg;
     }
 

@@ -19,7 +19,9 @@ final class GameSettings {
     static final int DEFAULT_GRAPHICS_MODE = GRAPHICS_TILES;
     static final int CAMERA_FOLLOW_SMOOTH = 0;
     static final int CAMERA_FOLLOW_FAST = 1;
-    static final int CAMERA_FOLLOW_INSTANT = 2;
+    // Legacy Instant (2) intentionally becomes Very Fast without a migration.
+    static final int CAMERA_FOLLOW_VERY_FAST = 2;
+    static final int CAMERA_FOLLOW_INSTANT = 3;
     static final int DEFAULT_CAMERA_FOLLOW_MODE = CAMERA_FOLLOW_SMOOTH;
 
     private GameSettings() {}

@@ -124,7 +124,8 @@ final class TextInputDialog {
             valueView.setGravity(Gravity.CENTER);
             GradientDrawable valueBg = new GradientDrawable();
             valueBg.setShape(GradientDrawable.RECTANGLE);
-            valueBg.setCornerRadius(activity.dpToPx(3));
+            valueBg.setCornerRadius(
+                activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
             valueBg.setColor(Color.argb(255, 25, 17, 42));
             valueBg.setStroke(1, Palette.DIM_BLUE_GRAY);
             valueView.setBackground(valueBg);
@@ -410,7 +411,7 @@ final class TextInputDialog {
 
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(activity.dpToPx(3));
+        bg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         bg.setColor(bgColor);
         if (stroked) bg.setStroke(1, Palette.BORDER_DIM);
         btn.setBackground(new RippleDrawable(

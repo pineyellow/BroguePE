@@ -253,7 +253,7 @@ final class DeathModal {
         GradientDrawable panelBg = new GradientDrawable();
         panelBg.setShape(GradientDrawable.RECTANGLE);
         panelBg.setCornerRadius(activity.dpToPx(UiStyle.PANEL_CORNER_RADIUS_DP));
-        panelBg.setColor(Palette.INVENTORY_BG);
+        panelBg.setColor(Palette.DEATH_MODAL_BG);
         panelBg.setStroke(1, Palette.BORDER_DIM);
         panel.setBackground(panelBg);
         panel.setElevation(activity.dpToPx(12));

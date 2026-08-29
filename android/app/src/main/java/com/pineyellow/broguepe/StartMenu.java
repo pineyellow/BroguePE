@@ -134,7 +134,7 @@ final class StartMenu {
 
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(activity.dpToPx(6));
+        bg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         bg.setColor(enabled ? Palette.ITEM_BG : Palette.DISABLED_BG);
         bg.setStroke(1, Palette.BORDER_DIM);
         if (enabled) {
@@ -173,7 +173,7 @@ final class StartMenu {
         BrogueActivity activity = (BrogueActivity) row.getContext();
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(activity.dpToPx(6));
+        bg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         bg.setColor(enabled ? Palette.ITEM_BG : Palette.DISABLED_BG);
         bg.setStroke(1, Palette.BORDER_DIM);
         if (enabled) {

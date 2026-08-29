@@ -78,7 +78,8 @@ extern boolean androidCameraFastRecenter;
 enum androidCameraFollowModes {
     ANDROID_CAMERA_FOLLOW_SMOOTH = 0,
     ANDROID_CAMERA_FOLLOW_FAST = 1,
-    ANDROID_CAMERA_FOLLOW_INSTANT = 2,
+    ANDROID_CAMERA_FOLLOW_VERY_FAST = 2,
+    ANDROID_CAMERA_FOLLOW_INSTANT = 3,
 };
 extern enum androidCameraFollowModes androidCameraFollowMode;
 

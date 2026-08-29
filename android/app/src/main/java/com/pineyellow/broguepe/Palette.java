@@ -17,6 +17,8 @@ final class Palette {
     static final int DIM_BLUE_GRAY  = Color.argb(255, 91, 82, 120);   // Dark indigo-gray
     static final int PALE_BLUE      = Color.argb(255, 144, 148, 190); // flameTitleColor text
     static final int GHOST_WHITE    = Color.argb(255, 210, 205, 220);
+    static final int STAT_IMPROVEMENT = Color.rgb(66, 231, 122); // Saturated green
+    static final int STAT_PENALTY     = Color.rgb(255, 82, 99);  // Saturated red
     static final int VOID_BLACK     = Color.argb(240, 10, 6, 18);
     static final int SUBMENU_BG     = Color.argb(255, 16, 10, 30);
     static final int RIPPLE_GLOW    = Color.argb(80, 154, 143, 191);
@@ -24,6 +26,7 @@ final class Palette {
     static final int BORDER_ACTIVE  = Color.argb(200, 154, 143, 191);
 
     static final int INVENTORY_BG   = Color.argb(245, 13, 8, 25);
+    static final int DEATH_MODAL_BG = Color.argb(230, 13, 8, 25);
     static final int ITEM_BG        = Color.argb(200, 25, 17, 42);
     static final int EQUIPPED_GLOW  = Color.argb(220, 52, 38, 63);
     static final int ACTION_BG      = Color.argb(220, 40, 28, 63);

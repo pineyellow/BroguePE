@@ -184,7 +184,8 @@ final class ConfirmationDialog {
     private GradientDrawable buttonBackground(boolean primary) {
         GradientDrawable background = new GradientDrawable();
         background.setColor(primary ? Palette.ACTION_BG : Palette.ITEM_BG);
-        background.setCornerRadius(activity.dpToPx(3));
+        background.setCornerRadius(
+            activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         background.setStroke(1, primary ? Palette.BORDER_ACTIVE : Palette.BORDER_DIM);
         return background;
     }

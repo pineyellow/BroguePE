@@ -236,11 +236,7 @@ final class InventoryOverlay {
         boolean selectable = item.optBoolean("selectable", true);
         char letter = item.optString("letter", "?").charAt(0);
         String name = item.optString("name", "???");
-        String desc = item.optString("desc", "");
-        String nameUpper = name.toUpperCase(java.util.Locale.US) + "\n\n";
-        if (desc.toUpperCase(java.util.Locale.US).startsWith(nameUpper)) {
-            desc = desc.substring(nameUpper.length());
-        }
+        ItemDescription description = ItemDescription.fromJson(item);
         String actions = item.optString("actions", "");
         int magicPolarity = item.optInt("magicPolarity", 0);
         String displayName = name;
@@ -255,7 +251,7 @@ final class InventoryOverlay {
 
         GradientDrawable rowBg = new GradientDrawable();
         rowBg.setShape(GradientDrawable.RECTANGLE);
-        rowBg.setCornerRadius(activity.dpToPx(3));
+        rowBg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         rowBg.setStroke(1, Palette.BORDER_DIM);
         if (selectMode) {
             rowBg.setColor(selectable ? Palette.ITEM_BG : Palette.DISABLED_BG);
@@ -330,15 +326,18 @@ final class InventoryOverlay {
         GradientDrawable detailBg = new GradientDrawable();
         detailBg.setShape(GradientDrawable.RECTANGLE);
         detailBg.setCornerRadii(new float[]{
-            0, 0, 0, 0, activity.dpToPx(3), activity.dpToPx(3),
-            activity.dpToPx(3), activity.dpToPx(3)});
+            0, 0, 0, 0,
+            activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP),
+            activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP),
+            activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP),
+            activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP)});
         detailBg.setColor(Color.argb(180, 20, 13, 34));
         detailSection.setBackground(detailBg);
 
-        if (!desc.isEmpty()) {
+        if (!description.text.isEmpty()) {
             TextView descView = new TextView(activity);
-            descView.setText(desc);
-            descView.setTextColor(Palette.PALE_BLUE);
+            descView.setText(description.styledText());
+            descView.setTextColor(Palette.GHOST_WHITE);
             descView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
             descView.setTypeface(Typeface.MONOSPACE);
             descView.setLineSpacing(0, 1.3f);
@@ -376,7 +375,8 @@ final class InventoryOverlay {
 
                 GradientDrawable abg = new GradientDrawable();
                 abg.setShape(GradientDrawable.RECTANGLE);
-                abg.setCornerRadius(activity.dpToPx(3));
+                abg.setCornerRadius(
+                    activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
                 abg.setColor(Palette.ACTION_BG);
                 abg.setStroke(1, Palette.BORDER_DIM);
                 actionBtn.setBackground(new RippleDrawable(

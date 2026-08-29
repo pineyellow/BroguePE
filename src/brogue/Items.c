@@ -2346,10 +2346,10 @@ void itemDetails(char *buf, item *theItem) {
                 if (rogue.armor) {
                     new -= armorStealthAdjustment(rogue.armor);
                 }
-                sprintf(buf2, "Equipping the %s will %s%s your stealth range by %i%s. ",
+                sprintf(buf2, "Equipping the %s will %s your stealth range (the radius enemies can detect you) by %s%i%s. ",
                         theName,
-                        new > 0 ? badColorEscape : goodColorEscape,
                         new > 0 ? "increase" : "decrease",
+                        new > 0 ? badColorEscape : goodColorEscape,
                         abs(new),
                         whiteColorEscape);
                 strcat(buf, buf2);
@@ -2982,6 +2982,82 @@ static int jsonEscape(char *dest, const char *src, int maxLen) {
     return j;
 }
 
+// Preserve good/bad markers for comparison percentages, strength adjustments,
+// and stealth-range adjustments.
+// Text runs avoid byte-offset differences between native UTF-8 and Java strings.
+static boolean appendEquipmentDescriptionRuns(jsonBuffer *json, const char *description) {
+    if (!appendJsonFormat(json, ",\"descRuns\":[")) {
+        return false;
+    }
+    int polarity = 0;
+    boolean first = true;
+    boolean expectingStealthAdjustment = false;
+    const char *cursor = description;
+    while (*cursor) {
+        if (*cursor == COLOR_ESCAPE) {
+            color foreground;
+            cursor += decodeMessageColor(cursor, 0, &foreground);
+            if (foreground.red == goodMessageColor.red
+                && foreground.green == goodMessageColor.green
+                && foreground.blue == goodMessageColor.blue) {
+                polarity = 1;
+            } else if (foreground.red == badMessageColor.red
+                       && foreground.green == badMessageColor.green
+                       && foreground.blue == badMessageColor.blue) {
+                polarity = -1;
+            } else {
+                polarity = 0;
+            }
+            continue;
+        }
+
+        const char *start = cursor;
+        while (*cursor && *cursor != COLOR_ESCAPE) {
+            cursor++;
+        }
+        size_t length = (size_t) (cursor - start);
+        char run[COLS * 100], escaped[COLS * 200];
+        if (length >= sizeof(run)) {
+            return false;
+        }
+        memcpy(run, start, length);
+        run[length] = '\0';
+
+        size_t digits = 0;
+        while (run[digits] >= '0' && run[digits] <= '9') {
+            digits++;
+        }
+        boolean percentage = digits > 0 && digits + 1 == length && run[digits] == '%';
+        boolean stealthAdjustment = expectingStealthAdjustment
+            && polarity != 0 && digits == length;
+
+        // Strength adjustments use signed, two-decimal values (+0.50, -2.50).
+        // Keep intrinsic enchantments such as +1 and other colored prose white.
+        boolean strengthAdjustment = false;
+        if (run[0] == '+' || run[0] == '-') {
+            size_t integerEnd = 1;
+            while (run[integerEnd] >= '0' && run[integerEnd] <= '9') {
+                integerEnd++;
+            }
+            strengthAdjustment = integerEnd > 1 && integerEnd + 3 == length
+                && run[integerEnd] == '.'
+                && run[integerEnd + 1] >= '0' && run[integerEnd + 1] <= '9'
+                && run[integerEnd + 2] >= '0' && run[integerEnd + 2] <= '9';
+        }
+        jsonEscape(escaped, run, sizeof(escaped));
+        if (!appendJsonFormat(json, "%s{\"text\":\"%s\",\"polarity\":%d}",
+                              first ? "" : ",", escaped,
+                              percentage || strengthAdjustment || stealthAdjustment ? polarity : 0)) {
+            return false;
+        }
+        expectingStealthAdjustment = polarity == 0
+            && strstr(run, "stealth range") != NULL
+            && length >= 4 && strcmp(run + length - 4, " by ") == 0;
+        first = false;
+    }
+    return appendJsonFormat(json, "]");
+}
+
 char displayInventory(unsigned short categoryMask,
                       unsigned long requiredFlags,
                       unsigned long forbiddenFlags,
@@ -3122,7 +3198,7 @@ char displayInventory(unsigned short categoryMask,
                 "\"category\":%u,\"equipped\":%s,\"selectable\":%s,"
                 "\"actions\":\"%s\",\"equippedCount\":%d,\"magicPolarity\":%d,"
                 "\"tileGlyph\":%d,\"textGlyph\":%d,"
-                "\"iconRed\":%d,\"iconGreen\":%d,\"iconBlue\":%d}",
+                "\"iconRed\":%d,\"iconGreen\":%d,\"iconBlue\":%d",
                 (visibleItemCount > 0 ? "," : ""),
                 theItem->inventoryLetter, nameEsc, descEsc,
                 theItem->category,
@@ -3130,6 +3206,10 @@ char displayInventory(unsigned short categoryMask,
                 selectable ? "true" : "false",
                 actions, visibleEquippedCount, magicPol,
                 tileGlyph, textGlyph, iconRed, iconGreen, iconBlue);
+            if (jsonOK && (theItem->category & (WEAPON | ARMOR))) {
+                jsonOK = appendEquipmentDescriptionRuns(&json, descRaw);
+            }
+            jsonOK = jsonOK && appendJsonFormat(&json, "}");
         } else {
             // Selection mode: no description or actions needed.
             jsonOK = appendJsonFormat(&json,

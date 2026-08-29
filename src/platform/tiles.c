@@ -23,7 +23,8 @@ static boolean messageArchiveActive = false;
 #define TEXT_BASELINE  46   // height (px) of the blank space below the 'x' outline
 #define MAX_TILE_SIZE  64   // maximum width or height (px) of screen tiles before we switch to linear interpolation
 #define CAMERA_SMOOTH_FOLLOW_LERP 0.10f
-#define CAMERA_FAST_FOLLOW_LERP 0.40f
+#define CAMERA_FAST_FOLLOW_LERP 0.25f
+#define CAMERA_VERY_FAST_FOLLOW_LERP 0.40f
 #define CAMERA_REFERENCE_FRAME_MS 36.0
 
 #ifndef NDEBUG
@@ -88,6 +89,8 @@ static float cameraReferenceAlpha(void) {
     switch (androidCameraFollowMode) {
         case ANDROID_CAMERA_FOLLOW_INSTANT:
             return 1.0f;
+        case ANDROID_CAMERA_FOLLOW_VERY_FAST:
+            return CAMERA_VERY_FAST_FOLLOW_LERP;
         case ANDROID_CAMERA_FOLLOW_FAST:
             return CAMERA_FAST_FOLLOW_LERP;
         case ANDROID_CAMERA_FOLLOW_SMOOTH:

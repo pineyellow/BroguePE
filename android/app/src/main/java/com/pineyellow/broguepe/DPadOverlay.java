@@ -4,7 +4,9 @@ import android.annotation.SuppressLint;
 import android.graphics.Canvas;
 import android.graphics.Color;
 import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.PixelFormat;
+import android.graphics.RectF;
 import android.graphics.drawable.Drawable;
 import android.os.Handler;
 import android.os.Looper;
@@ -42,7 +44,9 @@ final class DPadOverlay {
     private static final boolean SHOW_DEAD_ZONE_DEBUG_TINT = true;
     private static final int DEAD_ZONE_DEBUG_COLOR = Color.argb(28, 255, 55, 55);
 
-    private static final int GRID_LINE_COLOR = Color.argb(105, 255, 255, 255);
+    // Borders are drawn fully inside their cells; this preserves the visual
+    // strength of the old half-clipped 105-alpha strokes.
+    private static final int GRID_LINE_COLOR = Color.argb(53, 255, 255, 255);
     private static final int GLYPH_COLOR = Color.argb(235, 255, 255, 255);
 
     private final BrogueActivity activity;
@@ -123,7 +127,9 @@ final class DPadOverlay {
         view.setColorFilter(GLYPH_COLOR);
         view.setScaleType(ImageView.ScaleType.CENTER);
         view.setContentDescription(cell.contentDescription);
-        view.setBackground(new CellBorderDrawable(rowIndex == 0, colIndex == 0));
+        view.setBackground(new CellBorderDrawable(
+            rowIndex, colIndex,
+            activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP)));
         view.setOnClickListener(v -> { });
         view.setOnTouchListener((v, event) -> handleTouch(v, event, cell.command));
 
@@ -293,12 +299,24 @@ final class DPadOverlay {
     /** Draws only the grid outline while keeping the fill transparent. */
     private static final class CellBorderDrawable extends Drawable {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
+        private final Path border = new Path();
+        private final RectF arcBounds = new RectF();
         private final boolean drawTop;
         private final boolean drawLeft;
+        private final boolean roundTopLeft;
+        private final boolean roundTopRight;
+        private final boolean roundBottomLeft;
+        private final boolean roundBottomRight;
+        private final float cornerRadius;
 
-        CellBorderDrawable(boolean drawTop, boolean drawLeft) {
-            this.drawTop = drawTop;
-            this.drawLeft = drawLeft;
+        CellBorderDrawable(int rowIndex, int colIndex, float cornerRadius) {
+            this.drawTop = rowIndex == 0;
+            this.drawLeft = colIndex == 0;
+            this.roundTopLeft = rowIndex == 0 && colIndex == 0;
+            this.roundTopRight = rowIndex == 0 && colIndex == 2;
+            this.roundBottomLeft = rowIndex == 2 && colIndex == 0;
+            this.roundBottomRight = rowIndex == 2 && colIndex == 2;
+            this.cornerRadius = cornerRadius;
             paint.setColor(GRID_LINE_COLOR);
             paint.setStrokeWidth(1f);
             paint.setStyle(Paint.Style.STROKE);
@@ -306,15 +324,65 @@ final class DPadOverlay {
 
         @Override
         public void draw(Canvas canvas) {
-            float left = getBounds().left;
-            float top = getBounds().top;
-            float right = getBounds().right;
-            float bottom = getBounds().bottom;
+            float halfStroke = paint.getStrokeWidth() / 2f;
+            float boundsLeft = getBounds().left;
+            float boundsTop = getBounds().top;
+            float boundsRight = getBounds().right;
+            float boundsBottom = getBounds().bottom;
+            float left = boundsLeft + halfStroke;
+            float top = boundsTop + halfStroke;
+            float right = boundsRight - halfStroke;
+            float bottom = boundsBottom - halfStroke;
+            float radius = Math.min(cornerRadius,
+                Math.min((right - left) / 2f, (bottom - top) / 2f));
+            radius = Math.max(0f, radius);
+            float diameter = radius * 2f;
+            border.reset();
 
-            if (drawTop) canvas.drawLine(left, top, right, top, paint);
-            if (drawLeft) canvas.drawLine(left, top, left, bottom, paint);
-            canvas.drawLine(left, bottom, right, bottom, paint);
-            canvas.drawLine(right, top, right, bottom, paint);
+            if (drawTop) {
+                if (roundTopLeft) {
+                    border.moveTo(left, top + radius);
+                    arcBounds.set(left, top,
+                        left + diameter, top + diameter);
+                    border.arcTo(arcBounds, 180f, 90f, false);
+                } else {
+                    border.moveTo(drawLeft ? left : boundsLeft, top);
+                }
+
+                border.lineTo(roundTopRight ? right - radius : right, top);
+                if (roundTopRight) {
+                    arcBounds.set(right - diameter, top,
+                        right, top + diameter);
+                    border.arcTo(arcBounds, 270f, 90f, false);
+                }
+            } else {
+                border.moveTo(right, boundsTop);
+            }
+
+            border.lineTo(right,
+                roundBottomRight ? bottom - radius : bottom);
+            if (roundBottomRight) {
+                arcBounds.set(right - diameter, bottom - diameter,
+                    right, bottom);
+                border.arcTo(arcBounds, 0f, 90f, false);
+            }
+
+            border.lineTo(
+                roundBottomLeft ? left + radius : (drawLeft ? left : boundsLeft),
+                bottom);
+            if (roundBottomLeft) {
+                arcBounds.set(left, bottom - diameter,
+                    left + diameter, bottom);
+                border.arcTo(arcBounds, 90f, 90f, false);
+            }
+
+            if (drawLeft) {
+                border.lineTo(left,
+                    roundTopLeft ? top + radius : boundsTop);
+                if (drawTop) border.close();
+            }
+
+            canvas.drawPath(border, paint);
         }
 
         @Override
