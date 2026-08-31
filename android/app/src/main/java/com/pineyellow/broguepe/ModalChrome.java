@@ -24,6 +24,11 @@ final class ModalChrome {
      *  The caller is responsible for the scroll wrap / addContentView /
      *  animation — see {@link #present(BrogueActivity, FrameLayout, LinearLayout)}. */
     static LinearLayout buildPanel(BrogueActivity activity, FrameLayout root, String titleUpper) {
+        return buildPanel(activity, root, titleUpper, 12);
+    }
+
+    static LinearLayout buildPanel(BrogueActivity activity, FrameLayout root, String titleUpper,
+            int contentTopGapDp) {
         View backdrop = new View(activity);
         backdrop.setBackgroundColor(Color.argb(160, 0, 0, 0));
         backdrop.setOnClickListener(v -> activity.modalStack.pop());
@@ -55,7 +60,7 @@ final class ModalChrome {
         panel.addView(header);
 
         panel.addView(makeDimSeparator(activity),
-                      separatorParams(activity, 8, 8, 0, 12));
+                      separatorParams(activity, 8, 8, 0, contentTopGapDp));
         return panel;
     }
 

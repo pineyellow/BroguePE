@@ -2982,16 +2982,14 @@ static int jsonEscape(char *dest, const char *src, int maxLen) {
     return j;
 }
 
-// Preserve good/bad markers for comparison percentages, strength adjustments,
-// and stealth-range adjustments.
+// Preserve Brogue's good/bad color boundaries as semantic text runs.
 // Text runs avoid byte-offset differences between native UTF-8 and Java strings.
-static boolean appendEquipmentDescriptionRuns(jsonBuffer *json, const char *description) {
+static boolean appendItemDescriptionRuns(jsonBuffer *json, const char *description) {
     if (!appendJsonFormat(json, ",\"descRuns\":[")) {
         return false;
     }
     int polarity = 0;
     boolean first = true;
-    boolean expectingStealthAdjustment = false;
     const char *cursor = description;
     while (*cursor) {
         if (*cursor == COLOR_ESCAPE) {
@@ -3023,36 +3021,11 @@ static boolean appendEquipmentDescriptionRuns(jsonBuffer *json, const char *desc
         memcpy(run, start, length);
         run[length] = '\0';
 
-        size_t digits = 0;
-        while (run[digits] >= '0' && run[digits] <= '9') {
-            digits++;
-        }
-        boolean percentage = digits > 0 && digits + 1 == length && run[digits] == '%';
-        boolean stealthAdjustment = expectingStealthAdjustment
-            && polarity != 0 && digits == length;
-
-        // Strength adjustments use signed, two-decimal values (+0.50, -2.50).
-        // Keep intrinsic enchantments such as +1 and other colored prose white.
-        boolean strengthAdjustment = false;
-        if (run[0] == '+' || run[0] == '-') {
-            size_t integerEnd = 1;
-            while (run[integerEnd] >= '0' && run[integerEnd] <= '9') {
-                integerEnd++;
-            }
-            strengthAdjustment = integerEnd > 1 && integerEnd + 3 == length
-                && run[integerEnd] == '.'
-                && run[integerEnd + 1] >= '0' && run[integerEnd + 1] <= '9'
-                && run[integerEnd + 2] >= '0' && run[integerEnd + 2] <= '9';
-        }
         jsonEscape(escaped, run, sizeof(escaped));
         if (!appendJsonFormat(json, "%s{\"text\":\"%s\",\"polarity\":%d}",
-                              first ? "" : ",", escaped,
-                              percentage || strengthAdjustment || stealthAdjustment ? polarity : 0)) {
+                              first ? "" : ",", escaped, polarity)) {
             return false;
         }
-        expectingStealthAdjustment = polarity == 0
-            && strstr(run, "stealth range") != NULL
-            && length >= 4 && strcmp(run + length - 4, " by ") == 0;
         first = false;
     }
     return appendJsonFormat(json, "]");
@@ -3206,8 +3179,8 @@ char displayInventory(unsigned short categoryMask,
                 selectable ? "true" : "false",
                 actions, visibleEquippedCount, magicPol,
                 tileGlyph, textGlyph, iconRed, iconGreen, iconBlue);
-            if (jsonOK && (theItem->category & (WEAPON | ARMOR))) {
-                jsonOK = appendEquipmentDescriptionRuns(&json, descRaw);
+            if (jsonOK) {
+                jsonOK = appendItemDescriptionRuns(&json, descRaw);
             }
             jsonOK = jsonOK && appendJsonFormat(&json, "}");
         } else {

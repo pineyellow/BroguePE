@@ -1,6 +1,19 @@
 import java.util.Properties
 
-val broguePeVersionName = "1.2.2"
+val broguePeVersionName = "1.2.4"
+
+val debugOverlayEnabled = providers.gradleProperty("debugOverlay")
+    .orElse("false")
+    .map { value ->
+        when (value.lowercase()) {
+            "true" -> true
+            "false" -> false
+            else -> throw GradleException(
+                "debugOverlay must be either true or false; received: $value"
+            )
+        }
+    }
+    .get()
 
 plugins {
     id("com.android.application")
@@ -44,7 +57,7 @@ android {
         applicationId = "com.pineyellow.broguepe"
         minSdk = 24
         targetSdk = 36
-        versionCode = 17
+        versionCode = 18
         versionName = broguePeVersionName
 
         externalNativeBuild {
@@ -97,6 +110,7 @@ android {
     buildTypes {
         getByName("debug") {
             applicationIdSuffix = ".debug"
+            buildConfigField("boolean", "DEBUG_OVERLAY", debugOverlayEnabled.toString())
             ndk {
                 abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")
             }
@@ -104,6 +118,7 @@ android {
 
         getByName("release") {
             isMinifyEnabled = false
+            buildConfigField("boolean", "DEBUG_OVERLAY", "false")
             signingConfig = signingConfigs.findByName("release")
             ndk {
                 abiFilters += listOf("arm64-v8a", "armeabi-v7a", "x86_64")

@@ -23,6 +23,8 @@ class SeedDetailsModal {
 
     protected String getTitleUpper() { return "SEED"; }
 
+    protected int getContentTopGapDp() { return 12; }
+
     protected String getHeaderLabel() { return String.valueOf(seed); }
 
     protected void onSeedViewBuilt(TextView seedView) {}
@@ -34,7 +36,8 @@ class SeedDetailsModal {
 
     protected final View buildOverlay() {
         FrameLayout root = new FrameLayout(activity);
-        LinearLayout panel = ModalChrome.buildPanel(activity, root, getTitleUpper());
+        LinearLayout panel = ModalChrome.buildPanel(
+            activity, root, getTitleUpper(), getContentTopGapDp());
 
         headerLabelView = makeHeaderLabelView();
         panel.addView(headerLabelView);

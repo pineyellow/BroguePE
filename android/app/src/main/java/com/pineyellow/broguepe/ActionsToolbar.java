@@ -5,7 +5,10 @@ import android.animation.ArgbEvaluator;
 import android.animation.ValueAnimator;
 import android.content.SharedPreferences;
 import android.content.res.ColorStateList;
+import android.graphics.Canvas;
 import android.graphics.Color;
+import android.graphics.Paint;
+import android.graphics.Path;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
@@ -44,7 +47,7 @@ final class ActionsToolbar {
     static final int BUTTONS_VERTICAL        = 1;
     static final int DEFAULT_BUTTON_ORIENTATION = BUTTONS_HORIZONTAL;
 
-    private static final float BASE_BUTTON_SIZE_DP = 44f;
+    private static final float BASE_BUTTON_SIZE_DP = 48f;
     private static final float BASE_BUTTON_PADDING_DP = 10f;
     private static final int BUTTON_HALF_GAP_DP = 2;
     private static final int TOOLBAR_GUARD_PADDING_DP = 2;
@@ -136,7 +139,7 @@ final class ActionsToolbar {
             }
         });
 
-        toolbarContainer = new LinearLayout(activity);
+        toolbarContainer = new DeadZoneDebugLinearLayout(activity);
         toolbarContainer.setOrientation(LinearLayout.HORIZONTAL);
         toolbarContainer.setGravity(Gravity.END | Gravity.CENTER_VERTICAL);
         // Child buttons keep their own touches. Absorb background taps instead
@@ -929,6 +932,44 @@ final class ActionsToolbar {
         bg.setColor(Palette.SUBMENU_BG);
         bg.setStroke(1, Palette.BORDER_DIM);
         return bg;
+    }
+
+    /** Tints only touch-consuming toolbar space outside the button bounds. */
+    private static final class DeadZoneDebugLinearLayout extends LinearLayout {
+        private static final int DEBUG_TINT = Color.argb(28, 255, 55, 55);
+        private final Paint debugPaint;
+        private final Path debugPath;
+
+        DeadZoneDebugLinearLayout(BrogueActivity activity) {
+            super(activity);
+            if (BuildConfig.DEBUG_OVERLAY) {
+                debugPaint = new Paint();
+                debugPaint.setColor(DEBUG_TINT);
+                debugPaint.setStyle(Paint.Style.FILL);
+                debugPath = new Path();
+                debugPath.setFillType(Path.FillType.EVEN_ODD);
+            } else {
+                debugPaint = null;
+                debugPath = null;
+            }
+        }
+
+        @Override
+        protected void dispatchDraw(Canvas canvas) {
+            super.dispatchDraw(canvas);
+            if (debugPaint == null || debugPath == null) return;
+
+            debugPath.rewind();
+            debugPath.addRect(0, 0, getWidth(), getHeight(), Path.Direction.CW);
+            for (int i = 0; i < getChildCount(); i++) {
+                View child = getChildAt(i);
+                if (child.getVisibility() == View.VISIBLE) {
+                    debugPath.addRect(child.getLeft(), child.getTop(),
+                        child.getRight(), child.getBottom(), Path.Direction.CW);
+                }
+            }
+            canvas.drawPath(debugPath, debugPaint);
+        }
     }
 
     private float buttonSizeScale() {

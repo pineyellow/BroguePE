@@ -40,8 +40,6 @@ final class DPadOverlay {
     private static final long HOLD_REPEAT_DELAY_MS = 300L;
     private static final long HOLD_REPEAT_INTERVAL_MS = 70L;
 
-    // Temporary testing aid. Set false after the guard-zone size is confirmed.
-    private static final boolean SHOW_DEAD_ZONE_DEBUG_TINT = true;
     private static final int DEAD_ZONE_DEBUG_COLOR = Color.argb(28, 255, 55, 55);
 
     // Borders are drawn fully inside their cells; this preserves the visual
@@ -52,13 +50,18 @@ final class DPadOverlay {
     private final BrogueActivity activity;
     private final Runnable onInteraction;
     private final Handler repeatHandler = new Handler(Looper.getMainLooper());
-    private final LinearLayout root;
+    private final DrawLastLinearLayout root;
+    private final ScaledIconView[][] cells = new ScaledIconView[3][3];
+    private DeadZoneDrawable deadZoneDebugDrawable;
     private Runnable repeatRunnable;
     private View activeView;
     private char activeCommand;
     private boolean repeatArmed;
     private boolean automationSessionActive;
     private boolean continuousRepeatActive;
+    private ScaledIconView visualOwner;
+    private DrawLastLinearLayout visualOwnerRow;
+    private int visualOwnershipGeneration;
 
     DPadOverlay(BrogueActivity activity, Runnable onInteraction) {
         this.activity = activity;
@@ -70,8 +73,8 @@ final class DPadOverlay {
         return root;
     }
 
-    private LinearLayout build() {
-        LinearLayout grid = new LinearLayout(activity);
+    private DrawLastLinearLayout build() {
+        DrawLastLinearLayout grid = new DrawLastLinearLayout(activity);
         grid.setOrientation(LinearLayout.VERTICAL);
         grid.setClipChildren(false);
         grid.setClipToPadding(false);
@@ -87,6 +90,10 @@ final class DPadOverlay {
             }
             return true;
         });
+        if (BuildConfig.DEBUG_OVERLAY) {
+            deadZoneDebugDrawable = new DeadZoneDrawable();
+            grid.setBackground(deadZoneDebugDrawable);
+        }
 
         addRow(grid, 0,
             new Cell(-135f, "Move up-left", 'y'),
@@ -104,9 +111,12 @@ final class DPadOverlay {
         return grid;
     }
 
-    private void addRow(LinearLayout parent, int rowIndex, Cell left, Cell center, Cell right) {
-        LinearLayout row = new LinearLayout(activity);
+    private void addRow(DrawLastLinearLayout parent, int rowIndex,
+                        Cell left, Cell center, Cell right) {
+        DrawLastLinearLayout row = new DrawLastLinearLayout(activity);
         row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setClipChildren(false);
+        row.setClipToPadding(false);
 
         parent.addView(row, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
@@ -118,20 +128,23 @@ final class DPadOverlay {
 
     // handleTouch calls performClick on release; lint cannot follow the helper.
     @SuppressLint("ClickableViewAccessibility")
-    private void addCell(LinearLayout row, int rowIndex, int colIndex, Cell cell) {
+    private void addCell(DrawLastLinearLayout row, int rowIndex,
+                         int colIndex, Cell cell) {
+        CellBorderDrawable border = new CellBorderDrawable(
+            rowIndex, colIndex,
+            activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         ScaledIconView view = new ScaledIconView(activity, cell.rotationDegrees,
-            activity.dpToPx(SIZE_DP / 3f));
+            activity.dpToPx(SIZE_DP / 3f), rowIndex, colIndex, border);
         view.setImageResource(cell.center
             ? R.drawable.ic_dpad_center
             : R.drawable.ic_dpad_arrow);
         view.setColorFilter(GLYPH_COLOR);
         view.setScaleType(ImageView.ScaleType.CENTER);
         view.setContentDescription(cell.contentDescription);
-        view.setBackground(new CellBorderDrawable(
-            rowIndex, colIndex,
-            activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP)));
+        view.setBackground(border);
         view.setOnClickListener(v -> { });
         view.setOnTouchListener((v, event) -> handleTouch(v, event, cell.command));
+        cells[rowIndex][colIndex] = view;
 
         row.addView(view, new LinearLayout.LayoutParams(
             0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
@@ -223,6 +236,9 @@ final class DPadOverlay {
     void setDeadZoneSize(int insetPx) {
         int inset = Math.max(0, insetPx);
         root.setPadding(inset, inset, inset, inset);
+        if (deadZoneDebugDrawable != null) {
+            deadZoneDebugDrawable.setInset(inset);
+        }
     }
 
     static float deadZoneDp(float sizeScale) {
@@ -239,13 +255,62 @@ final class DPadOverlay {
     }
 
     private void pressVisual(View view) {
+        view.animate().cancel();
+        if (view instanceof ScaledIconView) {
+            claimVisualOwnership((ScaledIconView) view);
+        }
         view.animate().alpha(0.65f).scaleX(0.94f).scaleY(0.94f)
             .setDuration(50).start();
     }
 
     private void releaseVisual(View view) {
+        view.animate().cancel();
+        final ScaledIconView cell = view instanceof ScaledIconView
+            ? (ScaledIconView) view : null;
+        final int ownershipGeneration = cell == null
+            ? -1 : cell.visualOwnershipGeneration;
         view.animate().alpha(1f).scaleX(1f).scaleY(1f)
-            .setDuration(90).start();
+            .setDuration(90)
+            .withEndAction(() -> releaseVisualOwnership(cell, ownershipGeneration))
+            .start();
+    }
+
+    private void claimVisualOwnership(ScaledIconView cell) {
+        visualOwnershipGeneration++;
+        resetVisualOwnership();
+
+        visualOwner = cell;
+        cell.visualOwnershipGeneration = visualOwnershipGeneration;
+        visualOwnerRow = (DrawLastLinearLayout) cell.getParent();
+        visualOwnerRow.setDrawLast(cell);
+        root.setDrawLast(visualOwnerRow);
+
+        cell.border.claimAllEdges();
+        if (cell.rowIndex > 0) {
+            cells[cell.rowIndex - 1][cell.colIndex].border.yieldBottomEdge();
+        }
+        if (cell.colIndex > 0) {
+            cells[cell.rowIndex][cell.colIndex - 1].border.yieldRightEdge();
+        }
+    }
+
+    private void releaseVisualOwnership(ScaledIconView cell, int ownershipGeneration) {
+        if (cell != visualOwner || ownershipGeneration != visualOwnershipGeneration) return;
+        resetVisualOwnership();
+    }
+
+    private void resetVisualOwnership() {
+        if (visualOwnerRow != null) {
+            visualOwnerRow.setDrawLast(null);
+        }
+        root.setDrawLast(null);
+        for (ScaledIconView[] row : cells) {
+            for (ScaledIconView cell : row) {
+                if (cell != null) cell.border.resetEdgeOwnership();
+            }
+        }
+        visualOwner = null;
+        visualOwnerRow = null;
     }
 
     private static final class Cell {
@@ -269,16 +334,48 @@ final class DPadOverlay {
         }
     }
 
+    /** Draws one selected child last without changing LinearLayout child order. */
+    private static final class DrawLastLinearLayout extends LinearLayout {
+        private View drawLast;
+
+        DrawLastLinearLayout(BrogueActivity activity) {
+            super(activity);
+            setChildrenDrawingOrderEnabled(true);
+        }
+
+        void setDrawLast(View child) {
+            if (drawLast == child) return;
+            drawLast = child;
+            invalidate();
+        }
+
+        @Override
+        protected int getChildDrawingOrder(int childCount, int drawingPosition) {
+            int lastIndex = drawLast == null ? -1 : indexOfChild(drawLast);
+            if (lastIndex < 0 || lastIndex == childCount - 1) return drawingPosition;
+            if (drawingPosition == childCount - 1) return lastIndex;
+            return drawingPosition >= lastIndex ? drawingPosition + 1 : drawingPosition;
+        }
+    }
+
     /** Scales and rotates only the icon, leaving its cell border untouched. */
     private static final class ScaledIconView extends ImageView {
         private final float rotationDegrees;
         private final float defaultCellSizePx;
+        private final int rowIndex;
+        private final int colIndex;
+        private final CellBorderDrawable border;
+        private int visualOwnershipGeneration;
 
         ScaledIconView(BrogueActivity activity, float rotationDegrees,
-                       float defaultCellSizePx) {
+                       float defaultCellSizePx, int rowIndex, int colIndex,
+                       CellBorderDrawable border) {
             super(activity);
             this.rotationDegrees = rotationDegrees;
             this.defaultCellSizePx = defaultCellSizePx;
+            this.rowIndex = rowIndex;
+            this.colIndex = colIndex;
+            this.border = border;
         }
 
         @Override
@@ -301,17 +398,21 @@ final class DPadOverlay {
         private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG);
         private final Path border = new Path();
         private final RectF arcBounds = new RectF();
-        private final boolean drawTop;
-        private final boolean drawLeft;
+        private final boolean defaultDrawTop;
+        private final boolean defaultDrawLeft;
         private final boolean roundTopLeft;
         private final boolean roundTopRight;
         private final boolean roundBottomLeft;
         private final boolean roundBottomRight;
         private final float cornerRadius;
+        private boolean drawTop;
+        private boolean drawRight;
+        private boolean drawBottom;
+        private boolean drawLeft;
 
         CellBorderDrawable(int rowIndex, int colIndex, float cornerRadius) {
-            this.drawTop = rowIndex == 0;
-            this.drawLeft = colIndex == 0;
+            this.defaultDrawTop = rowIndex == 0;
+            this.defaultDrawLeft = colIndex == 0;
             this.roundTopLeft = rowIndex == 0 && colIndex == 0;
             this.roundTopRight = rowIndex == 0 && colIndex == 2;
             this.roundBottomLeft = rowIndex == 2 && colIndex == 0;
@@ -320,6 +421,35 @@ final class DPadOverlay {
             paint.setColor(GRID_LINE_COLOR);
             paint.setStrokeWidth(1f);
             paint.setStyle(Paint.Style.STROKE);
+            resetEdgeOwnership();
+        }
+
+        void resetEdgeOwnership() {
+            setEdges(defaultDrawTop, true, true, defaultDrawLeft);
+        }
+
+        void claimAllEdges() {
+            setEdges(true, true, true, true);
+        }
+
+        void yieldRightEdge() {
+            setEdges(drawTop, false, drawBottom, drawLeft);
+        }
+
+        void yieldBottomEdge() {
+            setEdges(drawTop, drawRight, false, drawLeft);
+        }
+
+        private void setEdges(boolean top, boolean right, boolean bottom, boolean left) {
+            if (drawTop == top && drawRight == right
+                    && drawBottom == bottom && drawLeft == left) {
+                return;
+            }
+            drawTop = top;
+            drawRight = right;
+            drawBottom = bottom;
+            drawLeft = left;
+            invalidateSelf();
         }
 
         @Override
@@ -355,31 +485,42 @@ final class DPadOverlay {
                         right, top + diameter);
                     border.arcTo(arcBounds, 270f, 90f, false);
                 }
-            } else {
-                border.moveTo(right, boundsTop);
             }
 
-            border.lineTo(right,
-                roundBottomRight ? bottom - radius : bottom);
-            if (roundBottomRight) {
-                arcBounds.set(right - diameter, bottom - diameter,
-                    right, bottom);
-                border.arcTo(arcBounds, 0f, 90f, false);
+            if (drawRight) {
+                if (!drawTop) {
+                    border.moveTo(right, boundsTop);
+                }
+                border.lineTo(right,
+                    roundBottomRight ? bottom - radius : bottom);
+                if (roundBottomRight) {
+                    arcBounds.set(right - diameter, bottom - diameter,
+                        right, bottom);
+                    border.arcTo(arcBounds, 0f, 90f, false);
+                }
             }
 
-            border.lineTo(
-                roundBottomLeft ? left + radius : (drawLeft ? left : boundsLeft),
-                bottom);
-            if (roundBottomLeft) {
-                arcBounds.set(left, bottom - diameter,
-                    left + diameter, bottom);
-                border.arcTo(arcBounds, 90f, 90f, false);
+            if (drawBottom) {
+                if (!drawRight) {
+                    border.moveTo(right, bottom);
+                }
+                border.lineTo(
+                    roundBottomLeft ? left + radius : (drawLeft ? left : boundsLeft),
+                    bottom);
+                if (roundBottomLeft) {
+                    arcBounds.set(left, bottom - diameter,
+                        left + diameter, bottom);
+                    border.arcTo(arcBounds, 90f, 90f, false);
+                }
             }
 
             if (drawLeft) {
+                if (!drawBottom) {
+                    border.moveTo(left, bottom);
+                }
                 border.lineTo(left,
-                    roundTopLeft ? top + radius : boundsTop);
-                if (drawTop) border.close();
+                    roundTopLeft ? top + radius : (drawTop ? top : boundsTop));
+                if (drawTop && drawRight && drawBottom) border.close();
             }
 
             canvas.drawPath(border, paint);
@@ -409,8 +550,7 @@ final class DPadOverlay {
         private int inset;
 
         DeadZoneDrawable() {
-            paint.setColor(SHOW_DEAD_ZONE_DEBUG_TINT
-                ? DEAD_ZONE_DEBUG_COLOR : Color.TRANSPARENT);
+            paint.setColor(DEAD_ZONE_DEBUG_COLOR);
             paint.setStyle(Paint.Style.FILL);
         }
 

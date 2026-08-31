@@ -361,7 +361,7 @@ final class InventoryOverlay {
                 actionBtn.setText(label);
                 actionBtn.setTextColor(Palette.GHOST_WHITE);
                 actionBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-                actionBtn.setTypeface(Typeface.MONOSPACE);
+                actionBtn.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
                 actionBtn.setAllCaps(true);
                 actionBtn.setStateListAnimator(null);
                 actionBtn.setElevation(0);

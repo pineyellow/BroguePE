@@ -163,9 +163,12 @@ final class ConfirmationDialog {
         Button button = new Button(activity);
         button.setText(label);
         button.setTextColor(primary ? Palette.GHOST_WHITE : Palette.PALE_BLUE);
-        button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
-        button.setTypeface(Typeface.MONOSPACE, primary ? Typeface.BOLD : Typeface.NORMAL);
+        button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        button.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         button.setGravity(Gravity.CENTER);
+        button.setTextAlignment(View.TEXT_ALIGNMENT_CENTER);
+        button.setIncludeFontPadding(false);
+        button.setPadding(0, 0, 0, 0);
         button.setAllCaps(false);
         button.setBackground(new RippleDrawable(
             ColorStateList.valueOf(Palette.RIPPLE_GLOW),

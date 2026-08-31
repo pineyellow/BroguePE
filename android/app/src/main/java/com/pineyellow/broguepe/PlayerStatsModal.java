@@ -235,7 +235,8 @@ final class PlayerStatsModal {
 
         GradientDrawable headerBg = new GradientDrawable();
         headerBg.setShape(GradientDrawable.RECTANGLE);
-        headerBg.setCornerRadius(activity.dpToPx(6));
+        headerBg.setCornerRadius(
+            activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         headerBg.setColor(Palette.ITEM_BG);
         headerBg.setStroke(1, Palette.BORDER_DIM);
         header.setBackground(new RippleDrawable(
@@ -307,7 +308,7 @@ final class PlayerStatsModal {
 
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(activity.dpToPx(6));
+        bg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         bg.setColor(Palette.ITEM_BG);
         row.setBackground(new RippleDrawable(
             ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
@@ -457,7 +458,7 @@ final class PlayerStatsModal {
 
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(activity.dpToPx(6));
+        bg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         bg.setColor(Palette.ITEM_BG);
         card.setBackground(bg);
 
@@ -520,7 +521,7 @@ final class PlayerStatsModal {
 
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(activity.dpToPx(6));
+        bg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         bg.setColor(Palette.ITEM_BG);
         cell.setBackground(bg);
 

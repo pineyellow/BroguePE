@@ -10,7 +10,7 @@ import org.json.JSONObject;
 import java.util.ArrayList;
 import java.util.List;
 
-/** Item description text and stat highlights supplied by the engine. */
+/** Item description text and good/bad highlights supplied by the engine. */
 final class ItemDescription {
     final String text;
     final List<Highlight> highlights;

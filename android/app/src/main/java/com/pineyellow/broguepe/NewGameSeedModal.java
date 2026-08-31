@@ -53,12 +53,15 @@ final class NewGameSeedModal extends SeedDetailsModal {
     private int selectedVariant = StartMenu.VARIANT_BROGUE;
     private int selectedDifficulty = StartMenu.DIFFICULTY_DEFAULT;
     private TextView modeLabelView;
+    private TextView modeHintView;
     private TextView difficultyLabelView;
     private TextView difficultyHintView;
 
     NewGameSeedModal(BrogueActivity activity) { super(activity); }
 
     @Override protected String getTitleUpper() { return "NEW GAME"; }
+
+    @Override protected int getContentTopGapDp() { return 2; }
 
     void show() {
         show(pickRandomSeed(),
@@ -77,6 +80,7 @@ final class NewGameSeedModal extends SeedDetailsModal {
         selectedDifficulty = boundedDifficulty(difficulty);
         seedEdit = null;
         modeLabelView = null;
+        modeHintView = null;
         difficultyLabelView = null;
         difficultyHintView = null;
         super.show(seed);
@@ -130,7 +134,11 @@ final class NewGameSeedModal extends SeedDetailsModal {
     @Override
     protected void onBeforeActionButtons(LinearLayout panel) {
         panel.addView(ModalChrome.makeDimSeparator(activity),
-            ModalChrome.separatorParams(activity, 8, 8, 0, 12));
+            ModalChrome.separatorParams(activity, 8, 8, 0, 2));
+
+        modeHintView = makeHintView();
+        updateModeHint();
+        addHintView(panel, modeHintView);
 
         View modeRow = StartMenu.addButton(panel, variantLabel(), true, v -> cycleVariant());
         modeLabelView = labelFromRow(modeRow);
@@ -139,17 +147,10 @@ final class NewGameSeedModal extends SeedDetailsModal {
             v -> cycleDifficulty());
         difficultyLabelView = labelFromRow(difficultyRow);
 
-        difficultyHintView = new TextView(activity);
+        difficultyHintView = makeHintView();
         difficultyHintView.setText("-50% damage taken");
-        difficultyHintView.setTextColor(Palette.ACTION_BUTTON_TEXT);
-        difficultyHintView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9);
-        difficultyHintView.setTypeface(Typeface.MONOSPACE);
-        difficultyHintView.setGravity(Gravity.CENTER);
-        difficultyHintView.setIncludeFontPadding(false);
         updateDifficultyHint();
-        panel.addView(difficultyHintView, new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT));
+        addHintView(panel, difficultyHintView);
 
         panel.addView(ModalChrome.makeDimSeparator(activity),
             ModalChrome.separatorParams(activity, 8, 8, 2, 12));
@@ -177,10 +178,27 @@ final class NewGameSeedModal extends SeedDetailsModal {
         if (modeLabelView != null) {
             modeLabelView.setText(variantLabel());
         }
+        updateModeHint();
     }
 
     private String variantLabel() {
         return VARIANT_LABELS[selectedVariant];
+    }
+
+    private void updateModeHint() {
+        if (modeHintView == null) return;
+
+        if (selectedVariant == StartMenu.VARIANT_RAPID) {
+            modeHintView.setText("6 fast-paced levels");
+            modeHintView.setVisibility(View.VISIBLE);
+        } else if (selectedVariant == StartMenu.VARIANT_BULLET) {
+            modeHintView.setText("3 chaotic levels");
+            modeHintView.setVisibility(View.VISIBLE);
+        } else {
+            // Keep one line reserved so cycling modes does not resize the modal.
+            modeHintView.setText("6 fast-paced levels");
+            modeHintView.setVisibility(View.INVISIBLE);
+        }
     }
 
     private void cycleDifficulty() {
@@ -203,6 +221,22 @@ final class NewGameSeedModal extends SeedDetailsModal {
                 ? View.VISIBLE
                 : View.INVISIBLE);
         }
+    }
+
+    private TextView makeHintView() {
+        TextView view = new TextView(activity);
+        view.setTextColor(Palette.ACTION_BUTTON_TEXT);
+        view.setTextSize(TypedValue.COMPLEX_UNIT_SP, 9);
+        view.setTypeface(Typeface.MONOSPACE);
+        view.setGravity(Gravity.CENTER);
+        view.setIncludeFontPadding(false);
+        return view;
+    }
+
+    private void addHintView(LinearLayout panel, TextView hintView) {
+        panel.addView(hintView, new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT));
     }
 
     private int boundedVariant(int variant) {

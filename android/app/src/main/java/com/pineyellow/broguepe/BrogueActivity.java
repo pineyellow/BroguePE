@@ -10,6 +10,7 @@ import android.os.Bundle;
 import android.os.Handler;
 import android.os.HandlerThread;
 import android.util.TypedValue;
+import android.view.Choreographer;
 import android.view.Display;
 import android.view.Gravity;
 import android.view.PixelCopy;
@@ -23,6 +24,7 @@ import android.view.WindowInsets;
 import android.view.WindowManager;
 import android.widget.FrameLayout;
 import android.widget.ImageView;
+import android.widget.LinearLayout;
 import android.widget.TextView;
 
 import org.libsdl.app.SDLActivity;
@@ -55,7 +57,13 @@ public class BrogueActivity extends SDLActivity {
     private boolean activityDestroyed;
     private Object appBackCallback;
     private PlaytimeTracker playtimeTracker;
+    private LinearLayout debugFpsOverlay;
     private TextView debugFpsView;
+    private TextView debugUiFpsView;
+    private Choreographer.FrameCallback debugUiFrameCallback;
+    private boolean debugUiFpsTracking;
+    private long debugUiFpsSampleStartNanos;
+    private int debugUiFpsFrameCount;
 
     // Feature classes. Package-private so related UI components can reference
     // one another directly.
@@ -158,7 +166,7 @@ public class BrogueActivity extends SDLActivity {
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT));
 
-        if (BuildConfig.DEBUG) {
+        if (BuildConfig.DEBUG_OVERLAY) {
             addDebugFpsOverlay();
         }
 
@@ -175,6 +183,7 @@ public class BrogueActivity extends SDLActivity {
         playtimeTracker.onResume();
         requestHighestRefreshRate();
         getWindow().getDecorView().requestApplyInsets();
+        startDebugUiFpsTracking();
     }
 
     private void configureRoundedCornerInsets() {
@@ -205,6 +214,7 @@ public class BrogueActivity extends SDLActivity {
         // No before asking SDL to pause that thread.
         confirmationDialog.onActivityPaused();
         playtimeTracker.onPause();
+        stopDebugUiFpsTracking();
         captureResumeSnapshot();
         if (dpadOverlay != null) {
             dpadOverlay.cancelInput();
@@ -258,6 +268,7 @@ public class BrogueActivity extends SDLActivity {
     @Override
     protected void onDestroy() {
         activityDestroyed = true;
+        stopDebugUiFpsTracking();
         snapshotCaptureGeneration++;
         setBackHandlingEnabled(false);
         confirmationDialog.onActivityDestroying();
@@ -360,20 +371,17 @@ public class BrogueActivity extends SDLActivity {
     }
 
     private void addDebugFpsOverlay() {
-        debugFpsView = new TextView(this);
-        debugFpsView.setText("FPS: --");
-        debugFpsView.setTextColor(Color.WHITE);
-        debugFpsView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-        debugFpsView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-        debugFpsView.setIncludeFontPadding(false);
-        debugFpsView.setBackgroundColor(Color.argb(170, 0, 0, 0));
-        int horizontalPadding = dpToPx(4);
-        int verticalPadding = dpToPx(2);
-        debugFpsView.setPadding(horizontalPadding, verticalPadding,
-            horizontalPadding, verticalPadding);
-        debugFpsView.setClickable(false);
-        debugFpsView.setFocusable(false);
-        debugFpsView.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        debugFpsOverlay = new LinearLayout(this);
+        debugFpsOverlay.setOrientation(LinearLayout.VERTICAL);
+        debugFpsOverlay.setClickable(false);
+        debugFpsOverlay.setFocusable(false);
+        debugFpsOverlay.setImportantForAccessibility(
+            View.IMPORTANT_FOR_ACCESSIBILITY_NO_HIDE_DESCENDANTS);
+
+        debugFpsView = createDebugFpsView("FPS: --");
+        debugUiFpsView = createDebugFpsView("UI FPS: --");
+        debugFpsOverlay.addView(debugFpsView);
+        debugFpsOverlay.addView(debugUiFpsView);
 
         FrameLayout.LayoutParams params = new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.WRAP_CONTENT,
@@ -381,15 +389,76 @@ public class BrogueActivity extends SDLActivity {
             Gravity.TOP | Gravity.START);
         int margin = dpToPx(6);
         params.setMargins(margin, margin, 0, 0);
-        addContentView(debugFpsView, params);
+        addContentView(debugFpsOverlay, params);
+
+        // A continuously registered frame callback measures how often the main
+        // UI thread reaches a display frame without forcing the View hierarchy
+        // itself to redraw every frame.
+        debugUiFrameCallback = frameTimeNanos -> {
+            if (!debugUiFpsTracking) return;
+
+            if (debugUiFpsSampleStartNanos == 0L) {
+                debugUiFpsSampleStartNanos = frameTimeNanos;
+            } else {
+                debugUiFpsFrameCount++;
+                long elapsedNanos = frameTimeNanos - debugUiFpsSampleStartNanos;
+                if (elapsedNanos >= 500_000_000L) {
+                    int fps = (int) Math.round(
+                        debugUiFpsFrameCount * 1_000_000_000.0 / elapsedNanos);
+                    debugUiFpsView.setText("UI FPS: " + fps);
+                    debugFpsOverlay.bringToFront();
+                    debugUiFpsSampleStartNanos = frameTimeNanos;
+                    debugUiFpsFrameCount = 0;
+                }
+            }
+
+            Choreographer.getInstance().postFrameCallback(debugUiFrameCallback);
+        };
+    }
+
+    private TextView createDebugFpsView(String text) {
+        TextView view = new TextView(this);
+        view.setText(text);
+        view.setTextColor(Color.WHITE);
+        view.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        view.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        view.setIncludeFontPadding(false);
+        view.setBackgroundColor(Color.argb(170, 0, 0, 0));
+        int horizontalPadding = dpToPx(4);
+        int verticalPadding = dpToPx(2);
+        view.setPadding(horizontalPadding, verticalPadding,
+            horizontalPadding, verticalPadding);
+        view.setClickable(false);
+        view.setFocusable(false);
+        view.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        return view;
+    }
+
+    private void startDebugUiFpsTracking() {
+        if (!BuildConfig.DEBUG_OVERLAY
+                || debugUiFrameCallback == null || debugUiFpsTracking) {
+            return;
+        }
+        debugUiFpsTracking = true;
+        debugUiFpsSampleStartNanos = 0L;
+        debugUiFpsFrameCount = 0;
+        Choreographer.getInstance().postFrameCallback(debugUiFrameCallback);
+    }
+
+    private void stopDebugUiFpsTracking() {
+        if (!debugUiFpsTracking || debugUiFrameCallback == null) return;
+        debugUiFpsTracking = false;
+        Choreographer.getInstance().removeFrameCallback(debugUiFrameCallback);
+        debugUiFpsSampleStartNanos = 0L;
+        debugUiFpsFrameCount = 0;
     }
 
     /** Receives the rate of completed SDL frame presentations. Debug builds only. */
     public void updateDebugFps(final int fps) {
-        if (!BuildConfig.DEBUG || debugFpsView == null) return;
+        if (!BuildConfig.DEBUG_OVERLAY || debugFpsView == null) return;
         debugFpsView.post(() -> {
             debugFpsView.setText("FPS: " + fps);
-            debugFpsView.bringToFront();
+            debugFpsOverlay.bringToFront();
         });
     }
 
