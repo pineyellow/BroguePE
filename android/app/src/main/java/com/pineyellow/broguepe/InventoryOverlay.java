@@ -26,6 +26,9 @@ import android.widget.TextView;
 import org.json.JSONArray;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
+import java.util.List;
+
 /** Slides the player's inventory in from the right when the engine asks for
  *  it (either to browse or to select an item for an action). The JSON blob
  *  the engine pushes over JNI describes each item; each row expands on tap
@@ -36,6 +39,11 @@ final class InventoryOverlay {
     private final FrameLayout host;
     private View currentlyExpandedDetail;
     private TextView currentlyExpandedChevron;
+    private final List<View> browseDetailSections = new ArrayList<>();
+    private ScrollView browseScrollView;
+    private View browseContent;
+    private float browseScrollFraction;
+    private boolean hasBrowseScrollPosition;
 
     InventoryOverlay(BrogueActivity activity, FrameLayout host) {
         this.activity = activity;
@@ -44,6 +52,9 @@ final class InventoryOverlay {
 
     void show(final String json) {
         activity.runOnUiThread(() -> {
+            rememberBrowseScrollPosition();
+            clearBrowseViewReferences();
+
             // Cancel any in-flight hide animation so its withEndAction
             // doesn't wipe the new content (e.g. nested ring-swap prompt).
             for (int i = 0; i < host.getChildCount(); i++) {
@@ -185,6 +196,12 @@ final class InventoryOverlay {
                 host.addView(scrollView, scrollParams);
                 host.setVisibility(View.VISIBLE);
 
+                if (!selectMode) {
+                    browseScrollView = scrollView;
+                    browseContent = panel;
+                    restoreBrowseScrollPosition(scrollView, panel);
+                }
+
                 scrollView.setTranslationX(panelWidth);
                 scrollView.animate()
                     .translationX(0)
@@ -200,6 +217,8 @@ final class InventoryOverlay {
 
     void hide() {
         activity.runOnUiThread(() -> {
+            rememberBrowseScrollPosition();
+            clearBrowseViewReferences();
             currentlyExpandedDetail = null;
             currentlyExpandedChevron = null;
             if (host.getChildCount() < 2) {
@@ -225,6 +244,83 @@ final class InventoryOverlay {
                 })
                 .start();
         });
+    }
+
+    void resetScrollMemory() {
+        browseScrollFraction = 0f;
+        hasBrowseScrollPosition = false;
+    }
+
+    private void rememberBrowseScrollPosition() {
+        if (browseScrollView == null || browseContent == null
+                || browseScrollView.getHeight() <= 0 || browseContent.getHeight() <= 0) {
+            return;
+        }
+
+        int scrollY = browseScrollView.getScrollY();
+        int collapsedScrollY = scrollY;
+        int collapsedContentHeight = browseContent.getHeight();
+
+        // Descriptions are rebuilt collapsed, so remove their contribution
+        // from both the saved offset and the scrollable content height.
+        for (View detail : browseDetailSections) {
+            if (detail.getVisibility() != View.VISIBLE || detail.getHeight() <= 0) {
+                continue;
+            }
+
+            int detailTop = descendantTopWithin(detail, browseContent);
+            if (detailTop < 0) {
+                continue;
+            }
+
+            int detailHeight = detail.getHeight();
+            collapsedContentHeight -= detailHeight;
+            if (scrollY > detailTop) {
+                collapsedScrollY -= Math.min(detailHeight, scrollY - detailTop);
+            }
+        }
+
+        int maxScroll = Math.max(0,
+            collapsedContentHeight - browseScrollView.getHeight());
+        collapsedScrollY = Math.max(0, Math.min(collapsedScrollY, maxScroll));
+        browseScrollFraction = maxScroll == 0
+            ? 0f : (float) collapsedScrollY / maxScroll;
+        hasBrowseScrollPosition = true;
+    }
+
+    private void restoreBrowseScrollPosition(ScrollView scrollView, View content) {
+        if (!hasBrowseScrollPosition) {
+            return;
+        }
+
+        scrollView.post(() -> {
+            if (scrollView != browseScrollView || content != browseContent
+                    || !hasBrowseScrollPosition) {
+                return;
+            }
+            int maxScroll = Math.max(0, content.getHeight() - scrollView.getHeight());
+            scrollView.scrollTo(0, Math.round(browseScrollFraction * maxScroll));
+        });
+    }
+
+    private void clearBrowseViewReferences() {
+        browseScrollView = null;
+        browseContent = null;
+        browseDetailSections.clear();
+    }
+
+    private static int descendantTopWithin(View descendant, View ancestor) {
+        int top = 0;
+        View current = descendant;
+        while (current != ancestor) {
+            top += current.getTop();
+            android.view.ViewParent parent = current.getParent();
+            if (!(parent instanceof View)) {
+                return -1;
+            }
+            current = (View) parent;
+        }
+        return top;
     }
 
     // Animation listeners return false, leaving performClick to the views'
@@ -322,6 +418,7 @@ final class InventoryOverlay {
         detailSection.setVisibility(View.GONE);
         detailSection.setPadding(activity.dpToPx(12), activity.dpToPx(4),
                                  activity.dpToPx(8), activity.dpToPx(8));
+        browseDetailSections.add(detailSection);
 
         GradientDrawable detailBg = new GradientDrawable();
         detailBg.setShape(GradientDrawable.RECTANGLE);

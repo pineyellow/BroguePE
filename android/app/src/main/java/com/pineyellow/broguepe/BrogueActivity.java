@@ -516,6 +516,9 @@ public class BrogueActivity extends SDLActivity {
     public void onGameStart(long seed, int variant, int difficulty) {
         boolean isResume = nextGameIsResume;
         nextGameIsResume = false;
+        if (!isResume) {
+            runOnUiThread(() -> inventoryRenderer.resetScrollMemory());
+        }
         // Resuming selects the original bucket without counting another game.
         StatsStore.get(this).recordGameStart(
             seed, variant, difficulty, isResume);
