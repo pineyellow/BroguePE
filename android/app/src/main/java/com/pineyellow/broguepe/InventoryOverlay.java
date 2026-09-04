@@ -416,14 +416,18 @@ final class InventoryOverlay {
                 if (currentlyExpandedDetail != null
                         && currentlyExpandedDetail != detailSection) {
                     View prev = currentlyExpandedDetail;
-                    prev.animate().alpha(0f).setDuration(120)
-                        .withEndAction(() -> prev.setVisibility(View.GONE)).start();
+                    // Do not let the outgoing detail occupy space while the
+                    // new row is measured for its smooth-scroll target.
+                    prev.animate().cancel();
+                    prev.setVisibility(View.GONE);
+                    prev.setAlpha(1f);
                     if (currentlyExpandedChevron != null) {
                         currentlyExpandedChevron.setText("\u25B8"); // ▸
                     }
                 }
                 currentlyExpandedDetail = detailSection;
                 currentlyExpandedChevron = chevron;
+                detailSection.animate().cancel();
                 detailSection.setVisibility(View.VISIBLE);
                 detailSection.setAlpha(0f);
                 detailSection.animate().alpha(1f).setDuration(150).start();

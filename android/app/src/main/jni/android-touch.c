@@ -137,6 +137,13 @@ void androidResetTouchState(void) {
     endAutoMoveSession();
 }
 
+void androidDiscardConsumedTouchInput(void) {
+    state = TOUCH_IDLE;
+    pendingMouseUp = false;
+    androidPanOverride = false;
+    endAutoMoveSession();
+}
+
 void androidSetOverlayVisible(boolean visible) {
     JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();
     jobject activity = (jobject)SDL_AndroidGetActivity();

@@ -712,7 +712,8 @@ void mainInputLoop() {
                 // so the user can swipe away before it re-appears.
                 rogueEvent dismissEvent;
                 nextBrogueEvent(&dismissEvent, false, false, false);
-                androidResetTouchState(); // Flush pending MOUSE_UP from the dismiss tap
+                // Flush the pending MOUSE_UP without reattaching free-look.
+                androidDiscardConsumedTouchInput();
                 targetConfirmed = false;
                 canceled = false;
                 doEvent = false;

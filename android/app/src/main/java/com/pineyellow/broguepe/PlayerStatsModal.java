@@ -358,8 +358,10 @@ final class PlayerStatsModal {
                 iconSize, iconSize);
             iconParams.rightMargin = activity.dpToPx(4);
             container.addView(icon, iconParams);
-            container.setPadding(activity.dpToPx(6), activity.dpToPx(4),
-                                 activity.dpToPx(10), activity.dpToPx(4));
+            int verticalPadding = GameSettings.useTileCreatureAndItemGlyphs(activity)
+                ? activity.dpToPx(4) : 0;
+            container.setPadding(activity.dpToPx(6), verticalPadding,
+                                 activity.dpToPx(10), verticalPadding);
         } else {
             container.setPadding(activity.dpToPx(10), activity.dpToPx(5),
                                  activity.dpToPx(10), activity.dpToPx(5));
@@ -374,7 +376,7 @@ final class PlayerStatsModal {
 
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(activity.dpToPx(4));
+        bg.setCornerRadius(activity.dpToPx(8));
         bg.setColor(Palette.ITEM_BG);
         container.setBackground(bg);
 

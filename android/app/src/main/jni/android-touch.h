@@ -25,6 +25,10 @@ void androidExtractAssets(const char *destDir);
  * events from one screen leaking into the next. */
 void androidResetTouchState(void);
 
+/* Clear touch input consumed while dismissing an inspection description,
+ * without reattaching the detached free-look camera. */
+void androidDiscardConsumedTouchInput(void);
+
 /* Show/hide the native Android inventory UI.
  * json is a JSON array of item objects. */
 void androidShowInventory(const char *json);

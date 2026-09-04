@@ -45,7 +45,7 @@ final class DPadOverlay {
     // Borders are drawn fully inside their cells; this preserves the visual
     // strength of the old half-clipped 105-alpha strokes.
     private static final int GRID_LINE_COLOR = Color.argb(53, 255, 255, 255);
-    private static final int GLYPH_COLOR = Color.argb(235, 255, 255, 255);
+    private static final int GLYPH_COLOR = Color.argb(128, 144, 148, 190);
 
     private final BrogueActivity activity;
     private final Runnable onInteraction;
