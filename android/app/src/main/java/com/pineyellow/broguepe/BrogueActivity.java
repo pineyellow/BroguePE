@@ -13,6 +13,7 @@ import android.util.TypedValue;
 import android.view.Choreographer;
 import android.view.Display;
 import android.view.Gravity;
+import android.view.KeyEvent;
 import android.view.PixelCopy;
 import android.view.RoundedCorner;
 import android.view.Surface;
@@ -488,6 +489,11 @@ public class BrogueActivity extends SDLActivity {
         discoveriesRenderer.hide();
     }
 
+    /** Receives throw/staff/wand targeting state changes from the engine. */
+    public void onTargetingStateChanged(final boolean active) {
+        runOnUiThread(() -> actionsToolbar.setTargetingActive(active));
+    }
+
     public void showTextInputDialog(final String prompt, final String defaultText,
                                      final int maxLen, final boolean numericOnly) {
         textInputDialog.show(prompt, defaultText, maxLen, numericOnly);
@@ -761,7 +767,11 @@ public class BrogueActivity extends SDLActivity {
             handleMainMenuBack();
         } else if (gameOverlay != null && gameOverlay.getVisibility() == View.VISIBLE) {
             actionsToolbar.collapseSubmenu();
-            KeyInput.sendChar(this, 'S');
+            if (nativeIsTargetingActive()) {
+                KeyInput.sendKey(this, KeyEvent.KEYCODE_ESCAPE);
+            } else {
+                KeyInput.sendChar(this, 'S');
+            }
         } else {
             finish();
         }

@@ -61,7 +61,8 @@ static int pendingUpX, pendingUpY;
 static SDL_atomic_t autoMoveSessionActive;
 boolean androidContinuousMoveActive = false;
 boolean androidQuickTargetSelectionRequested = false;
-boolean androidTargetingActive = false;
+/* Shared by the game thread and UI-thread JNI queries. */
+static SDL_atomic_t targetingActive;
 
 float androidZoomLevel = 2.0f;
 float androidPanX = 0.0f, androidPanY = 0.0f;
@@ -126,6 +127,23 @@ static void endAutoMoveSession(void) {
 
 boolean androidDpadAutoMoveSessionActive(void) {
     return SDL_AtomicGet(&autoMoveSessionActive) != 0;
+}
+
+void androidSetTargetingActive(boolean active) {
+    if (SDL_AtomicSet(&targetingActive, active) == active) {
+        return;
+    }
+
+    JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();
+    jobject activity = (jobject)SDL_AndroidGetActivity();
+    jclass cls = (*env)->GetObjectClass(env, activity);
+    jmethodID mid = (*env)->GetMethodID(
+        env, cls, "onTargetingStateChanged", "(Z)V");
+    if (mid) {
+        (*env)->CallVoidMethod(env, activity, mid, (jboolean)active);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+    (*env)->DeleteLocalRef(env, activity);
 }
 
 void androidResetTouchState(void) {
@@ -338,7 +356,7 @@ JNIEXPORT jboolean JNICALL
 Java_com_pineyellow_broguepe_BrogueActivity_nativeIsTargetingActive(
         JNIEnv *env, jobject thiz) {
     (void)env; (void)thiz;
-    return androidTargetingActive;
+    return SDL_AtomicGet(&targetingActive) != 0;
 }
 
 JNIEXPORT jboolean JNICALL

@@ -6584,7 +6584,6 @@ void throwCommand(item *theItem, boolean autoThrow) {
     boolean useQuickTargetSelection = androidQuickTargetSelectionRequested;
 
     androidQuickTargetSelectionRequested = false;
-    androidTargetingActive = false;
 
     command[0] = THROW_KEY;
 
@@ -6653,18 +6652,14 @@ void throwCommand(item *theItem, boolean autoThrow) {
     if (autoThrow && canAutoTargetMonster(rogue.lastTarget, theItem, AUTOTARGET_MODE_THROW)) {
         zapTarget = rogue.lastTarget->loc;
     } else {
-        androidTargetingActive = true;
+        androidSetTargetingActive(true);
         boolean choseTarget = chooseTarget(&zapTarget, maxDistance, AUTOTARGET_MODE_THROW, theItem);
-        androidTargetingActive = false;
+        androidSetTargetingActive(false);
         if (!choseTarget) {
             // player doesn't choose a target? return
             return;
         }
     }
-    if (autoThrow) {
-        androidTargetingActive = false;
-    }
-
     if ((theItem->flags & ITEM_EQUIPPED) && theItem->quantity <= 1) {
         unequipItem(theItem, false);
     }
@@ -6894,9 +6889,9 @@ static boolean useStaffOrWand(item *theItem) {
     boolean boltKnown = tableForItemCategory(theItem->category)[theItem->kind].identified;
     pos originLoc = player.loc;
     pos zapTarget;
-    androidTargetingActive = true;
+    androidSetTargetingActive(true);
     confirmedTarget = chooseTarget(&zapTarget, maxDistance, AUTOTARGET_MODE_USE_STAFF_OR_WAND, theItem);
-    androidTargetingActive = false;
+    androidSetTargetingActive(false);
     if (confirmedTarget
         && boltKnown
         && theBolt.boltEffect == BE_BLINKING

@@ -38,9 +38,9 @@ void androidHideInventory(void);
  * command opens the filtered projectile/staff/wand picker. */
 extern boolean androidQuickTargetSelectionRequested;
 
-/* True while throw or zap targeting is active, so the Android Target action
- * can toggle it off by sending Escape instead of starting another flow. */
-extern boolean androidTargetingActive;
+/* Publish throw/zap targeting state for the Target icon and cancellation via
+ * the Target action or Android Back. Called by the game thread. */
+void androidSetTargetingActive(boolean active);
 
 /* Show/hide the native read-only Discovered Items UI. json is
  * { "sections": [ { "label", "items": [ { name, identified, polarity, pct } ] } ] }. */

@@ -84,6 +84,7 @@ final class ActionsToolbar {
     private int draggedActionOriginalIndex;
     private int draggedActionTargetIndex;
     private float draggedActionTouchOffsetY;
+    private boolean targetingActive;
 
     ActionsToolbar(BrogueActivity activity,
                    FrameLayout gameOverlay,
@@ -219,6 +220,14 @@ final class ActionsToolbar {
         animateToggle(menuBtn, false);
     }
 
+    /** Reflects the engine-owned targeting state in every visible Target icon. */
+    void setTargetingActive(boolean active) {
+        if (targetingActive == active) return;
+        targetingActive = active;
+        refreshTargetIcons(toolbarContainer);
+        refreshTargetIcons(inventoryOverlay);
+    }
+
     // ---- Pinned state / action order persistence ---------------------------
 
     private SharedPreferences toolbarPrefs() {
@@ -311,7 +320,8 @@ final class ActionsToolbar {
     private int actionIconRes(String key) {
         switch (key) {
             case "inventory": return R.drawable.ic_money_bag;
-            case "throw":     return R.drawable.ic_target;
+            case "throw":     return targetingActive
+                ? R.drawable.ic_close : R.drawable.ic_target;
             case "click":     return R.drawable.ic_left_click;
             case "show_log":  return R.drawable.ic_show_log;
             case "search":    return R.drawable.ic_search;
@@ -378,7 +388,8 @@ final class ActionsToolbar {
 
             View btn = makeIconBarButton(actionIconRes(key));
             btn.setTag(R.id.action_key_tag, key);
-            btn.setContentDescription(actionLabel(key));
+            btn.setContentDescription("throw".equals(key) && targetingActive
+                ? "Cancel targeting" : actionLabel(key));
 
             btn.setOnClickListener(v -> {
                 collapseSubmenu();
@@ -871,9 +882,28 @@ final class ActionsToolbar {
     private View makeActionListIcon(String key) {
         ImageView icon = new ImageView(activity);
         icon.setImageResource(actionIconRes(key));
+        icon.setTag(R.id.action_key_tag, key);
         icon.setColorFilter(Palette.PALE_BLUE);
         icon.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
         return icon;
+    }
+
+    private void refreshTargetIcons(View view) {
+        if (view == null) return;
+        if (view instanceof ImageView
+                && "throw".equals(view.getTag(R.id.action_key_tag))) {
+            ((ImageView) view).setImageResource(actionIconRes("throw"));
+            if (view instanceof ImageButton) {
+                view.setContentDescription(targetingActive
+                    ? "Cancel targeting" : actionLabel("throw"));
+            }
+        }
+        if (view instanceof ViewGroup) {
+            ViewGroup group = (ViewGroup) view;
+            for (int i = 0; i < group.getChildCount(); i++) {
+                refreshTargetIcons(group.getChildAt(i));
+            }
+        }
     }
 
     @SuppressLint("ClickableViewAccessibility")
