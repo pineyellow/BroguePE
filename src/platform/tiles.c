@@ -10,6 +10,7 @@
 static enum RenderMode renderMode = RENDER_TITLE;
 static int modalNestCount = 0;
 static boolean messageArchiveActive = false;
+static boolean victoryScreenActive = false;
 
 #define PI  3.14159265358979323846
 
@@ -230,6 +231,10 @@ void setRenderMode(enum RenderMode mode) {
 }
 
 enum RenderMode getRenderMode(void) { return renderMode; }
+
+void setVictoryScreenActive(boolean active) {
+    victoryScreenActive = active;
+}
 
 void setLoadingProgress(unsigned long amount, unsigned long maximum) {
     static const char label[] = "[     Loading...   ]";
@@ -943,10 +948,12 @@ void updateTile(int row, int column, short charIndex,
 /// Renders a tile grid to the screen.
 /// `tilePtr` points to the first element of a [rows][cols] ScreenTile array.
 /// `cols`, `rows` are the grid dimensions.
+/// `backgroundOnly` skips glyphs, allowing backgrounds to fill a wider surface.
 static void renderTilesEx(SDL_Renderer *renderer, ScreenTile *tilePtr,
                           int cols, int rows,
-                          int ofsX, int ofsY, int width, int height) {
-    for (int step = -1; step < numTextures; step++) {
+                          int ofsX, int ofsY, int width, int height,
+                          boolean backgroundOnly) {
+    for (int step = -1; step < (backgroundOnly ? 0 : numTextures); step++) {
         for (int x = 0; x < cols; x++) {
             int tileWidth = ((x+1) * width / cols) - (x * width / cols);
             if (tileWidth == 0) continue;
@@ -1007,7 +1014,7 @@ static void renderTilesEx(SDL_Renderer *renderer, ScreenTile *tilePtr,
 
 static void renderTiles(SDL_Renderer *renderer, ScreenTile tiles[ROWS][COLS],
                         int ofsX, int ofsY, int width, int height) {
-    renderTilesEx(renderer, &tiles[0][0], COLS, ROWS, ofsX, ofsY, width, height);
+    renderTilesEx(renderer, &tiles[0][0], COLS, ROWS, ofsX, ofsY, width, height, false);
 }
 
 /// Draws everything on screen.
@@ -1056,6 +1063,20 @@ void updateScreen() {
         SDL_RenderClear(renderer);
         createTextures(renderer, fitW, fitH);
         renderTiles(renderer, loadingTiles,
+                    (screenW - fitW) / 2, (screenH - fitH) / 2, fitW, fitH);
+        presentFrame(renderer);
+        return;
+    }
+
+    // Extend only the victory background across the physical display. Keep
+    // text on the centered 16:10 grid at its normal size and position.
+    if (victoryScreenActive) {
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderClear(renderer);
+        createTextures(renderer, fitW, fitH);
+        renderTilesEx(renderer, &uiTiles[0][0], COLS, ROWS,
+                      0, 0, screenW, screenH, true);
+        renderTiles(renderer, uiTiles,
                     (screenW - fitW) / 2, (screenH - fitH) / 2, fitW, fitH);
         presentFrame(renderer);
         return;
@@ -1145,7 +1166,7 @@ void updateScreen() {
     // Pass 1: render the map/title layer
     if (!inGame) {
         renderTilesEx(renderer, &titleScreenTiles[0][0], TITLE_COLS, ROWS,
-                      0, 0, screenW, screenH);
+                      0, 0, screenW, screenH, false);
     } else {
         renderTiles(renderer, dungeonTiles, offsetX, offsetY, outputWidth, outputHeight);
     }

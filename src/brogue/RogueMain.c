@@ -1206,6 +1206,7 @@ void victory(boolean superVictory) {
 
     rogue.gameInProgress = false;
     enterModalMode();
+    setVictoryScreenActive(true);
     flushBufferToFile();
 
     if (rogue.playbackFastForward) {
@@ -1358,6 +1359,7 @@ void victory(boolean superVictory) {
         androidDeleteSaveFile();
     }
 
+    setVictoryScreenActive(false);
     exitModalMode();
     rogue.gameHasEnded = true;
     rogue.gameExitStatusCode = EXIT_STATUS_SUCCESS;

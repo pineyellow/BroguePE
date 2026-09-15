@@ -126,6 +126,7 @@ void setLoadingProgress(unsigned long amount, unsigned long maximum);
 void enterModalMode(void);
 void exitModalMode(void);
 void setMessageArchiveActive(boolean active);
+void setVictoryScreenActive(boolean active);
 void markModalOverlayCell(short x, short y);
 
 // Set by commitDraws/refreshScreen before each buffer pass.
