@@ -1299,7 +1299,14 @@ void updateScreen() {
         int height = max(1, fitH / ROWS);
         int centerX = cx + (int)lroundf((dungeonAlert.x + 0.5f) * zoomW / COLS);
         int centerY = cy + (int)lroundf((dungeonAlert.y + 0.5f) * zoomH / ROWS);
-        if (centerX >= 0 && centerX < screenW && centerY >= 0 && centerY < screenH) {
+        // These alerts belong to the player. The label's offset anchor may
+        // leave the viewport while the player is still visible.
+        int playerLeft = cx + mapToWindowX(player.loc.x) * zoomW / COLS;
+        int playerRight = cx + (mapToWindowX(player.loc.x) + 1) * zoomW / COLS;
+        int playerTop = cy + mapToWindowY(player.loc.y) * zoomH / ROWS;
+        int playerBottom = cy + (mapToWindowY(player.loc.y) + 1) * zoomH / ROWS;
+        if (playerLeft < screenW && playerRight > 0
+                && playerTop < screenH && playerBottom > 0) {
             SDL_Rect rect = {clamp(centerX - width / 2, 0, screenW - width),
                              clamp(centerY - height / 2, 0, screenH - height), width, height};
             SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
