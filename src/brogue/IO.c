@@ -2885,10 +2885,11 @@ boolean getInputTextString(char *inputText,
     }
 }
 
-// Write a cell to the UI display buffer and push it to the UI tile layer.
-static void plotToUI(enum displayGlyph ch, short wx, short wy,
-                     const color *fore, const color *back) {
-    cellDisplayBuffer *target = &uiDisplayBuffer.cells[wx][wy];
+// Write a cell to the chosen display buffer and push it to the matching tile layer.
+static void plotToLayer(enum displayGlyph ch, short wx, short wy,
+                        const color *fore, const color *back, boolean inDungeon) {
+    screenDisplayBuffer *buffer = inDungeon ? &dungeonDisplayBuffer : &uiDisplayBuffer;
+    cellDisplayBuffer *target = &buffer->cells[wx][wy];
     target->character = ch;
     target->foreColorComponents[0] = fore->red;
     target->foreColorComponents[1] = fore->green;
@@ -2897,7 +2898,7 @@ static void plotToUI(enum displayGlyph ch, short wx, short wy,
     target->backColorComponents[1] = back->green;
     target->backColorComponents[2] = back->blue;
     boolean wasUI = plotToUiLayer;
-    plotToUiLayer = true;
+    plotToUiLayer = !inDungeon;
     plotChar(ch, wx, wy, fore->red, fore->green, fore->blue,
              back->red, back->green, back->blue);
     plotToUiLayer = wasUI;
@@ -2907,11 +2908,13 @@ void displayCenteredAlert(char *message) {
     short x = (COLS - strLenWithoutEscapes(message)) / 2;
     short y = ROWS / 2;
     for (int i = 0; message[i]; i++) {
-        plotToUI(message[i], x + i, y, &teal, &black);
+        plotToLayer(message[i], x + i, y, &teal, &black, false);
     }
 }
 
-void flashMessage(char *message, short x, short y, int time, const color *fColor, const color *bColor) {
+// Creature alerts follow the dungeon camera; general prompts stay on the fixed UI.
+void flashMessage(char *message, short x, short y, int time, const color *fColor, const color *bColor,
+                  boolean inDungeon) {
     boolean fastForward;
     int     i, j, messageLength, percentComplete, previousPercentComplete;
     color backColors[COLS], backColor, foreColor;
@@ -2919,6 +2922,7 @@ void flashMessage(char *message, short x, short y, int time, const color *fColor
     enum displayGlyph dchar;
     short oldRNG;
     const int stepInMs = 16;
+    screenDisplayBuffer *buffer = inDungeon ? &dungeonDisplayBuffer : &uiDisplayBuffer;
 
     if (rogue.playbackFastForward) {
         return;
@@ -2931,9 +2935,23 @@ void flashMessage(char *message, short x, short y, int time, const color *fColor
     messageLength = strLenWithoutEscapes(message);
     fastForward = false;
 
+    if (inDungeon) {
+        // x/y identify the anchor cell, not the label's top-left corner.
+        // A separate overlay leaves map cells intact while the camera moves.
+        for (i = 0; i < time && !fastForward; i += stepInMs) {
+            percentComplete = 100 * i / time;
+            percentComplete = percentComplete * percentComplete / 100;
+            setDungeonAlert(message, x, y, fColor, bColor, 100 - percentComplete);
+            fastForward = pauseBrogue(stepInMs, PAUSE_BEHAVIOR_DEFAULT);
+        }
+        setDungeonAlert(NULL, 0, 0, NULL, NULL, 0);
+        restoreRNG;
+        return;
+    }
+
     for (j=0; j<messageLength; j++) {
-        backColors[j] = colorFromComponents(uiDisplayBuffer.cells[j + x][y].backColorComponents);
-        dbufs[j] = uiDisplayBuffer.cells[j + x][y];
+        backColors[j] = colorFromComponents(buffer->cells[j + x][y].backColorComponents);
+        dbufs[j] = buffer->cells[j + x][y];
     }
 
     previousPercentComplete = -1;
@@ -2943,8 +2961,8 @@ void flashMessage(char *message, short x, short y, int time, const color *fColor
         if (previousPercentComplete != percentComplete) {
             for (j=0; j<messageLength; j++) {
                 if (i==0) {
-                    backColors[j] = colorFromComponents(uiDisplayBuffer.cells[j + x][y].backColorComponents);
-                    dbufs[j] = uiDisplayBuffer.cells[j + x][y];
+                    backColors[j] = colorFromComponents(buffer->cells[j + x][y].backColorComponents);
+                    dbufs[j] = buffer->cells[j + x][y];
                 }
                 backColor = backColors[j];
                 applyColorAverage(&backColor, bColor, 100 - percentComplete);
@@ -2957,7 +2975,7 @@ void flashMessage(char *message, short x, short y, int time, const color *fColor
                     foreColor = colorFromComponents(dbufs[j].foreColorComponents);
                     applyColorAverage(&foreColor, &backColor, (100 - percentComplete) * 2);
                 }
-                plotToUI(dchar, j+x, y, &foreColor, &backColor);
+                plotToLayer(dchar, j+x, y, &foreColor, &backColor, inDungeon);
             }
         }
         previousPercentComplete = percentComplete;
@@ -2965,14 +2983,14 @@ void flashMessage(char *message, short x, short y, int time, const color *fColor
     }
     for (j=0; j<messageLength; j++) {
         foreColor = colorFromComponents(dbufs[j].foreColorComponents);
-        plotToUI(dbufs[j].character, j+x, y, &foreColor, &(backColors[j]));
+        plotToLayer(dbufs[j].character, j+x, y, &foreColor, &(backColors[j]), inDungeon);
     }
 
     restoreRNG;
 }
 
 void flashTemporaryAlert(char *message, int time) {
-    flashMessage(message, (COLS - strLenWithoutEscapes(message)) / 2, ROWS / 2, time, &teal, &black);
+    flashMessage(message, (COLS - strLenWithoutEscapes(message)) / 2, ROWS / 2, time, &teal, &black, false);
 }
 
 void waitForAcknowledgment() {

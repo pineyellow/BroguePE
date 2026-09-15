@@ -878,11 +878,8 @@ static void flashCreatureAlert(creature *monst, char msg[200], const color *fore
     } else {
         y = mapToWindowY(monst->loc.y + 2);
     }
-    x = mapToWindowX(monst->loc.x - strLenWithoutEscapes(msg) / 2);
-    if (x > COLS - strLenWithoutEscapes(msg)) {
-        x = COLS - strLenWithoutEscapes(msg);
-    }
-    flashMessage(msg, x, y, (rogue.playbackMode ? 100 : 1000), foreColor, backColor);
+    x = mapToWindowX(monst->loc.x);
+    flashMessage(msg, x, y, (rogue.playbackMode ? 100 : 1000), foreColor, backColor, true);
     rogue.disturbed = true;
     rogue.autoPlayingLevel = false;
 }

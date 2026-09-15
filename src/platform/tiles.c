@@ -188,6 +188,31 @@ static ScreenTile loadingTiles[ROWS][COLS]; // fixed screen-space loading progre
 static ScreenTile uiTiles[ROWS][COLS];     // UI layer (sidebar, messages, bottom bar, modals — rendered at 1x)
 static boolean modalOverlayCells[ROWS][COLS]; // explicit modal UI cells inside the dungeon region
 
+// Creature alerts follow the camera, but their glyphs use the fixed UI scale.
+static struct {
+    ScreenTile tiles[COLS];
+    int length;
+    short x, y, opacity;
+    color background;
+} dungeonAlert;
+
+void setDungeonAlert(const char *text, short x, short y,
+                     const color *fore, const color *back, short opacity) {
+    dungeonAlert.opacity = clamp(opacity, 0, 100);
+    if (!dungeonAlert.opacity) return;
+    dungeonAlert.x = x;
+    dungeonAlert.y = y;
+    dungeonAlert.background = *back;
+    int i;
+    for (i = 0; i < COLS && text[i]; i++) {
+        dungeonAlert.tiles[i] = (ScreenTile){
+            .charIndex = fontIndex(text[i]),
+            .foreRed = fore->red, .foreGreen = fore->green, .foreBlue = fore->blue
+        };
+    }
+    dungeonAlert.length = i;
+}
+
 boolean plotToUiLayer = false; // set by commitDraws/refreshScreen to route plotChar → updateTile
 
 static ScreenTile titleScreenTiles[ROWS][TITLE_COLS];
@@ -1265,6 +1290,32 @@ void updateScreen() {
                     }
                 }
             }
+        }
+    }
+
+    // Position in camera space; size in UI space. This bypasses sidebar layout.
+    if (inGame && dungeonAlert.opacity > 0 && dungeonAlert.length > 0) {
+        int width = dungeonAlert.length * fitW / COLS;
+        int height = max(1, fitH / ROWS);
+        int centerX = cx + (int)lroundf((dungeonAlert.x + 0.5f) * zoomW / COLS);
+        int centerY = cy + (int)lroundf((dungeonAlert.y + 0.5f) * zoomH / ROWS);
+        if (centerX >= 0 && centerX < screenW && centerY >= 0 && centerY < screenH) {
+            SDL_Rect rect = {clamp(centerX - width / 2, 0, screenW - width),
+                             clamp(centerY - height / 2, 0, screenH - height), width, height};
+            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_BLEND);
+            SDL_SetRenderDrawColor(renderer,
+                round(2.55 * dungeonAlert.background.red),
+                round(2.55 * dungeonAlert.background.green),
+                round(2.55 * dungeonAlert.background.blue),
+                dungeonAlert.opacity * 255 / 100);
+            SDL_RenderFillRect(renderer, &rect);
+            // Match the existing flash: letters disappear halfway through the fade.
+            int alpha = max(0, dungeonAlert.opacity * 2 - 100) * 255 / 100;
+            for (int i = 0; i < numTextures; i++) SDL_SetTextureAlphaMod(Textures[i], alpha);
+            renderTilesEx(renderer, dungeonAlert.tiles, dungeonAlert.length, 1,
+                          rect.x, rect.y, width, height, false);
+            for (int i = 0; i < numTextures; i++) SDL_SetTextureAlphaMod(Textures[i], 255);
+            SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE);
         }
     }
 

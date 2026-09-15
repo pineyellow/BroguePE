@@ -126,6 +126,9 @@ void setLoadingProgress(unsigned long amount, unsigned long maximum);
 void enterModalMode(void);
 void exitModalMode(void);
 void setMessageArchiveActive(boolean active);
+// Fixed-size alert centered on a dungeon window cell; opacity is 0..100.
+void setDungeonAlert(const char *text, short x, short y,
+                     const color *fore, const color *back, short opacity);
 void setVictoryScreenActive(boolean active);
 void markModalOverlayCell(short x, short y);
 

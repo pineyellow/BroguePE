@@ -3003,7 +3003,8 @@ extern "C" {
                                           boolean includeButtons);
     void funkyFade(screenDisplayBuffer *displayBuf, const color *colorStart, const color *colorEnd, short stepCount, short x, short y, boolean invert);
     void displayCenteredAlert(char *message);
-    void flashMessage(char *message, short x, short y, int time, const color *fColor, const color *bColor);
+    void flashMessage(char *message, short x, short y, int time, const color *fColor, const color *bColor,
+                      boolean inDungeon);
     void flashTemporaryAlert(char *message, int time);
     void highlightScreenCell(short x, short y, const color *highlightColor, short strength);
     void waitForAcknowledgment(void);

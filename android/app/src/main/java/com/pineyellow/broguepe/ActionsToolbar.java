@@ -47,8 +47,8 @@ final class ActionsToolbar {
     static final int BUTTONS_VERTICAL        = 1;
     static final int DEFAULT_BUTTON_ORIENTATION = BUTTONS_HORIZONTAL;
 
-    private static final float BASE_BUTTON_SIZE_DP = 48f;
-    private static final float BASE_BUTTON_PADDING_DP = 10f;
+    private static final float BASE_BUTTON_SIZE_DP = 50.4f;
+    private static final float BASE_BUTTON_PADDING_DP = 10.5f;
     private static final int BUTTON_HALF_GAP_DP = 2;
     private static final int TOOLBAR_GUARD_PADDING_DP = 2;
     private static final float DISABLED_BUTTON_ALPHA = 0.35f;
