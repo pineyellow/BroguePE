@@ -97,7 +97,7 @@ final class SettingsPanel {
         addCameraFollowModeCycler(panel);
         addStepperSetting(panel, "Action Button Size", ActionsToolbar.PREF_BUTTON_SIZE,
             ActionsToolbar.DEFAULT_BUTTON_SIZE,
-            ActionsToolbar.MIN_BUTTON_SIZE, ActionsToolbar.MAX_BUTTON_SIZE, 0.1f,
+            ActionsToolbar.MIN_BUTTON_SIZE, ActionsToolbar.MAX_BUTTON_SIZE, 0.05f,
             "Action button size multiplier", activity::applyActionButtonSettings, true);
         addActionBarLayoutSetting(panel);
         addAppToggle(panel, "Enable DPAD", DPadOverlay.PREF_ENABLED, true,
@@ -115,11 +115,11 @@ final class SettingsPanel {
                 "DPAD Y position offset in dp\n(- goes down, + goes up)",
                 activity::applyDpadSettings, true);
             addStepperSetting(panel, "DPAD Size", DPadOverlay.PREF_SIZE,
-                DPadOverlay.DEFAULT_SIZE, DPadOverlay.MIN_SIZE, DPadOverlay.MAX_SIZE, 0.1f,
+                DPadOverlay.DEFAULT_SIZE, DPadOverlay.MIN_SIZE, DPadOverlay.MAX_SIZE, 0.05f,
                 "DPAD overall size multiplier", activity::applyDpadSettings, true);
             addStepperSetting(panel, "DPAD Button Width", DPadOverlay.PREF_BUTTON_WIDTH,
                 DPadOverlay.DEFAULT_BUTTON_WIDTH,
-                DPadOverlay.MIN_BUTTON_WIDTH, DPadOverlay.MAX_BUTTON_WIDTH, 0.1f,
+                DPadOverlay.MIN_BUTTON_WIDTH, DPadOverlay.MAX_BUTTON_WIDTH, 0.05f,
                 "DPAD button width multiplier\n(1 = square buttons)",
                 activity::applyDpadSettings, true);
         }

@@ -51,6 +51,7 @@ final class ActionsToolbar {
     private static final float BASE_BUTTON_PADDING_DP = 10f;
     private static final int BUTTON_HALF_GAP_DP = 2;
     private static final int TOOLBAR_GUARD_PADDING_DP = 2;
+    private static final float DISABLED_BUTTON_ALPHA = 0.35f;
 
     // Registered actions: {key, human label}. The pinned subset of this set
     // appears in the toolbar; the full set appears in the Actions panel.
@@ -212,20 +213,28 @@ final class ActionsToolbar {
         if (submenuBackdrop != null && submenuBackdrop.getParent() != null) {
             ((ViewGroup) submenuBackdrop.getParent()).removeView(submenuBackdrop);
         }
-        submenu.animate()
-            .alpha(0f).translationY(dp(-6))
-            .setDuration(100)
-            .withEndAction(() -> submenu.setVisibility(View.GONE))
-            .start();
+        if (targetingActive) {
+            // Stop accepting menu input immediately when target selection begins.
+            submenu.animate().cancel();
+            submenu.setVisibility(View.GONE);
+        } else {
+            submenu.animate()
+                .alpha(0f).translationY(dp(-6))
+                .setDuration(100)
+                .withEndAction(() -> submenu.setVisibility(View.GONE))
+                .start();
+        }
         animateToggle(menuBtn, false);
     }
 
-    /** Reflects the engine-owned targeting state in every visible Target icon. */
+    /** Only target confirmation and cancellation remain available while aiming. */
     void setTargetingActive(boolean active) {
         if (targetingActive == active) return;
         targetingActive = active;
-        refreshTargetIcons(toolbarContainer);
-        refreshTargetIcons(inventoryOverlay);
+        if (active) collapseSubmenu();
+        refreshTargetingState(menuBtn);
+        refreshTargetingState(toolbarContainer);
+        refreshTargetingState(inventoryOverlay);
     }
 
     // ---- Pinned state / action order persistence ---------------------------
@@ -335,8 +344,14 @@ final class ActionsToolbar {
 
     // ---- Action execution --------------------------------------------------
 
+    private boolean isTargetingAction(Object key) {
+        return "throw".equals(key) || "click".equals(key);
+    }
+
     private void executeAction(String key) {
         if (actionReordering) return;
+        // The engine can enter targeting before its UI update is delivered.
+        if (!isTargetingAction(key) && activity.nativeIsTargetingActive()) return;
 
         switch (key) {
             case "inventory": KeyInput.sendKey(activity, KeyEvent.KEYCODE_I); break;
@@ -411,6 +426,8 @@ final class ActionsToolbar {
             addedButtonCount++;
         }
         toolbarContainer.setVisibility(addedButtonCount == 0 ? View.GONE : View.VISIBLE);
+        refreshTargetingState(toolbarContainer);
+        refreshTargetingState(menuBtn);
     }
 
     // ---- Actions panel -----------------------------------------------------
@@ -781,6 +798,7 @@ final class ActionsToolbar {
     // ---- Submenu animation -------------------------------------------------
 
     private void expandSubmenu() {
+        if (activity.nativeIsTargetingActive()) return;
         if (submenuBackdrop == null) submenuBackdrop = new View(activity);
         submenuBackdrop.setOnClickListener(v -> collapseSubmenu());
         if (submenuBackdrop.getParent() != null) {
@@ -888,8 +906,21 @@ final class ActionsToolbar {
         return icon;
     }
 
-    private void refreshTargetIcons(View view) {
+    private void refreshTargetingState(View view) {
         if (view == null) return;
+        if (view instanceof ImageButton
+                && (view == menuBtn || view.getTag(R.id.action_key_tag) != null)) {
+            boolean enabled = !targetingActive
+                || isTargetingAction(view.getTag(R.id.action_key_tag));
+            // Keep disabled buttons as touch targets so taps cannot hit the dungeon.
+            view.setEnabled(enabled);
+            view.setAlpha(enabled ? 1f : DISABLED_BUTTON_ALPHA);
+            if (!enabled) {
+                view.animate().cancel();
+                view.setScaleX(1f);
+                view.setScaleY(1f);
+            }
+        }
         if (view instanceof ImageView
                 && "throw".equals(view.getTag(R.id.action_key_tag))) {
             ((ImageView) view).setImageResource(actionIconRes("throw"));
@@ -901,7 +932,7 @@ final class ActionsToolbar {
         if (view instanceof ViewGroup) {
             ViewGroup group = (ViewGroup) view;
             for (int i = 0; i < group.getChildCount(); i++) {
-                refreshTargetIcons(group.getChildAt(i));
+                refreshTargetingState(group.getChildAt(i));
             }
         }
     }
@@ -943,7 +974,9 @@ final class ActionsToolbar {
         row.addView(labelView, new LinearLayout.LayoutParams(
             0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
-        row.setOnClickListener(listener);
+        row.setOnClickListener(v -> {
+            if (!activity.nativeIsTargetingActive()) listener.onClick(v);
+        });
         return row;
     }
 
