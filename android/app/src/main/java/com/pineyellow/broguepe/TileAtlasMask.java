@@ -11,7 +11,7 @@ import android.util.LruCache;
 import java.io.IOException;
 import java.io.InputStream;
 
-/** Extracts tintable graphical glyphs at their final physical pixel size. */
+/** Caches tintable masks on disk and resized icons in memory. */
 final class TileAtlasMask {
 
     private static final int ATLAS_COLUMNS = 16;
@@ -46,76 +46,95 @@ final class TileAtlasMask {
             cached = MASK_CACHE.get(key);
             if (cached != null) return cached;
 
-            BitmapRegionDecoder decoder = obtainDecoder(activity);
-            if (decoder == null) return null;
-
-            int tileWidth = decoder.getWidth() / ATLAS_COLUMNS;
-            int tileHeight = decoder.getHeight() / ATLAS_ROWS;
-            int column = tileIndex % ATLAS_COLUMNS;
-            int row = tileIndex / ATLAS_COLUMNS;
-
-            Bitmap tile;
-            try {
-                tile = decoder.decodeRegion(new Rect(
-                    column * tileWidth, row * tileHeight,
-                    (column + 1) * tileWidth, (row + 1) * tileHeight), null);
-            } catch (RuntimeException ignored) {
-                return null;
+            Bitmap fullSizeMask = TileMaskFiles.load(activity, tileIndex, trimArtwork);
+            boolean needsSaving = fullSizeMask == null;
+            if (fullSizeMask == null) {
+                fullSizeMask = prepareMask(activity, tileIndex, trimArtwork);
+                if (fullSizeMask == null) return null;
             }
-            if (tile == null) return null;
-
-            int[] source = new int[tileWidth * tileHeight];
-            tile.getPixels(source, 0, tileWidth, 0, 0, tileWidth, tileHeight);
-            tile.recycle();
-
-            int left = 0;
-            int top = 0;
-            int right = tileWidth - 1;
-            int bottom = tileHeight - 1;
-            if (trimArtwork) {
-                left = tileWidth;
-                top = tileHeight;
-                right = -1;
-                bottom = -1;
-                for (int y = 0; y < tileHeight; y++) {
-                    for (int x = 0; x < tileWidth; x++) {
-                        if (intensity(source[y * tileWidth + x]) == 0) continue;
-                        left = Math.min(left, x);
-                        top = Math.min(top, y);
-                        right = Math.max(right, x);
-                        bottom = Math.max(bottom, y);
-                    }
-                }
-                if (right < left || bottom < top) return null;
-            }
-
-            int padding = trimArtwork ? 2 : 0;
-            int artworkWidth = right - left + 1;
-            int artworkHeight = bottom - top + 1;
-            int sourceWidth = artworkWidth + padding * 2;
-            int sourceHeight = artworkHeight + padding * 2;
-            int[] maskPixels = new int[sourceWidth * sourceHeight];
-            for (int y = 0; y < artworkHeight; y++) {
-                for (int x = 0; x < artworkWidth; x++) {
-                    int alpha = intensity(source[(top + y) * tileWidth + left + x]);
-                    maskPixels[(y + padding) * sourceWidth + x + padding] =
-                        Color.argb(alpha, 255, 255, 255);
-                }
-            }
-
-            Bitmap fullSizeMask = Bitmap.createBitmap(
-                maskPixels, sourceWidth, sourceHeight, Bitmap.Config.ARGB_8888);
+            int sourceWidth = fullSizeMask.getWidth();
+            int sourceHeight = fullSizeMask.getHeight();
             float scale = Math.min((float) maxWidthPx / sourceWidth,
                                    (float) maxHeightPx / sourceHeight);
             int renderedWidth = Math.max(1, Math.round(sourceWidth * scale));
             int renderedHeight = Math.max(1, Math.round(sourceHeight * scale));
             Bitmap mask = Bitmap.createScaledBitmap(
                 fullSizeMask, renderedWidth, renderedHeight, true);
-            if (mask != fullSizeMask) fullSizeMask.recycle();
+            if (needsSaving) {
+                // Transfer private source masks to the writer. An unscaled mask
+                // is also displayed, so neither path may recycle that bitmap.
+                TileMaskFiles.saveAsync(activity, tileIndex, trimArtwork,
+                    fullSizeMask, mask != fullSizeMask);
+            } else if (mask != fullSizeMask) {
+                fullSizeMask.recycle();
+            }
 
             MASK_CACHE.put(key, mask);
             return mask;
         }
+    }
+
+    private static Bitmap prepareMask(BrogueActivity activity, int tileIndex,
+                                      boolean trimArtwork) {
+        BitmapRegionDecoder decoder = obtainDecoder(activity);
+        if (decoder == null) return null;
+
+        int tileWidth = decoder.getWidth() / ATLAS_COLUMNS;
+        int tileHeight = decoder.getHeight() / ATLAS_ROWS;
+        int column = tileIndex % ATLAS_COLUMNS;
+        int row = tileIndex / ATLAS_COLUMNS;
+
+        Bitmap tile;
+        try {
+            tile = decoder.decodeRegion(new Rect(
+                column * tileWidth, row * tileHeight,
+                (column + 1) * tileWidth, (row + 1) * tileHeight), null);
+        } catch (RuntimeException ignored) {
+            return null;
+        }
+        if (tile == null) return null;
+
+        int[] source = new int[tileWidth * tileHeight];
+        tile.getPixels(source, 0, tileWidth, 0, 0, tileWidth, tileHeight);
+        tile.recycle();
+
+        int left = 0;
+        int top = 0;
+        int right = tileWidth - 1;
+        int bottom = tileHeight - 1;
+        if (trimArtwork) {
+            left = tileWidth;
+            top = tileHeight;
+            right = -1;
+            bottom = -1;
+            for (int y = 0; y < tileHeight; y++) {
+                for (int x = 0; x < tileWidth; x++) {
+                    if (intensity(source[y * tileWidth + x]) == 0) continue;
+                    left = Math.min(left, x);
+                    top = Math.min(top, y);
+                    right = Math.max(right, x);
+                    bottom = Math.max(bottom, y);
+                }
+            }
+            if (right < left || bottom < top) return null;
+        }
+
+        int padding = trimArtwork ? 2 : 0;
+        int artworkWidth = right - left + 1;
+        int artworkHeight = bottom - top + 1;
+        int sourceWidth = artworkWidth + padding * 2;
+        int sourceHeight = artworkHeight + padding * 2;
+        int[] maskPixels = new int[sourceWidth * sourceHeight];
+        for (int y = 0; y < artworkHeight; y++) {
+            for (int x = 0; x < artworkWidth; x++) {
+                int alpha = intensity(source[(top + y) * tileWidth + left + x]);
+                maskPixels[(y + padding) * sourceWidth + x + padding] =
+                    Color.argb(alpha, 255, 255, 255);
+            }
+        }
+
+        return Bitmap.createBitmap(
+            maskPixels, sourceWidth, sourceHeight, Bitmap.Config.ARGB_8888);
     }
 
     private static int intensity(int pixel) {

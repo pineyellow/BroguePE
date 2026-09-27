@@ -1,6 +1,6 @@
 import java.util.Properties
 
-val broguePeVersionName = "1.2.6"
+val broguePeVersionName = "1.2.7"
 
 val debugOverlayEnabled = providers.gradleProperty("debugOverlay")
     .orElse("false")
@@ -18,6 +18,7 @@ val debugOverlayEnabled = providers.gradleProperty("debugOverlay")
 plugins {
     id("com.android.application")
 }
+
 
 val keystoreProperties = Properties().apply {
     val f = rootProject.file("keystore.properties")
@@ -57,7 +58,7 @@ android {
         applicationId = "com.pineyellow.broguepe"
         minSdk = 24
         targetSdk = 36
-        versionCode = 20
+        versionCode = 21
         versionName = broguePeVersionName
 
         externalNativeBuild {
@@ -127,6 +128,12 @@ android {
     }
 
     sourceSets {
+        getByName("debug") {
+            java.srcDir(if (debugOverlayEnabled) "src/debugOverlay/java" else "src/noDebugOverlay/java")
+        }
+        getByName("release") {
+            java.srcDir("src/noDebugOverlay/java")
+        }
         getByName("main") {
             assets.srcDirs("../../bin/assets")
             java.srcDirs(

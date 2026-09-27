@@ -117,6 +117,7 @@ final class PlayerStatsModal {
         panel.removeAllViews();
         PlayerStats stats = StatsStore.get(activity).snapshot(
             selectedVariant, selectedDifficulty);
+        stats = PlayerStatsPreview.apply(stats, selectedVariant, selectedDifficulty);
 
         // Top: 3-cell stat grid (played / won / died).
         LinearLayout grid = new LinearLayout(activity);
