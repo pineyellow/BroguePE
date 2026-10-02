@@ -46,7 +46,7 @@ final class ConfirmationDialog {
             }
 
             // The game thread blocks while it waits for this dialog. Stop any
-            // held DPAD input before showing it so repeat key events do not
+            // held D-pad input before showing it so repeat key events do not
             // accumulate in SDL and reopen the same warning after dismissal.
             activity.cancelDpadInput();
 

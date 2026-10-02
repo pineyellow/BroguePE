@@ -142,7 +142,7 @@ public class BrogueActivity extends SDLActivity {
             Gravity.TOP | Gravity.START);
         gameOverlay.addView(dpadView, dpadParams);
         // Keep toolbar controls as an escape hatch if an oversized or moved
-        // DPAD overlaps them. Empty areas still fall through to the DPAD.
+        // D-pad overlaps them. Empty areas still fall through to the D-pad.
         controlsOverlay.bringToFront();
         // The overlay starts GONE, so defer geometry until Android gives it
         // real bounds. Reapply when those bounds change (for example after an

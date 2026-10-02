@@ -92,7 +92,7 @@ extern volatile int androidTopLeftCornerRadiusPx;
 extern volatile int androidTopLeftCornerCenterXPx;
 extern volatile int androidTopLeftCornerCenterYPx;
 
-/* True while Android DPAD continuous-repeat is actively repeating. */
+/* True while Android D-pad continuous-repeat is actively repeating. */
 extern boolean androidContinuousMoveActive;
 
 /* When true, snap the camera to the player immediately instead of tweening.
