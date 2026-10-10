@@ -1081,6 +1081,70 @@ void gameOver(char *killedBy, boolean useCustomPhrasing) {
         displayLevel();
     }
 
+    const boolean immortal = D_IMMORTAL && !rogue.quit;
+    const boolean alreadyRecorded = rogue.highScoreSaved;
+
+    // Unless the player is immortal, the run ends here. Record it and delete the save file now,
+    // before any of the screens below wait for the player. Otherwise, killing the app while one
+    // of them is showing would leave the death unrecorded and the save in place to resume from.
+    if (!immortal && !alreadyRecorded) {
+        rogue.highScoreSaved = true;
+
+        if (useCustomPhrasing) {
+            sprintf(buf, "%s on depth %i", killedBy, rogue.depthLevel);
+        } else {
+            sprintf(buf, "Killed by a%s %s on depth %i", (isVowelish(killedBy) ? "n" : ""), killedBy,
+                    rogue.depthLevel);
+        }
+
+        const unsigned long collectedGold = rogue.gold;
+
+        // Count gems as 500 gold each
+        short numGems = numberOfMatchingPackItems(GEM, 0, 0, false);
+        rogue.gold += 500 * numGems;
+        theEntry.score = rogue.gold;
+
+        if (rogue.mode == GAME_MODE_EASY) {
+            theEntry.score /= 10;
+        }
+        strcpy(highScoreText, buf);
+        if (theEntry.score > 0) {
+            sprintf(buf2, (numGems > 0) ? " with treasure worth %li gold" : " with %li gold", theEntry.score);
+            strcat(buf, buf2);
+        }
+        if (numberOfMatchingPackItems(AMULET, 0, 0, false) > 0) {
+            strcat(buf, ", amulet in hand");
+        }
+        strcat(buf, ".");
+        strcat(highScoreText, ".");
+
+        strcpy(theEntry.description, highScoreText);
+
+        if (!rogue.playbackMode) {
+            saveHighScore(theEntry);
+
+            if (!rogue.quit) {
+                notifyEvent(GAMEOVER_DEATH, theEntry.score, 0, theEntry.description, recordingFilename);
+                androidNotifyPlayerDied(killedBy, rogue.depthLevel,
+                                        rogue.deepestLevel,
+                                        (int)rogue.playerTurnNumber, collectedGold);
+            } else {
+                notifyEvent(GAMEOVER_QUIT, theEntry.score, 0, theEntry.description, recordingFilename);
+                androidNotifyPlayerQuit(rogue.depthLevel, rogue.deepestLevel,
+                                        (int)rogue.playerTurnNumber, collectedGold);
+            }
+
+            if (rogue.mode != GAME_MODE_EASY &&  rogue.mode != GAME_MODE_WIZARD) {
+                saveRunHistory(rogue.quit ? "Quit" : "Died", rogue.quit ? "-" : killedBy, (int) theEntry.score, numGems);
+            }
+
+            androidDeleteSaveFile();
+        }
+
+        // The sidebar is redrawn under the death message below; keep it showing the gold as collected.
+        rogue.gold = collectedGold;
+    }
+
     if (rogue.quit) {
         if (rogue.playbackMode) {
             rogue.playbackMode = false;
@@ -1102,7 +1166,7 @@ void gameOver(char *killedBy, boolean useCustomPhrasing) {
 
     rogue.creaturesWillFlashThisTurn = false;
 
-    if (D_IMMORTAL && !rogue.quit) {
+    if (immortal) {
         message("...but then you get better.", 0);
         player.currentHP = player.info.maxHP;
         if (player.status[STATUS_NUTRITION] < 10) {
@@ -1113,44 +1177,13 @@ void gameOver(char *killedBy, boolean useCustomPhrasing) {
         return;
     }
 
-    if (rogue.highScoreSaved) {
+    if (alreadyRecorded) {
         return;
     }
-    rogue.highScoreSaved = true;
 
     if (rogue.quit) {
         blackOutScreen();
     }
-
-    if (useCustomPhrasing) {
-        sprintf(buf, "%s on depth %i", killedBy, rogue.depthLevel);
-    } else {
-        sprintf(buf, "Killed by a%s %s on depth %i", (isVowelish(killedBy) ? "n" : ""), killedBy,
-                rogue.depthLevel);
-    }
-
-    unsigned long collectedGold = rogue.gold;
-
-    // Count gems as 500 gold each
-    short numGems = numberOfMatchingPackItems(GEM, 0, 0, false);
-    rogue.gold += 500 * numGems;
-    theEntry.score = rogue.gold;
-
-    if (rogue.mode == GAME_MODE_EASY) {
-        theEntry.score /= 10;
-    }
-    strcpy(highScoreText, buf);
-    if (theEntry.score > 0) {
-        sprintf(buf2, (numGems > 0) ? " with treasure worth %li gold" : " with %li gold", theEntry.score);
-        strcat(buf, buf2);
-    }
-    if (numberOfMatchingPackItems(AMULET, 0, 0, false) > 0) {
-        strcat(buf, ", amulet in hand");
-    }
-    strcat(buf, ".");
-    strcat(highScoreText, ".");
-
-    strcpy(theEntry.description, highScoreText);
 
     if (!rogue.quit) {
         androidShowDeathScreen(buf, (int)rogue.playerTurnNumber);
@@ -1158,35 +1191,12 @@ void gameOver(char *killedBy, boolean useCustomPhrasing) {
         blackOutScreen();
     }
 
-    if (!rogue.playbackMode) {
-        saveHighScore(theEntry);
-    }
-
     if (rogue.playbackMode && nonInteractivePlayback) {
         printf("Recording: %s ended after %li turns (game over).\n", rogue.currentGamePath, rogue.playerTurnNumber);
     }
 
-    if (!rogue.playbackMode) {
-        if (!rogue.quit) {
-            notifyEvent(GAMEOVER_DEATH, theEntry.score, 0, theEntry.description, recordingFilename);
-            androidNotifyPlayerDied(killedBy, rogue.depthLevel,
-                                    rogue.deepestLevel,
-                                    (int)rogue.playerTurnNumber, collectedGold);
-        } else {
-            notifyEvent(GAMEOVER_QUIT, theEntry.score, 0, theEntry.description, recordingFilename);
-            androidNotifyPlayerQuit(rogue.depthLevel, rogue.deepestLevel,
-                                    (int)rogue.playerTurnNumber, collectedGold);
-        }
-    } else {
+    if (rogue.playbackMode) {
         notifyEvent(GAMEOVER_RECORDING, 0, 0, "recording ended", "none");
-    }
-
-    if (!rogue.playbackMode && rogue.mode != GAME_MODE_EASY &&  rogue.mode != GAME_MODE_WIZARD) {
-        saveRunHistory(rogue.quit ? "Quit" : "Died", rogue.quit ? "-" : killedBy, (int) theEntry.score, numGems);
-    }
-
-    if (!rogue.playbackMode) {
-        androidDeleteSaveFile();
     }
 
     exitModalMode();
@@ -1212,6 +1222,57 @@ void victory(boolean superVictory) {
     if (rogue.playbackFastForward) {
         rogue.playbackFastForward = false;
         displayLevel();
+    }
+
+    // The run is won at this point. As in gameOver(), record it and delete the save file now,
+    // before any of the screens below wait for the player.
+    totalValue += rogue.gold;
+    for (theItem = packItems->nextItem; theItem != NULL; theItem = theItem->nextItem) {
+        if (theItem->category & GEM) {
+            gemCount += theItem->quantity;
+        }
+        if (theItem->category == AMULET && superVictory) {
+            totalValue += max(0, itemValue(theItem) * 2);
+        } else {
+            totalValue += max(0, itemValue(theItem));
+        }
+    }
+
+    strcpy(victoryVerb, superVictory ? "Mastered" : "Escaped");
+    if (gemCount == 0) {
+        sprintf(theEntry.description, "%s the Dungeons of Doom!", victoryVerb);
+    } else if (gemCount == 1) {
+        sprintf(theEntry.description, "%s the Dungeons of Doom with a lumenstone!", victoryVerb);
+    } else {
+        sprintf(theEntry.description, "%s the Dungeons of Doom with %i lumenstones!", victoryVerb, gemCount);
+    }
+
+    theEntry.score = totalValue;
+
+    if (rogue.mode == GAME_MODE_EASY) {
+        theEntry.score /= 10;
+    }
+
+    if (!rogue.playbackMode) {
+        if (rogue.mode != GAME_MODE_WIZARD) {
+            saveHighScore(theEntry);
+        }
+        saveHighScore(theEntry);
+
+        if (superVictory) {
+            notifyEvent(GAMEOVER_SUPERVICTORY, theEntry.score, 0, theEntry.description, recordingFilename);
+        } else {
+            notifyEvent(GAMEOVER_VICTORY, theEntry.score, 0, theEntry.description, recordingFilename);
+        }
+        androidNotifyPlayerWon(superVictory, rogue.depthLevel,
+                               rogue.deepestLevel,
+                               (int)rogue.playerTurnNumber, rogue.gold);
+
+        if (rogue.mode != GAME_MODE_EASY && rogue.mode != GAME_MODE_NORMAL) {
+            saveRunHistory(victoryVerb, "-", (int) theEntry.score, gemCount);
+        }
+
+        androidDeleteSaveFile();
     }
 
     //
@@ -1250,18 +1311,13 @@ void victory(boolean superVictory) {
     printString("Gold", mapToWindowX(4), mapToWindowY(1), &white, &black, &dbuf);
     sprintf(buf, "%li", rogue.gold);
     printString(buf, mapToWindowX(60), mapToWindowY(1), &itemMessageColor, &black, &dbuf);
-    totalValue += rogue.gold;
 
     for (i = 4, theItem = packItems->nextItem; theItem != NULL; theItem = theItem->nextItem) {
-        if (theItem->category & GEM) {
-            gemCount += theItem->quantity;
-        }
         if (theItem->category == AMULET && superVictory) {
             plotCharToBuffer(G_AMULET, (windowpos){ mapToWindowX(2), min(ROWS-1, i + 1) }, &yellow, &black, &dbuf);
             printString("The Birthright of Yendor", mapToWindowX(4), min(ROWS-1, i + 1), &itemMessageColor, &black, &dbuf);
             sprintf(buf, "%li", max(0, itemValue(theItem) * 2));
             printString(buf, mapToWindowX(60), min(ROWS-1, i + 1), &itemMessageColor, &black, &dbuf);
-            totalValue += max(0, itemValue(theItem) * 2);
             i++;
         } else {
             identify(theItem);
@@ -1276,7 +1332,6 @@ void victory(boolean superVictory) {
                 printString(buf, mapToWindowX(60), min(ROWS-1, i + 1), &itemMessageColor, &black, &dbuf);
             }
 
-            totalValue += max(0, itemValue(theItem));
             i++;
         }
     }
@@ -1305,58 +1360,18 @@ void victory(boolean superVictory) {
         }
     }
 
-    strcpy(victoryVerb, superVictory ? "Mastered" : "Escaped");
-    if (gemCount == 0) {
-        sprintf(theEntry.description, "%s the Dungeons of Doom!", victoryVerb);
-    } else if (gemCount == 1) {
-        sprintf(theEntry.description, "%s the Dungeons of Doom with a lumenstone!", victoryVerb);
-    } else {
-        sprintf(theEntry.description, "%s the Dungeons of Doom with %i lumenstones!", victoryVerb, gemCount);
-    }
-
-    theEntry.score = totalValue;
-
-    if (rogue.mode == GAME_MODE_EASY) {
-        theEntry.score /= 10;
-    }
-
-    if (rogue.mode != GAME_MODE_WIZARD && !rogue.playbackMode) {
-        saveHighScore(theEntry);
-    }
-
     isPlayback = rogue.playbackMode;
     rogue.playbackMode = false;
     rogue.playbackMode = isPlayback;
 
     displayMoreSign();
 
-    if (!rogue.playbackMode) {
-        saveHighScore(theEntry);
-    }
-
     if (rogue.playbackMode && nonInteractivePlayback) {
         printf("Recording: %s ended after %li turns (victory).\n", rogue.currentGamePath, rogue.playerTurnNumber);
     }
 
-    if (!rogue.playbackMode) {
-        if (superVictory) {
-            notifyEvent(GAMEOVER_SUPERVICTORY, theEntry.score, 0, theEntry.description, recordingFilename);
-        } else {
-            notifyEvent(GAMEOVER_VICTORY, theEntry.score, 0, theEntry.description, recordingFilename);
-        }
-        androidNotifyPlayerWon(superVictory, rogue.depthLevel,
-                               rogue.deepestLevel,
-                               (int)rogue.playerTurnNumber, rogue.gold);
-    } else {
+    if (rogue.playbackMode) {
         notifyEvent(GAMEOVER_RECORDING, 0, 0, "recording ended", "none");
-    }
-
-    if (!rogue.playbackMode && rogue.mode != GAME_MODE_EASY && rogue.mode != GAME_MODE_NORMAL) {
-        saveRunHistory(victoryVerb, "-", (int) theEntry.score, gemCount);
-    }
-
-    if (!rogue.playbackMode) {
-        androidDeleteSaveFile();
     }
 
     setVictoryScreenActive(false);
