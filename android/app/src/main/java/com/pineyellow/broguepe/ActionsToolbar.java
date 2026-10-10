@@ -353,6 +353,11 @@ final class ActionsToolbar {
         // The engine can enter targeting before its UI update is delivered.
         if (!isTargetingAction(key) && activity.nativeIsTargetingActive()) return;
 
+        // End a held D-pad press before sending this action's key, so none of
+        // its repeat keys can queue up behind it. The inventory would read
+        // them as item letters and action keys.
+        activity.cancelDpadInput();
+
         switch (key) {
             case "inventory": KeyInput.sendKey(activity, KeyEvent.KEYCODE_I); break;
             case "throw":

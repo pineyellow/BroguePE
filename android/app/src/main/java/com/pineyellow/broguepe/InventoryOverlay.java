@@ -52,6 +52,10 @@ final class InventoryOverlay {
 
     void show(final String json) {
         activity.runOnUiThread(() -> {
+            // Item letters overlap the D-pad's movement keys, so a press that
+            // is still held must not keep repeating into the inventory.
+            activity.cancelDpadInput();
+
             rememberBrowseScrollPosition();
             clearBrowseViewReferences();
 
