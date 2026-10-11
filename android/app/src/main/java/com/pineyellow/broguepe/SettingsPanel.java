@@ -129,13 +129,17 @@ final class SettingsPanel {
 
         addSeparator(panel);
 
-        addAction(activity, panel, "Copy Seed to Clipboard", v -> {
-            long seed = activity.nativeGetSeed();
+        // Shows the seed itself; tapping copies it.
+        final long seed = activity.nativeGetSeed();
+        addAction(activity, panel, "Seed: " + seed, v -> {
             ClipboardManager clipboard =
                 (ClipboardManager) activity.getSystemService(android.content.Context.CLIPBOARD_SERVICE);
             clipboard.setPrimaryClip(ClipData.newPlainText("Brogue Seed", String.valueOf(seed)));
-            Toast.makeText(activity,
-                "Seed " + seed + " copied", Toast.LENGTH_SHORT).show();
+            // Android 13 and newer show their own confirmation when something is copied.
+            if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) {
+                Toast.makeText(activity,
+                    "Seed " + seed + " copied", Toast.LENGTH_SHORT).show();
+            }
             hide();
         });
 
