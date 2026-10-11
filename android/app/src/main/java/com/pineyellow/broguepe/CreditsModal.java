@@ -21,6 +21,9 @@ import android.widget.Toast;
 /** Credits overlay, layered above the start menu via the modal stack. */
 final class CreditsModal {
 
+    // The Brogue CE release this port is based on (BROGUE_MAJOR/MINOR/PATCH in Rogue.h).
+    private static final String BROGUE_CE_VERSION = "1.15.1";
+
     private static final String BROGUE_URL =
         "https://sites.google.com/site/broguegame/";
     private static final String BROGUE_CE_URL =
@@ -87,7 +90,7 @@ final class CreditsModal {
             "Original game by Brian Walker (Pender)",
             BROGUE_URL);
         addCredit(panel,
-            "Brogue: Community Edition",
+            "Brogue CE " + BROGUE_CE_VERSION,
             "tmewett and the Brogue CE contributors",
             BROGUE_CE_URL);
         addCredit(panel,
