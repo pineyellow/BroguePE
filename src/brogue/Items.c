@@ -1476,6 +1476,15 @@ static boolean inscribeItem(item *theItem) {
     }
 }
 
+// Asks whether to inscribe one item rather than name its whole kind. During playback, the answer
+// is read from the recorded keystrokes instead of showing the Android confirmation dialog.
+static boolean confirmInscribeSingleItem(void) {
+    if (rogue.playbackMode) {
+        return nextKeyPress(true) == 'y';
+    }
+    return confirm("Inscribe this particular item instead of all similar items?", true);
+}
+
 boolean itemCanBeCalled(item *theItem) {
     if (theItem->category & (WEAPON|ARMOR|SCROLL|RING|POTION|STAFF|WAND|CHARM)) {
         return true;
@@ -1544,7 +1553,7 @@ void call(item *theItem) {
                 recordKeystroke(RETURN_KEY, false, false);
             }
             return;
-        } else if (confirm("Inscribe this particular item instead of all similar items?", true)) {
+        } else if (confirmInscribeSingleItem()) {
             command[c++] = 'y'; // y means yes, since the recording also needs to negotiate the above confirmation prompt.
             if (inscribeItem(theItem)) {
                 command[c++] = '\0';
