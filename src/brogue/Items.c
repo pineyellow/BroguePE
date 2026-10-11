@@ -5716,8 +5716,10 @@ boolean moveCursor(boolean *targetConfirmed,
                 state->buttonDepressed = state->buttonFocused = -1;
             }
 
-            // Revert the display.
-            restoreDisplayBuffer(&rbuf);
+            // Revert the display. Only the UI layer, where the buttons are drawn: the map layer
+            // is redrawn while waiting for input (monster fade-ins and flashes, dancing colors),
+            // and rewinding it would erase those until the cells are next refreshed.
+            uiDisplayBuffer = rbuf.savedUI;
 
         } else { // No buttons to worry about.
             nextBrogueEvent(&theEvent, false, colorsDance, true);
