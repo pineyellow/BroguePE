@@ -1257,7 +1257,6 @@ void victory(boolean superVictory) {
         if (rogue.mode != GAME_MODE_WIZARD) {
             saveHighScore(theEntry);
         }
-        saveHighScore(theEntry);
 
         if (superVictory) {
             notifyEvent(GAMEOVER_SUPERVICTORY, theEntry.score, 0, theEntry.description, recordingFilename);
