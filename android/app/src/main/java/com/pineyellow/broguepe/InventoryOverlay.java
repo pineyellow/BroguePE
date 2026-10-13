@@ -575,8 +575,12 @@ final class InventoryOverlay {
             } else {
                 detailSection.animate().alpha(0f).setDuration(120)
                     .withEndAction(() -> detailSection.setVisibility(View.GONE)).start();
-                currentlyExpandedDetail = null;
-                currentlyExpandedChevron = null;
+                // A second tap during the fade must not forget another item
+                // that was opened in the meantime.
+                if (currentlyExpandedDetail == detailSection) {
+                    currentlyExpandedDetail = null;
+                    currentlyExpandedChevron = null;
+                }
                 chevron.setText("\u25B8"); // ▸
             }
         });
