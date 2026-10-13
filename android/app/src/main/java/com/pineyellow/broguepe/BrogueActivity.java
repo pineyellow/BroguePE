@@ -13,6 +13,7 @@ import android.util.TypedValue;
 import android.view.Choreographer;
 import android.view.Display;
 import android.view.Gravity;
+import android.view.InputDevice;
 import android.view.KeyEvent;
 import android.view.PixelCopy;
 import android.view.RoundedCorner;
@@ -761,6 +762,23 @@ public class BrogueActivity extends SDLActivity {
     @Override
     public void onBackPressed() {
         handleBackNavigation();
+    }
+
+    @Override
+    public boolean dispatchKeyEvent(KeyEvent event) {
+        // Before Android 13, Back arrives as a key press, and SDL's focused
+        // surface would consume it before onBackPressed() could run. A mouse's
+        // back button is left to SDL, which ignores it on purpose.
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.TIRAMISU
+                && !mBrokenLibraries
+                && event.getKeyCode() == KeyEvent.KEYCODE_BACK
+                && (event.getSource() & InputDevice.SOURCE_MOUSE) != InputDevice.SOURCE_MOUSE) {
+            if (event.getAction() == KeyEvent.ACTION_UP && !event.isCanceled()) {
+                handleBackNavigation();
+            }
+            return true;
+        }
+        return super.dispatchKeyEvent(event);
     }
 
     private void setBackHandlingEnabled(boolean enabled) {
