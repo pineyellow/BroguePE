@@ -220,7 +220,7 @@ static ScreenTile titleScreenTiles[ROWS][TITLE_COLS];
 
 // Everything that went into the frame the display is showing. A frame that
 // would come out the same is not drawn again.
-#define FRAME_STATE_VALUES 24
+#define FRAME_STATE_VALUES 32
 static struct {
     boolean valid;      // false forces the next frame to be drawn
     Uint64 ticks;       // when it was drawn
@@ -1130,35 +1130,39 @@ static void updateCamera(int screenW, int screenH, int fitW, int fitH,
 // Gathers the inputs of a frame which are not tiles.
 static void describeFrame(int state[FRAME_STATE_VALUES], int outputWidth, int outputHeight,
                           const SDL_Rect *dungeonViewport) {
-    int i = 0;
+    boolean alertVisible = dungeonAlert.opacity > 0 && dungeonAlert.length > 0;
+    // updateScreen() reads the output size back from the first two.
+    const int values[] = {
+        outputWidth,
+        outputHeight,
+        renderMode,
+        victoryScreenActive,
+        messageArchiveActive,
+        rogue.gameInProgress,
+        dungeonViewport->x,
+        dungeonViewport->y,
+        dungeonViewport->w,
+        dungeonViewport->h,
+        androidTopLeftCornerRadiusPx,
+        androidTopLeftCornerCenterXPx,
+        androidTopLeftCornerCenterYPx,
+        (int)lroundf(androidSidebarXOffsetCells * 1000.0f),
+        (int)lroundf(androidMessageTextXOffsetCells * 1000.0f),
+        player.loc.x,
+        player.loc.y,
+        alertVisible ? dungeonAlert.opacity : 0,
+        alertVisible ? dungeonAlert.length : 0,
+        alertVisible ? dungeonAlert.x : 0,
+        alertVisible ? dungeonAlert.y : 0,
+        alertVisible ? dungeonAlert.background.red : 0,
+        alertVisible ? dungeonAlert.background.green : 0,
+        alertVisible ? dungeonAlert.background.blue : 0,
+    };
+    // Fails the build if the list outgrows the room kept for it.
+    (void)sizeof(char[SDL_arraysize(values) <= FRAME_STATE_VALUES ? 1 : -1]);
 
     memset(state, 0, FRAME_STATE_VALUES * sizeof(int));
-    state[i++] = outputWidth;
-    state[i++] = outputHeight;
-    state[i++] = renderMode;
-    state[i++] = victoryScreenActive;
-    state[i++] = messageArchiveActive;
-    state[i++] = rogue.gameInProgress;
-    state[i++] = dungeonViewport->x;
-    state[i++] = dungeonViewport->y;
-    state[i++] = dungeonViewport->w;
-    state[i++] = dungeonViewport->h;
-    state[i++] = androidTopLeftCornerRadiusPx;
-    state[i++] = androidTopLeftCornerCenterXPx;
-    state[i++] = androidTopLeftCornerCenterYPx;
-    state[i++] = (int)lroundf(androidSidebarXOffsetCells * 1000.0f);
-    state[i++] = (int)lroundf(androidMessageTextXOffsetCells * 1000.0f);
-    state[i++] = player.loc.x;
-    state[i++] = player.loc.y;
-    if (dungeonAlert.opacity > 0 && dungeonAlert.length > 0) {
-        state[i++] = dungeonAlert.opacity;
-        state[i++] = dungeonAlert.length;
-        state[i++] = dungeonAlert.x;
-        state[i++] = dungeonAlert.y;
-        state[i++] = dungeonAlert.background.red;
-        state[i++] = dungeonAlert.background.green;
-        state[i++] = dungeonAlert.background.blue;
-    }
+    memcpy(state, values, sizeof(values));
 }
 
 static boolean frameChanged(const int state[FRAME_STATE_VALUES]) {
