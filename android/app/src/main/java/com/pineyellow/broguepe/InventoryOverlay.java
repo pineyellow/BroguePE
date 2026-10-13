@@ -62,6 +62,14 @@ final class InventoryOverlay {
         return true;
     }
 
+    /** Android Back closes the panel, the same as a tap outside it. Returns
+     *  false when the engine is not waiting on this panel. */
+    boolean handleBack() {
+        if (host.getVisibility() != View.VISIBLE || !claimInput()) return false;
+        KeyInput.sendKey(activity, KeyEvent.KEYCODE_ESCAPE);
+        return true;
+    }
+
     void show(final String json) {
         activity.runOnUiThread(() -> {
             // Item letters overlap the D-pad's movement keys, so a press that

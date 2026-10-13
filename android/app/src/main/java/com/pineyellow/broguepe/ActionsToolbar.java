@@ -79,6 +79,9 @@ final class ActionsToolbar {
     private View submenuBackdrop;
     private java.util.List<String> cachedActionOrder;
     private boolean actionReordering;
+    // The Actions panel's own view while it is open. inventoryOverlay is
+    // shared with the other drawers, so this tells them apart.
+    private View openActionsPanel;
     private View draggedActionRow;
     private LinearLayout draggedActionRows;
     private ScrollView draggedActionBounds;
@@ -225,6 +228,27 @@ final class ActionsToolbar {
                 .start();
         }
         animateToggle(menuBtn, false);
+    }
+
+    /** Android Back closes the Actions panel or the submenu, the same as a tap
+     *  outside it. Returns false when neither is open. */
+    boolean handleBack() {
+        if (openActionsPanel != null && openActionsPanel.getParent() == inventoryOverlay) {
+            if (!actionReordering) hideActionsPanel();
+            return true;
+        }
+        if (submenu != null && submenu.getVisibility() == View.VISIBLE) {
+            collapseSubmenu();
+            return true;
+        }
+        return false;
+    }
+
+    /** Drops the submenu and any Actions-panel drag when the game UI goes away. */
+    void dismissAll() {
+        collapseSubmenu();
+        finishActionReorder(false);
+        openActionsPanel = null;
     }
 
     /** Only target confirmation and cancellation remain available while aiming. */
@@ -506,6 +530,7 @@ final class ActionsToolbar {
 
         inventoryOverlay.addView(scrollView, scrollParams);
         inventoryOverlay.setVisibility(View.VISIBLE);
+        openActionsPanel = scrollView;
 
         scrollView.setTranslationX(panelWidth);
         scrollView.animate()
@@ -518,6 +543,7 @@ final class ActionsToolbar {
     private void hideActionsPanel() { hideActionsPanel(null); }
 
     private void hideActionsPanel(Runnable onDone) {
+        openActionsPanel = null;
         if (inventoryOverlay.getChildCount() < 2) {
             inventoryOverlay.setVisibility(View.GONE);
             inventoryOverlay.removeAllViews();

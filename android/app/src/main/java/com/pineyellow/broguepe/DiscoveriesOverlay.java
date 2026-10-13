@@ -48,6 +48,14 @@ final class DiscoveriesOverlay {
         return true;
     }
 
+    /** Android Back closes the screen, the same as a tap outside it. Returns
+     *  false when the engine is not waiting on this screen. */
+    boolean handleBack() {
+        if (host.getVisibility() != View.VISIBLE || !claimInput()) return false;
+        KeyInput.sendKey(activity, KeyEvent.KEYCODE_ESCAPE);
+        return true;
+    }
+
     void show(final String json) {
         activity.runOnUiThread(() -> {
             acceptingInput = false;

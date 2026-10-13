@@ -37,6 +37,9 @@ final class SettingsPanel {
 
     private final BrogueActivity activity;
     private final FrameLayout host;
+    // The panel's own view while Settings is open. The host is shared with
+    // the other drawers, so this tells them apart.
+    private View openPanel;
 
     SettingsPanel(BrogueActivity activity, FrameLayout host) {
         this.activity = activity;
@@ -155,6 +158,7 @@ final class SettingsPanel {
 
         host.addView(scrollView, scrollParams);
         host.setVisibility(View.VISIBLE);
+        openPanel = scrollView;
 
         scrollView.setTranslationX(panelWidth);
         scrollView.animate()
@@ -164,7 +168,16 @@ final class SettingsPanel {
             .start();
     }
 
+    /** Android Back closes Settings, the same as a tap outside it. Returns
+     *  false when Settings is not open. */
+    boolean handleBack() {
+        if (openPanel == null || openPanel.getParent() != host) return false;
+        hide();
+        return true;
+    }
+
     void hide() {
+        openPanel = null;
         if (host.getChildCount() < 2) {
             host.setVisibility(View.GONE);
             host.removeAllViews();

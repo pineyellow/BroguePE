@@ -1056,6 +1056,10 @@ void freeEverything() {
     levels = NULL;
 
     free(rogue.featRecord);
+
+    // Nothing is left to draw or save, however the run ended. Death and victory clear this
+    // themselves; saving and exiting does not.
+    rogue.gameInProgress = false;
 }
 
 void gameOver(char *killedBy, boolean useCustomPhrasing) {

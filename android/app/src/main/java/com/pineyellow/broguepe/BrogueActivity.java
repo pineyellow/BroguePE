@@ -579,10 +579,22 @@ public class BrogueActivity extends SDLActivity {
             new java.util.concurrent.CountDownLatch(1);
         runOnUiThread(() -> {
             gameOverlay.setVisibility(View.GONE);
-            inventoryOverlay.setVisibility(View.GONE);
+            dismissGameplayPanels();
             latch.countDown();
         });
         try { latch.await(); } catch (InterruptedException ignored) {}
+    }
+
+    /** Removes any open drawer or submenu at once. They belong to a run and
+     *  must not stay up over the title or death screen. UI thread only. */
+    private void dismissGameplayPanels() {
+        actionsToolbar.dismissAll();
+        // A cancelled slide-out never runs its end action, so clear up here.
+        for (int i = 0; i < inventoryOverlay.getChildCount(); i++) {
+            inventoryOverlay.getChildAt(i).animate().cancel();
+        }
+        inventoryOverlay.setVisibility(View.GONE);
+        inventoryOverlay.removeAllViews();
     }
 
     public void setOverlayVisible(final boolean visible) {
@@ -599,6 +611,7 @@ public class BrogueActivity extends SDLActivity {
                 // top of titleMenu() in C, before its Phase 1 tap-to-continue
                 // flame loop, so restoring here puts the modal back up
                 // immediately instead of making the user tap through flames.
+                dismissGameplayPanels();
                 modalStack.restore();
                 deathModal.fadeOutOverlay();
             }
@@ -767,7 +780,14 @@ public class BrogueActivity extends SDLActivity {
         } else if (startMenu.isShowing()) {
             handleMainMenuBack();
         } else if (gameOverlay != null && gameOverlay.getVisibility() == View.VISIBLE) {
-            actionsToolbar.collapseSubmenu();
+            // Back first closes whatever panel is on top, the same as a tap
+            // outside it, and only reaches the game when nothing is open.
+            if (settingsPanel.handleBack() || actionsToolbar.handleBack()
+                    || inventoryRenderer.handleBack() || discoveriesRenderer.handleBack()) {
+                return;
+            }
+            // A panel that is still sliding shut keeps Back away from the game.
+            if (inventoryOverlay.getVisibility() == View.VISIBLE) return;
             if (nativeIsTargetingActive()) {
                 KeyInput.sendKey(this, KeyEvent.KEYCODE_ESCAPE);
             } else {
