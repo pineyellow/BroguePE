@@ -484,6 +484,7 @@ static void _nextKeyOrMouseEvent(rogueEvent *returnEvent, boolean textInput, boo
     if (lastEvent.eventType != EVENT_ERROR) {
         *returnEvent = lastEvent;
         lastEvent.eventType = EVENT_ERROR;
+        if (returnEvent->eventType == KEYSTROKE) androidKeystrokeDelivered();
         return;
     }
 
@@ -508,6 +509,8 @@ static void _nextKeyOrMouseEvent(rogueEvent *returnEvent, boolean textInput, boo
 
         _delayUpTo(PAUSE_BETWEEN_EVENT_POLLING);
     }
+
+    if (returnEvent->eventType == KEYSTROKE) androidKeystrokeDelivered();
 }
 
 

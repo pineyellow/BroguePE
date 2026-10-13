@@ -737,6 +737,7 @@ public class BrogueActivity extends SDLActivity {
     native void nativeApplyGameSettings();
     native void nativeBeginDpadAutoMove();
     native void nativeSetDpadRepeatActive(boolean active);
+    native boolean nativeClaimDpadStep(boolean firstPress);
     native boolean nativeShouldStopDpadAutoMove();
     native void nativeEndDpadAutoMove();
     native void nativeDeleteSaveFile();

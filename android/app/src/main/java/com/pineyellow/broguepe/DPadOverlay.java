@@ -179,6 +179,7 @@ final class DPadOverlay {
             activity.nativeBeginDpadAutoMove();
         }
 
+        activity.nativeClaimDpadStep(true);
         KeyInput.sendChar(activity, command);
         pressVisual(view);
 
@@ -194,7 +195,11 @@ final class DPadOverlay {
                     activity.nativeSetDpadRepeatActive(true);
                     continuousRepeatActive = true;
                 }
-                KeyInput.sendChar(activity, activeCommand);
+                // Skip this tick while the engine still has the previous step
+                // waiting, so steps cannot pile up and run on after release.
+                if (activity.nativeClaimDpadStep(false)) {
+                    KeyInput.sendChar(activity, activeCommand);
+                }
                 repeatHandler.postDelayed(this, HOLD_REPEAT_INTERVAL_MS);
             }
         };

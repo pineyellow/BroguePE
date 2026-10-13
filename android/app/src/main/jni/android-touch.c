@@ -59,6 +59,10 @@ static float lastPinchDistance;
 static boolean pendingMouseUp = false;
 static int pendingUpX, pendingUpY;
 static SDL_atomic_t autoMoveSessionActive;
+/* Set by the UI thread when it sends a D-pad key and cleared by the game
+ * thread when a keystroke reaches the engine, so a held direction sends its
+ * next repeat only once the previous one has been taken. */
+static SDL_atomic_t dpadStepPending;
 boolean androidContinuousMoveActive = false;
 boolean androidQuickTargetSelectionRequested = false;
 /* Shared by the game thread and UI-thread JNI queries. */
@@ -129,6 +133,10 @@ boolean androidDpadAutoMoveSessionActive(void) {
     return SDL_AtomicGet(&autoMoveSessionActive) != 0;
 }
 
+void androidKeystrokeDelivered(void) {
+    SDL_AtomicSet(&dpadStepPending, 0);
+}
+
 void androidSetTargetingActive(boolean active) {
     if (SDL_AtomicSet(&targetingActive, active) == active) {
         return;
@@ -153,6 +161,7 @@ void androidResetTouchState(void) {
     androidCameraDetached = false;
     androidCameraFastRecenter = false;
     endAutoMoveSession();
+    SDL_AtomicSet(&dpadStepPending, 0);
 }
 
 void androidDiscardConsumedTouchInput(void) {
@@ -378,6 +387,19 @@ Java_com_pineyellow_broguepe_BrogueActivity_nativeSetDpadRepeatActive(
         JNIEnv *env, jobject thiz, jboolean active) {
     (void)env; (void)thiz;
     androidContinuousMoveActive = active ? true : false;
+}
+
+JNIEXPORT jboolean JNICALL
+Java_com_pineyellow_broguepe_BrogueActivity_nativeClaimDpadStep(
+        JNIEnv *env, jobject thiz, jboolean firstPress) {
+    (void)env; (void)thiz;
+    if (firstPress) {
+        // A press is always sent. Claiming unconditionally also recovers from
+        // a claim left behind by a key that never reached the engine.
+        SDL_AtomicSet(&dpadStepPending, 1);
+        return JNI_TRUE;
+    }
+    return SDL_AtomicCAS(&dpadStepPending, 0, 1) ? JNI_TRUE : JNI_FALSE;
 }
 
 JNIEXPORT jboolean JNICALL

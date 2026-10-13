@@ -95,6 +95,10 @@ extern volatile int androidTopLeftCornerCenterYPx;
 /* True while Android D-pad continuous-repeat is actively repeating. */
 extern boolean androidContinuousMoveActive;
 
+/* Tell the D-pad that the engine has taken a keystroke, which frees a held
+ * direction to send its next repeat. Called by the game thread. */
+void androidKeystrokeDelivered(void);
+
 /* When true, snap the camera to the player immediately instead of tweening.
  * Set on game load and stair transitions; consumed after the first frame. */
 extern boolean androidCameraSnap;
