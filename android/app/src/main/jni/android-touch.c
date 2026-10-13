@@ -12,6 +12,11 @@
  *   Single-finger drag → free-look camera pan
  *   Two-finger pinch  → continuous camera zoom
  *   Three-plus fingers → consumed
+ *
+ * A physical mouse hovers and right-clicks as on desktop, and additionally:
+ *   Left click       → MOUSE_DOWN + MOUSE_UP  (on release)
+ *   Left drag        → free-look camera pan
+ *   Wheel            → camera zoom
  */
 
 #include <SDL.h>
@@ -32,6 +37,7 @@
 #define MIN_ZOOM_LEVEL       1.0f
 #define MAX_ZOOM_LEVEL       3.0f
 #define MIN_PINCH_DISTANCE_PX 8.0f
+#define WHEEL_ZOOM_STEP      1.1f   /* zoom factor per mouse wheel notch */
 
 /* ---- Internal state ---- */
 
@@ -56,6 +62,12 @@ static SDL_FingerID secondFinger;
 static float secondX, secondY;
 static float lastPinchDistance;
 
+/* Physical mouse: left button held, and whether it has moved far enough to
+ * be a camera drag instead of a click. */
+static boolean mouseHeld = false;
+static boolean mouseDragging = false;
+static float mouseX, mouseY;        /* press position, then last drag position (px) */
+
 static boolean pendingMouseUp = false;
 static int pendingUpX, pendingUpY;
 static SDL_atomic_t autoMoveSessionActive;
@@ -74,6 +86,8 @@ boolean androidCameraSnap = false;
 boolean androidPanOverride = false;
 boolean androidCameraDetached = false;
 boolean androidCameraFastRecenter = false;
+boolean androidPointerIsMouse = false;
+boolean androidDescriptionOpen = false;
 enum androidCameraFollowModes androidCameraFollowMode = ANDROID_CAMERA_FOLLOW_SMOOTH;
 volatile int androidTopLeftCornerRadiusPx = 0;
 volatile int androidTopLeftCornerCenterXPx = 0;
@@ -156,6 +170,8 @@ void androidSetTargetingActive(boolean active) {
 
 void androidResetTouchState(void) {
     state = TOUCH_IDLE;
+    mouseHeld = false;
+    mouseDragging = false;
     pendingMouseUp = false;
     androidPanOverride = false;
     androidCameraDetached = false;
@@ -755,7 +771,11 @@ static void cellFromPixel(float px, float py, int *cx, int *cy) {
     float zoom;
     int ofsX, ofsY, w, h;
 
-    if (getRenderMode() == RENDER_MODAL || !rogue.gameInProgress) {
+    /* A description box opened under a hovering mouse is drawn as a modal,
+     * but the mouse keeps addressing the dungeon tiles underneath it. */
+    boolean mouseOverDungeon = androidDescriptionOpen && androidPointerIsMouse;
+
+    if ((getRenderMode() == RENDER_MODAL && !mouseOverDungeon) || !rogue.gameInProgress) {
         // UI layer: 1x, centered
         zoom = 1.0f;
         w = fitW;
@@ -790,6 +810,77 @@ void androidCellFromPixel(int px, int py, int *cx, int *cy) {
     cellFromPixel((float)px, (float)py, cx, cy);
 }
 
+boolean androidMouseButton(boolean pressed, int px, int py, rogueEvent *out) {
+    androidPointerIsMouse = true;
+    if (pressed) {
+        mouseHeld = true;
+        mouseDragging = false;
+        mouseX = px;
+        mouseY = py;
+        return false;
+    }
+    if (!mouseHeld) {
+        return false;
+    }
+    mouseHeld = false;
+    if (mouseDragging) {
+        mouseDragging = false;
+        androidPanOverride = false;
+        return false;
+    }
+
+    /* Released without dragging → left click (down now, up queued) */
+    int cx, cy;
+    cellFromPixel(px, py, &cx, &cy);
+    out->eventType = MOUSE_DOWN;
+    out->param1 = cx;
+    out->param2 = cy;
+    out->shiftKey = false;
+    out->controlKey = false;
+    pendingMouseUp = true;
+    pendingUpX = cx;
+    pendingUpY = cy;
+    return true;
+}
+
+boolean androidMouseMotion(int px, int py) {
+    androidPointerIsMouse = true;
+    if (!mouseHeld) {
+        return false;
+    }
+    if (!mouseDragging && dist(mouseX, mouseY, px, py) > TAP_MAX_MOVE_PX) {
+        /* Crossed the click threshold: detach and begin free-look. */
+        mouseDragging = true;
+        androidPanOverride = true;
+        androidCameraDetached = true;
+        androidCameraFastRecenter = false;
+    }
+    if (mouseDragging) {
+        androidPanX += px - mouseX;
+        androidPanY += py - mouseY;
+        mouseX = px;
+        mouseY = py;
+    }
+    return true;
+}
+
+void androidMouseWheel(int notches) {
+    if (!notches || !rogue.gameInProgress) {
+        return;
+    }
+    float oldZoom = androidZoomLevel;
+    androidZoomLevel = fminf(MAX_ZOOM_LEVEL,
+        fmaxf(MIN_ZOOM_LEVEL, oldZoom * powf(WHEEL_ZOOM_STEP, (float)notches)));
+    if (androidCameraDetached) {
+        /* Free-look: keep the point at the centre of the screen in place. */
+        androidPanX *= androidZoomLevel / oldZoom;
+        androidPanY *= androidZoomLevel / oldZoom;
+    } else {
+        /* Same as pinch: keep an attached camera locked to the player. */
+        androidCameraSnap = true;
+    }
+}
+
 boolean androidTouchEvent(SDL_Event *event, rogueEvent *out) {
     extern int windowWidth, windowHeight;
 
@@ -817,6 +908,7 @@ boolean androidTouchEvent(SDL_Event *event, rogueEvent *out) {
     case SDL_FINGERDOWN:
         px = event->tfinger.x * windowWidth;
         py = event->tfinger.y * windowHeight;
+        androidPointerIsMouse = false;
 
         if (state == TOUCH_IDLE) {
             state = TOUCH_DOWN;

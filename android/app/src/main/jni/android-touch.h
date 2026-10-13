@@ -18,6 +18,26 @@ boolean androidTouchEvent(SDL_Event *event, rogueEvent *out);
  * renderer (zoomed/panned dungeon, or the centered 1x UI layer). */
 void androidCellFromPixel(int px, int py, int *cx, int *cy);
 
+/* Physical mouse, left button. A click is delivered on release: returns true
+ * and fills `out` (its MOUSE_UP is queued like a tap's). Releasing after a
+ * drag ends the camera pan and produces nothing. */
+boolean androidMouseButton(boolean pressed, int px, int py, rogueEvent *out);
+
+/* Physical mouse movement. Returns true while the left button is held, when
+ * the movement belongs to a click or camera drag and must not hover. */
+boolean androidMouseMotion(int px, int py);
+
+/* Physical mouse wheel: zoom the camera in (positive) or out (negative). */
+void androidMouseWheel(int notches);
+
+/* True when the most recent pointer input came from a physical mouse rather
+ * than a finger. */
+extern boolean androidPointerIsMouse;
+
+/* Set by the game while it waits on a monster/item description box, so a
+ * hovering mouse is still read against the dungeon view under the box. */
+extern boolean androidDescriptionOpen;
+
 /*
  * Extract bundled assets from the APK to internal storage so that
  * fopen-based game code can access them as regular files.

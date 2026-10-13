@@ -303,14 +303,16 @@ static boolean pollBrogueEvent(rogueEvent *returnEvent, boolean textInput) {
             // ~ printf("textinput %s\n", event.text.text);
             return true;
         } else if (event.type == SDL_MOUSEBUTTONDOWN || event.type == SDL_MOUSEBUTTONUP) {
-            if (event.button.button == SDL_BUTTON_LEFT || event.button.button == SDL_BUTTON_RIGHT) {
-                if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_LEFT) {
-                    returnEvent->eventType = MOUSE_DOWN;
-                } else if (event.type == SDL_MOUSEBUTTONUP && event.button.button == SDL_BUTTON_LEFT) {
-                    returnEvent->eventType = MOUSE_UP;
-                } else if (event.type == SDL_MOUSEBUTTONDOWN && event.button.button == SDL_BUTTON_RIGHT) {
+            if (event.button.button == SDL_BUTTON_LEFT) {
+                // A left click is delivered on release; a left drag pans the camera.
+                if (androidMouseButton(event.type == SDL_MOUSEBUTTONDOWN,
+                                       event.button.x, event.button.y, returnEvent)) {
+                    return true;
+                }
+            } else if (event.button.button == SDL_BUTTON_RIGHT) {
+                if (event.type == SDL_MOUSEBUTTONDOWN) {
                     returnEvent->eventType = RIGHT_MOUSE_DOWN;
-                } else if (event.type == SDL_MOUSEBUTTONUP && event.button.button == SDL_BUTTON_RIGHT) {
+                } else {
                     returnEvent->eventType = RIGHT_MOUSE_UP;
                 }
                 int xcell, ycell;
@@ -322,6 +324,9 @@ static boolean pollBrogueEvent(rogueEvent *returnEvent, boolean textInput) {
         } else if (event.type == SDL_MOUSEMOTION) {
             // We don't want to return on a mouse motion event, because only the last
             // in the queue is important. That's why we just set ret=true
+            if (androidMouseMotion(event.motion.x, event.motion.y)) {
+                continue;
+            }
             int xcell, ycell;
             androidCellFromPixel(event.motion.x, event.motion.y, &xcell, &ycell);
             if (xcell != mx || ycell != my) {
@@ -332,6 +337,8 @@ static boolean pollBrogueEvent(rogueEvent *returnEvent, boolean textInput) {
                 my = ycell;
                 ret = true;
             }
+        } else if (event.type == SDL_MOUSEWHEEL) {
+            androidMouseWheel(event.wheel.y);
         }
     }
 

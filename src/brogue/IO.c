@@ -711,13 +711,29 @@ void mainInputLoop() {
                 // move the cursor or take action. Skip text on the next iteration
                 // so the user can swipe away before it re-appears.
                 rogueEvent dismissEvent;
+                androidDescriptionOpen = true;
                 nextBrogueEvent(&dismissEvent, false, false, false);
-                // Flush the pending MOUSE_UP without reattaching free-look.
-                androidDiscardConsumedTouchInput();
+                androidDescriptionOpen = false;
                 targetConfirmed = false;
                 canceled = false;
                 doEvent = false;
-                androidDismissedTextLoc = rogue.cursorLoc;
+                if (androidPointerIsMouse
+                    && dismissEvent.eventType == MOUSE_ENTERED_CELL
+                    && coordinatesAreInMap(windowToMapX(dismissEvent.param1), windowToMapY(dismissEvent.param2))) {
+                    // A hovering mouse left the tile: the cursor follows it,
+                    // as on desktop, and the description may show again later.
+                    rogue.cursorLoc.x = windowToMapX(dismissEvent.param1);
+                    rogue.cursorLoc.y = windowToMapY(dismissEvent.param2);
+                    theEvent = dismissEvent;
+                } else {
+                    // A mouse click keeps its queued MOUSE_UP, which then acts
+                    // on the tile under the closed description.
+                    if (!androidPointerIsMouse || dismissEvent.eventType != MOUSE_DOWN) {
+                        // Flush the pending MOUSE_UP without reattaching free-look.
+                        androidDiscardConsumedTouchInput();
+                    }
+                    androidDismissedTextLoc = rogue.cursorLoc;
+                }
             } else {
             rogue.playbackMode = playingBack;
             doEvent = moveCursor(&targetConfirmed, &canceled, &tabKey, &rogue.cursorLoc, &theEvent, &state, !textDisplayed, rogue.cursorMode, true);
