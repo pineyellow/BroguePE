@@ -28,6 +28,7 @@
 #include "Globals.h"
 #include "platform.h"
 #ifdef BROGUE_ANDROID
+#include <dirent.h>
 #include <unistd.h>
 #include "android-stats.h"
 #endif
@@ -1274,6 +1275,39 @@ void androidDeleteSaveFile(void) {
     char filePath[BROGUE_FILENAME_MAX];
     snprintf(filePath, sizeof(filePath), "%s%s", ANDROID_SAVE_NAME, GAME_SUFFIX);
     remove(filePath);
+}
+
+static boolean stringEndsWith(const char *string, const char *suffix) {
+    size_t stringLength = strlen(string), suffixLength = strlen(suffix);
+    return stringLength >= suffixLength
+        && strcmp(string + stringLength - suffixLength, suffix) == 0;
+}
+
+// Deletes the saves and recordings left behind by earlier runs: the working file each run records
+// into, and whatever that file was renamed to when the app was closed. Nothing on Android can open
+// them again, since the only file a player can resume from is ANDROID_SAVE_NAME.broguesave.
+// That save is always left alone, and so is `keepPath` if it is not NULL.
+void androidRemoveStaleRecordings(const char *keepPath) {
+    char savePath[BROGUE_FILENAME_MAX];
+    snprintf(savePath, sizeof(savePath), "%s%s", ANDROID_SAVE_NAME, GAME_SUFFIX);
+
+    DIR *directory = opendir("./");
+    if (!directory) {
+        return;
+    }
+
+    struct dirent *entry;
+    while ((entry = readdir(directory))) {
+        const char *name = entry->d_name;
+        if (!stringEndsWith(name, GAME_SUFFIX) && !stringEndsWith(name, RECORDING_SUFFIX)) {
+            continue;
+        }
+        if (strcmp(name, savePath) == 0 || (keepPath && strcmp(name, keepPath) == 0)) {
+            continue;
+        }
+        remove(name);
+    }
+    closedir(directory);
 }
 
 void androidAbandonGame(void) {

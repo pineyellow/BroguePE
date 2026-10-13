@@ -820,6 +820,9 @@ void mainBrogueJunction() {
                 rogue.playbackFastForward = false;
                 rogue.playbackBetweenTurns = false;
 
+                // Earlier runs' working files can never be opened again, so clear them out before
+                // this run creates its own.
+                androidRemoveStaleRecordings(NULL);
                 getAvailableFilePath(path, LAST_GAME_NAME, GAME_SUFFIX);
                 strcat(path, GAME_SUFFIX);
                 strcpy(currentFilePath, path);
@@ -892,6 +895,8 @@ void mainBrogueJunction() {
                 }
 
                 if (openFile(path)) {
+                    // As for a new game, but keep the save that is about to be loaded.
+                    androidRemoveStaleRecordings(path);
                     if (loadSavedGame()) {
                         if (!rogue.playbackMode) {
                             androidNotifyGameStart(rogue.seed, gameVariant,

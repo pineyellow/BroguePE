@@ -3482,6 +3482,7 @@ extern "C" {
     void androidSaveGameAndReturnToMenu(void);
     void androidAbandonGame(void);
     void androidDeleteSaveFile(void);
+    void androidRemoveStaleRecordings(const char *keepPath);
     boolean androidSaveFileExists(void);
     int androidSaveVariant(void);
     int androidSaveDifficulty(void);
