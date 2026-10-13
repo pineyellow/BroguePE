@@ -1,6 +1,6 @@
 import java.util.Properties
 
-val broguePeVersionName = "1.2.9"
+val broguePeVersionName = "1.2.10"
 
 val debugOverlayEnabled = providers.gradleProperty("debugOverlay")
     .orElse("false")
@@ -58,7 +58,7 @@ android {
         applicationId = "com.pineyellow.broguepe"
         minSdk = 24
         targetSdk = 36
-        versionCode = 29
+        versionCode = 1210
         versionName = broguePeVersionName
 
         externalNativeBuild {

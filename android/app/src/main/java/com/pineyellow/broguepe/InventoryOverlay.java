@@ -44,10 +44,22 @@ final class InventoryOverlay {
     private View browseContent;
     private float browseScrollFraction;
     private boolean hasBrowseScrollPosition;
+    // True only while the engine is waiting on this panel. Item letters double
+    // as game commands, so a tap that lands after the panel has already
+    // answered would be played as a move in the dungeon instead.
+    private boolean acceptingInput;
 
     InventoryOverlay(BrogueActivity activity, FrameLayout host) {
         this.activity = activity;
         this.host = host;
+    }
+
+    /** Claims the panel's single answer to the engine. Every later tap gets
+     *  false until the engine shows the panel again. */
+    private boolean claimInput() {
+        if (!acceptingInput) return false;
+        acceptingInput = false;
+        return true;
     }
 
     void show(final String json) {
@@ -55,6 +67,7 @@ final class InventoryOverlay {
             // Item letters overlap the D-pad's movement keys, so a press that
             // is still held must not keep repeating into the inventory.
             activity.cancelDpadInput();
+            acceptingInput = false;
 
             rememberBrowseScrollPosition();
             clearBrowseViewReferences();
@@ -86,7 +99,9 @@ final class InventoryOverlay {
 
                 View backdrop = new View(activity);
                 backdrop.setBackgroundColor(Color.argb(140, 0, 0, 0));
-                backdrop.setOnClickListener(v -> KeyInput.sendKey(activity, KeyEvent.KEYCODE_ESCAPE));
+                backdrop.setOnClickListener(v -> {
+                    if (claimInput()) KeyInput.sendKey(activity, KeyEvent.KEYCODE_ESCAPE);
+                });
                 host.addView(backdrop, new FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.MATCH_PARENT));
@@ -138,7 +153,9 @@ final class InventoryOverlay {
                 // while the inventory loop is active).
                 ImageButton discoveriesBtn = makeHeaderIcon(R.drawable.ic_visibility,
                     "View discovered items");
-                discoveriesBtn.setOnClickListener(v -> KeyInput.sendChar(activity, 'D'));
+                discoveriesBtn.setOnClickListener(v -> {
+                    if (claimInput()) KeyInput.sendChar(activity, 'D');
+                });
                 int headerButtonSize = activity.dpToPx(UiStyle.HEADER_ICON_BUTTON_SIZE_DP);
                 LinearLayout.LayoutParams headerButtonParams = new LinearLayout.LayoutParams(
                     headerButtonSize, headerButtonSize);
@@ -199,6 +216,7 @@ final class InventoryOverlay {
 
                 host.addView(scrollView, scrollParams);
                 host.setVisibility(View.VISIBLE);
+                acceptingInput = true;
 
                 if (!selectMode) {
                     browseScrollView = scrollView;
@@ -221,6 +239,9 @@ final class InventoryOverlay {
 
     void hide() {
         activity.runOnUiThread(() -> {
+            // The panel stays on screen while it slides out; the engine has
+            // stopped listening to it by then.
+            acceptingInput = false;
             rememberBrowseScrollPosition();
             clearBrowseViewReferences();
             currentlyExpandedDetail = null;
@@ -392,7 +413,9 @@ final class InventoryOverlay {
         // Select mode: tap sends just the letter, no expandable detail.
         if (selectMode) {
             if (selectable) {
-                headerRow.setOnClickListener(v -> KeyInput.sendChar(activity, letter));
+                headerRow.setOnClickListener(v -> {
+                    if (claimInput()) KeyInput.sendChar(activity, letter);
+                });
             } else {
                 headerRow.setClickable(false);
             }
@@ -496,6 +519,7 @@ final class InventoryOverlay {
 
                 final char actionKey = actionChar;
                 actionBtn.setOnClickListener(v -> {
+                    if (!claimInput()) return;
                     KeyInput.sendChar(activity, letter);
                     v.postDelayed(() -> KeyInput.sendChar(activity, actionKey), 50);
                 });

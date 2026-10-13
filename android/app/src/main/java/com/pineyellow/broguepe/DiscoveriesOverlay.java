@@ -31,14 +31,27 @@ final class DiscoveriesOverlay {
 
     private final BrogueActivity activity;
     private final FrameLayout host;
+    // True only while the engine is waiting on this screen. A second tap on
+    // the inventory icon would otherwise reach the inventory as item 'i'.
+    private boolean acceptingInput;
 
     DiscoveriesOverlay(BrogueActivity activity, FrameLayout host) {
         this.activity = activity;
         this.host = host;
     }
 
+    /** Claims the screen's single answer to the engine. Every later tap gets
+     *  false until the engine shows the screen again. */
+    private boolean claimInput() {
+        if (!acceptingInput) return false;
+        acceptingInput = false;
+        return true;
+    }
+
     void show(final String json) {
         activity.runOnUiThread(() -> {
+            acceptingInput = false;
+
             // Cancel any in-flight hide animation (e.g. the inventory sliding
             // out) so its withEndAction doesn't wipe the content we add here.
             for (int i = 0; i < host.getChildCount(); i++) {
@@ -51,7 +64,9 @@ final class DiscoveriesOverlay {
 
                 View backdrop = new View(activity);
                 backdrop.setBackgroundColor(Color.argb(140, 0, 0, 0));
-                backdrop.setOnClickListener(v -> KeyInput.sendKey(activity, KeyEvent.KEYCODE_ESCAPE));
+                backdrop.setOnClickListener(v -> {
+                    if (claimInput()) KeyInput.sendKey(activity, KeyEvent.KEYCODE_ESCAPE);
+                });
                 host.addView(backdrop, new FrameLayout.LayoutParams(
                     FrameLayout.LayoutParams.MATCH_PARENT,
                     FrameLayout.LayoutParams.MATCH_PARENT));
@@ -105,6 +120,7 @@ final class DiscoveriesOverlay {
 
                 host.addView(scrollView, scrollParams);
                 host.setVisibility(View.VISIBLE);
+                acceptingInput = true;
 
                 scrollView.setTranslationX(panelWidth);
                 scrollView.animate()
@@ -121,6 +137,7 @@ final class DiscoveriesOverlay {
 
     void hide() {
         activity.runOnUiThread(() -> {
+            acceptingInput = false;
             if (host.getChildCount() < 2) {
                 host.setVisibility(View.GONE);
                 host.removeAllViews();
@@ -164,7 +181,9 @@ final class DiscoveriesOverlay {
             0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
         ImageButton inventoryBtn = makeHeaderIcon(R.drawable.ic_money_bag, "Back to inventory");
-        inventoryBtn.setOnClickListener(v -> KeyInput.sendChar(activity, 'i'));
+        inventoryBtn.setOnClickListener(v -> {
+            if (claimInput()) KeyInput.sendChar(activity, 'i');
+        });
         int headerButtonSize = activity.dpToPx(UiStyle.HEADER_ICON_BUTTON_SIZE_DP);
         LinearLayout.LayoutParams headerButtonParams = new LinearLayout.LayoutParams(
             headerButtonSize, headerButtonSize);
