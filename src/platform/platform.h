@@ -114,6 +114,8 @@ void androidSetOverlayVisible(boolean visible);
 void androidHideGameUI(void);
 void androidSetLoadingVisible(boolean visible);
 void androidSetRestoringVisible(boolean visible);
+// The rate the display is refreshing at right now, in Hz.
+float androidDisplayRefreshRate(void);
 void androidApplySettings(void);
 void deathFlameLoop(void);
 void androidDeathFlamesReady(void);

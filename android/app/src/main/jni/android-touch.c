@@ -227,6 +227,18 @@ void androidSetRestoringVisible(boolean visible) {
     (*env)->DeleteLocalRef(env, activity);
 }
 
+float androidDisplayRefreshRate(void) {
+    JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();
+    jobject activity = (jobject)SDL_AndroidGetActivity();
+    jclass cls = (*env)->GetObjectClass(env, activity);
+    jmethodID mid = (*env)->GetMethodID(env, cls, "getDisplayRefreshRate", "()F");
+    float rate = 0.0f;
+    if (mid) rate = (*env)->CallFloatMethod(env, activity, mid);
+    (*env)->DeleteLocalRef(env, cls);
+    (*env)->DeleteLocalRef(env, activity);
+    return rate;
+}
+
 #ifndef NDEBUG
 void androidUpdateDebugFps(int fps) {
     JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();

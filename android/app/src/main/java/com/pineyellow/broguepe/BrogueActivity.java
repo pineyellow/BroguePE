@@ -372,6 +372,11 @@ public class BrogueActivity extends SDLActivity {
         }
     }
 
+    /** Called from native code to pace frames it does not draw. */
+    public float getDisplayRefreshRate() {
+        return getWindowManager().getDefaultDisplay().getRefreshRate();
+    }
+
     private void addDebugFpsOverlay() {
         debugFpsOverlay = new LinearLayout(this);
         debugFpsOverlay.setOrientation(LinearLayout.VERTICAL);

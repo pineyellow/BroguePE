@@ -9,6 +9,9 @@ void updateTile(int row, int column, short charIndex,
     short foreRed, short foreGreen, short foreBlue,
     short backRed, short backGreen, short backBlue);
 void updateScreen(void);
+// Draw every frame for a moment, even ones that match the last, for when the
+// surface they are drawn to may have been replaced.
+void forceFrames(void);
 void setLoadingProgress(unsigned long amount, unsigned long maximum);
 SDL_Surface *captureScreen(void);
 

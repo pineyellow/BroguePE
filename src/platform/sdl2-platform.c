@@ -355,6 +355,7 @@ static boolean pollBrogueEvent(rogueEvent *returnEvent, boolean textInput) {
             foregroundRedrawPending = false;
             resetCameraFrameClock();
             refreshScreen();
+            forceFrames();
             updateScreen();
             androidSetRestoringVisible(false);
             SDL_Log("Brogue lifecycle: foreground frame presented");

@@ -27,6 +27,12 @@ static boolean victoryScreenActive = false;
 #define CAMERA_FAST_FOLLOW_LERP 0.25f
 #define CAMERA_VERY_FAST_FOLLOW_LERP 0.40f
 #define CAMERA_REFERENCE_FRAME_MS 36.0
+// A frame identical to the one on screen is not drawn again, except this often
+// in case the display lost it without telling us.
+#define FRAME_KEEPALIVE_MS 500
+// How long every frame is drawn after the surface may have been replaced. The
+// first frame sent to a new surface does not always reach the display.
+#define FRAME_SETTLE_MS 500
 
 #ifndef NDEBUG
 #define DEBUG_FPS_SAMPLE_MS 500.0
@@ -41,6 +47,8 @@ static float androidMessageTextXOffsetCells = 0.0f;
 static float androidSidebarXOffsetCells = 2.0f;
 
 static Uint64 cameraLastUpdateCounter = 0;
+// When the last frame, drawn or skipped, was finished with.
+static Uint64 frameSlotEndCounter = 0;
 
 #ifndef NDEBUG
 static Uint64 debugFpsSampleStartCounter = 0;
@@ -121,13 +129,6 @@ static void recordDebugPresentedFrame(void) {
     }
 }
 #endif
-
-static void presentFrame(SDL_Renderer *renderer) {
-    SDL_RenderPresent(renderer);
-#ifndef NDEBUG
-    recordDebugPresentedFrame();
-#endif
-}
 
 static int sidebarOffsetPixels(int rowCenterY, float cellWidth) {
     int offset = (int)roundf(androidSidebarXOffsetCells * cellWidth);
@@ -216,6 +217,27 @@ void setDungeonAlert(const char *text, short x, short y,
 boolean plotToUiLayer = false; // set by commitDraws/refreshScreen to route plotChar → updateTile
 
 static ScreenTile titleScreenTiles[ROWS][TITLE_COLS];
+
+// Everything that went into the frame the display is showing. A frame that
+// would come out the same is not drawn again.
+#define FRAME_STATE_VALUES 24
+static struct {
+    boolean valid;      // false forces the next frame to be drawn
+    Uint64 ticks;       // when it was drawn
+    Uint64 forcedUntil; // every frame is drawn until then
+    int state[FRAME_STATE_VALUES];  // the inputs which are not tiles
+    ScreenTile dungeon[ROWS][COLS];
+    ScreenTile ui[ROWS][COLS];
+    ScreenTile loading[ROWS][COLS];
+    ScreenTile title[ROWS][TITLE_COLS];
+    ScreenTile alert[COLS];
+    boolean modalCells[ROWS][COLS];
+} presentedFrame;
+
+void forceFrames(void) {
+    presentedFrame.valid = false;
+    presentedFrame.forcedUntil = SDL_GetTicks64() + FRAME_SETTLE_MS;
+}
 
 void updateTitleScreenTile(int row, int column, enum displayGlyph glyph,
     short foreRed, short foreGreen, short foreBlue,
@@ -790,6 +812,7 @@ void invalidateTextures(void) {
     }
     baseTileWidth = -1;
     baseTileHeight = -1;
+    forceFrames();
 }
 
 void resetRendererResources(void) {
@@ -1042,71 +1065,10 @@ static void renderTiles(SDL_Renderer *renderer, ScreenTile tiles[ROWS][COLS],
     renderTilesEx(renderer, &tiles[0][0], COLS, ROWS, ofsX, ofsY, width, height, false);
 }
 
-/// Draws everything on screen.
-///
-/// OpenGL drivers don't like alternating between different textures too much, so we
-/// first draw the background colors then do 4 passes over the tiles, one pass per texture.
-///
-void updateScreen() {
-    if (!Win || androidAppInBackground) return;
-
-    SDL_Renderer *renderer = SDL_GetRenderer(Win);
-    if (!renderer) {
-        Uint32 rendererFlags = SDL_RENDERER_PRESENTVSYNC;
-        if (softwareRendering) rendererFlags |= SDL_RENDERER_SOFTWARE;
-        renderer = SDL_CreateRenderer(Win, -1, rendererFlags);
-        if (!renderer) sdlfatal(__FILE__, __LINE__);
-
-        if (SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE) < 0) sdlfatal(__FILE__, __LINE__);
-
-        SDL_RendererInfo info;
-        if (SDL_GetRendererInfo(renderer, &info) < 0) sdlfatal(__FILE__, __LINE__);
-        softwareRendering = (strcmp(info.name, "software") == 0);
-    }
-
-    int outputWidth, outputHeight;
-    if (SDL_GetRendererOutputSize(renderer, &outputWidth, &outputHeight) < 0) sdlfatal(__FILE__, __LINE__);
-    if (outputWidth == 0 || outputHeight == 0) return;
-
-    if (!softwareRendering) {
-        if (SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0) < 0) sdlfatal(__FILE__, __LINE__);
-        if (SDL_RenderClear(renderer) < 0) sdlfatal(__FILE__, __LINE__);
-    }
-
-    int offsetX = 0, offsetY = 0;
-    int screenW = outputWidth, screenH = outputHeight;
-    int fitW = outputHeight * 16 / 10;
-    int fitH = outputHeight;
-    if (fitW > outputWidth) {
-        fitW = outputWidth;
-        fitH = outputWidth * 10 / 16;
-    }
-
-    // Loading is fixed screen-space UI, independent of gameplay camera pan and zoom.
-    if (renderMode == RENDER_LOADING) {
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_RenderClear(renderer);
-        createTextures(renderer, fitW, fitH);
-        renderTiles(renderer, loadingTiles,
-                    (screenW - fitW) / 2, (screenH - fitH) / 2, fitW, fitH);
-        presentFrame(renderer);
-        return;
-    }
-
-    // Extend only the victory background across the physical display. Keep
-    // text on the centered 16:10 grid at its normal size and position.
-    if (victoryScreenActive) {
-        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
-        SDL_RenderClear(renderer);
-        createTextures(renderer, fitW, fitH);
-        renderTilesEx(renderer, &uiTiles[0][0], COLS, ROWS,
-                      0, 0, screenW, screenH, true);
-        renderTiles(renderer, uiTiles,
-                    (screenW - fitW) / 2, (screenH - fitH) / 2, fitW, fitH);
-        presentFrame(renderer);
-        return;
-    }
-
+// Moves the gameplay camera towards the player and works out where the dungeon
+// layer lands on screen.
+static void updateCamera(int screenW, int screenH, int fitW, int fitH,
+                         float effectiveZoom, boolean inGame, SDL_Rect *dungeonViewport) {
     Uint64 cameraUpdateCounter = SDL_GetPerformanceCounter();
     Uint64 performanceFrequency = SDL_GetPerformanceFrequency();
     double cameraElapsedMs = cameraLastUpdateCounter && performanceFrequency
@@ -1114,18 +1076,6 @@ void updateScreen() {
             / (double)performanceFrequency
         : CAMERA_REFERENCE_FRAME_MS;
     cameraLastUpdateCounter = cameraUpdateCounter;
-
-    float effectiveZoom = (renderMode != RENDER_TITLE) ? androidZoomLevel : 1.0f;
-    boolean inGame = (renderMode != RENDER_TITLE);
-
-    if (inGame) {
-        // Clear UI regions from the map layer so they don't render
-        // behind the overlay (sidebar, messages, bottom bar)
-        for (int y = 0; y < ROWS; y++)
-            for (int x = 0; x < COLS; x++)
-                if (x < STAT_BAR_WIDTH || y < MESSAGE_LINES || y >= ROWS - 2)
-                    dungeonTiles[y][x] = (ScreenTile){0};
-    }
 
     int zoomW = (int)(fitW * effectiveZoom);
     int zoomH = (int)(fitH * effectiveZoom);
@@ -1173,13 +1123,223 @@ void updateScreen() {
         }
     }
 
-    SDL_Rect dungeonViewport;
     calculateDungeonViewport(screenW, screenH, effectiveZoom,
-                             &androidPanX, &androidPanY, &dungeonViewport);
+                             &androidPanX, &androidPanY, dungeonViewport);
+}
+
+// Gathers the inputs of a frame which are not tiles.
+static void describeFrame(int state[FRAME_STATE_VALUES], int outputWidth, int outputHeight,
+                          const SDL_Rect *dungeonViewport) {
+    int i = 0;
+
+    memset(state, 0, FRAME_STATE_VALUES * sizeof(int));
+    state[i++] = outputWidth;
+    state[i++] = outputHeight;
+    state[i++] = renderMode;
+    state[i++] = victoryScreenActive;
+    state[i++] = messageArchiveActive;
+    state[i++] = rogue.gameInProgress;
+    state[i++] = dungeonViewport->x;
+    state[i++] = dungeonViewport->y;
+    state[i++] = dungeonViewport->w;
+    state[i++] = dungeonViewport->h;
+    state[i++] = androidTopLeftCornerRadiusPx;
+    state[i++] = androidTopLeftCornerCenterXPx;
+    state[i++] = androidTopLeftCornerCenterYPx;
+    state[i++] = (int)lroundf(androidSidebarXOffsetCells * 1000.0f);
+    state[i++] = (int)lroundf(androidMessageTextXOffsetCells * 1000.0f);
+    state[i++] = player.loc.x;
+    state[i++] = player.loc.y;
+    if (dungeonAlert.opacity > 0 && dungeonAlert.length > 0) {
+        state[i++] = dungeonAlert.opacity;
+        state[i++] = dungeonAlert.length;
+        state[i++] = dungeonAlert.x;
+        state[i++] = dungeonAlert.y;
+        state[i++] = dungeonAlert.background.red;
+        state[i++] = dungeonAlert.background.green;
+        state[i++] = dungeonAlert.background.blue;
+    }
+}
+
+static boolean frameChanged(const int state[FRAME_STATE_VALUES]) {
+    Uint64 now = SDL_GetTicks64();
+    if (!presentedFrame.valid
+            || now < presentedFrame.forcedUntil
+            || now - presentedFrame.ticks >= FRAME_KEEPALIVE_MS) {
+        return true;
+    }
+
+    int alertLength = dungeonAlert.opacity > 0 ? dungeonAlert.length : 0;
+    return memcmp(state, presentedFrame.state, sizeof(presentedFrame.state)) != 0
+        || memcmp(dungeonTiles, presentedFrame.dungeon, sizeof(dungeonTiles)) != 0
+        || memcmp(uiTiles, presentedFrame.ui, sizeof(uiTiles)) != 0
+        || memcmp(loadingTiles, presentedFrame.loading, sizeof(loadingTiles)) != 0
+        || memcmp(titleScreenTiles, presentedFrame.title, sizeof(titleScreenTiles)) != 0
+        || memcmp(modalOverlayCells, presentedFrame.modalCells, sizeof(modalOverlayCells)) != 0
+        || memcmp(dungeonAlert.tiles, presentedFrame.alert, alertLength * sizeof(ScreenTile)) != 0;
+}
+
+static void presentFrame(SDL_Renderer *renderer, const int state[FRAME_STATE_VALUES]) {
+    SDL_RenderPresent(renderer);
+#ifndef NDEBUG
+    recordDebugPresentedFrame();
+#endif
+
+    // Mark all tiles clean
+    for (int y = 0; y < ROWS; y++)
+        for (int x = 0; x < COLS; x++)
+            dungeonTiles[y][x].needsRefresh = 0;
+    for (int y = 0; y < ROWS; y++)
+        for (int x = 0; x < COLS; x++)
+            uiTiles[y][x].needsRefresh = 0;
+
+    memcpy(presentedFrame.state, state, sizeof(presentedFrame.state));
+    memcpy(presentedFrame.dungeon, dungeonTiles, sizeof(dungeonTiles));
+    memcpy(presentedFrame.ui, uiTiles, sizeof(uiTiles));
+    memcpy(presentedFrame.loading, loadingTiles, sizeof(loadingTiles));
+    memcpy(presentedFrame.title, titleScreenTiles, sizeof(titleScreenTiles));
+    memcpy(presentedFrame.modalCells, modalOverlayCells, sizeof(modalOverlayCells));
+    memcpy(presentedFrame.alert, dungeonAlert.tiles, sizeof(presentedFrame.alert));
+    presentedFrame.ticks = SDL_GetTicks64();
+    presentedFrame.valid = true;
+    frameSlotEndCounter = SDL_GetPerformanceCounter();
+}
+
+// How long the display takes to show one frame.
+static double frameIntervalMs(void) {
+    static Uint64 checkedTicks = 0;
+    static double interval = 1000.0 / 60.0;
+
+    Uint64 now = SDL_GetTicks64();
+    if (!checkedTicks || now - checkedTicks >= 1000) {
+        float rate = androidDisplayRefreshRate();
+        if (rate >= 24.0f && rate <= 480.0f) interval = 1000.0 / rate;
+        checkedTicks = now;
+    }
+    return interval;
+}
+
+// Presenting a frame holds the caller until the display is ready for another.
+// A skipped frame takes just as long, so nothing runs faster for not drawing.
+static void waitOutSkippedFrame(void) {
+    Uint64 frequency = SDL_GetPerformanceFrequency();
+    Uint64 slotEnd = frameSlotEndCounter
+        + (Uint64)(frameIntervalMs() * (double)frequency / 1000.0);
+    Uint64 now = SDL_GetPerformanceCounter();
+
+    if (frameSlotEndCounter && frequency && now < slotEnd) {
+        Uint32 ms = (Uint32)(((slotEnd - now) * 1000 + frequency / 2) / frequency);
+        if (ms > 0) SDL_Delay(ms);
+        // Count from when the sleep should have ended, so that waking late
+        // shortens the next wait instead of adding up.
+        frameSlotEndCounter = slotEnd;
+    } else {
+        frameSlotEndCounter = now;
+    }
+}
+
+/// Draws everything on screen, unless it already shows exactly that.
+///
+/// OpenGL drivers don't like alternating between different textures too much, so we
+/// first draw the background colors then do 4 passes over the tiles, one pass per texture.
+///
+void updateScreen() {
+    if (!Win || androidAppInBackground) return;
+
+    SDL_Renderer *renderer = SDL_GetRenderer(Win);
+    if (!renderer) {
+        Uint32 rendererFlags = SDL_RENDERER_PRESENTVSYNC;
+        if (softwareRendering) rendererFlags |= SDL_RENDERER_SOFTWARE;
+        renderer = SDL_CreateRenderer(Win, -1, rendererFlags);
+        if (!renderer) sdlfatal(__FILE__, __LINE__);
+
+        if (SDL_SetRenderDrawBlendMode(renderer, SDL_BLENDMODE_NONE) < 0) sdlfatal(__FILE__, __LINE__);
+
+        SDL_RendererInfo info;
+        if (SDL_GetRendererInfo(renderer, &info) < 0) sdlfatal(__FILE__, __LINE__);
+        softwareRendering = (strcmp(info.name, "software") == 0);
+        forceFrames();
+    }
+
+    int outputWidth, outputHeight;
+    if (SDL_GetRendererOutputSize(renderer, &outputWidth, &outputHeight) < 0) sdlfatal(__FILE__, __LINE__);
+    if (outputWidth == 0 || outputHeight == 0) return;
+
+    int offsetX = 0, offsetY = 0;
+    int screenW = outputWidth, screenH = outputHeight;
+    int fitW = outputHeight * 16 / 10;
+    int fitH = outputHeight;
+    if (fitW > outputWidth) {
+        fitW = outputWidth;
+        fitH = outputWidth * 10 / 16;
+    }
+
+    // Loading and victory are fixed screen-space UI, independent of gameplay
+    // camera pan and zoom.
+    boolean fixedScreen = renderMode == RENDER_LOADING || victoryScreenActive;
+    float effectiveZoom = (renderMode != RENDER_TITLE) ? androidZoomLevel : 1.0f;
+    boolean inGame = (renderMode != RENDER_TITLE);
+    SDL_Rect dungeonViewport = {0, 0, 0, 0};
+
+    if (!fixedScreen) {
+        if (inGame) {
+            // Clear UI regions from the map layer so they don't render
+            // behind the overlay (sidebar, messages, bottom bar)
+            for (int y = 0; y < ROWS; y++)
+                for (int x = 0; x < COLS; x++)
+                    if (x < STAT_BAR_WIDTH || y < MESSAGE_LINES || y >= ROWS - 2)
+                        dungeonTiles[y][x] = (ScreenTile){0};
+        }
+
+        updateCamera(screenW, screenH, fitW, fitH, effectiveZoom, inGame, &dungeonViewport);
+    }
+
+    int frameState[FRAME_STATE_VALUES];
+    describeFrame(frameState, outputWidth, outputHeight, &dungeonViewport);
+    if (presentedFrame.valid
+            && (frameState[0] != presentedFrame.state[0]
+                || frameState[1] != presentedFrame.state[1])) {
+        // A different output size means a different surface.
+        forceFrames();
+    }
+    if (!frameChanged(frameState)) {
+        waitOutSkippedFrame();
+        return;
+    }
+
+    if (!softwareRendering) {
+        if (SDL_SetRenderDrawColor(renderer, 0, 0, 0, 0) < 0) sdlfatal(__FILE__, __LINE__);
+        if (SDL_RenderClear(renderer) < 0) sdlfatal(__FILE__, __LINE__);
+    }
+
+    if (renderMode == RENDER_LOADING) {
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderClear(renderer);
+        createTextures(renderer, fitW, fitH);
+        renderTiles(renderer, loadingTiles,
+                    (screenW - fitW) / 2, (screenH - fitH) / 2, fitW, fitH);
+        presentFrame(renderer, frameState);
+        return;
+    }
+
+    // Extend only the victory background across the physical display. Keep
+    // text on the centered 16:10 grid at its normal size and position.
+    if (victoryScreenActive) {
+        SDL_SetRenderDrawColor(renderer, 0, 0, 0, 255);
+        SDL_RenderClear(renderer);
+        createTextures(renderer, fitW, fitH);
+        renderTilesEx(renderer, &uiTiles[0][0], COLS, ROWS,
+                      0, 0, screenW, screenH, true);
+        renderTiles(renderer, uiTiles,
+                    (screenW - fitW) / 2, (screenH - fitH) / 2, fitW, fitH);
+        presentFrame(renderer, frameState);
+        return;
+    }
+
     int cx = dungeonViewport.x;
     int cy = dungeonViewport.y;
-    zoomW = dungeonViewport.w;
-    zoomH = dungeonViewport.h;
+    int zoomW = dungeonViewport.w;
+    int zoomH = dungeonViewport.h;
 
     offsetX = cx;
     offsetY = cy;
@@ -1326,15 +1486,7 @@ void updateScreen() {
         }
     }
 
-    presentFrame(renderer);
-
-    // Mark all tiles clean
-    for (int y = 0; y < ROWS; y++)
-        for (int x = 0; x < COLS; x++)
-            dungeonTiles[y][x].needsRefresh = 0;
-    for (int y = 0; y < ROWS; y++)
-        for (int x = 0; x < COLS; x++)
-            uiTiles[y][x].needsRefresh = 0;
+    presentFrame(renderer, frameState);
 }
 
 
