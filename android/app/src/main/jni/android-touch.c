@@ -786,6 +786,10 @@ static void cellFromPixel(float px, float py, int *cx, int *cy) {
 
 /* ---- Public API ---- */
 
+void androidCellFromPixel(int px, int py, int *cx, int *cy) {
+    cellFromPixel((float)px, (float)py, cx, cy);
+}
+
 boolean androidTouchEvent(SDL_Event *event, rogueEvent *out) {
     extern int windowWidth, windowHeight;
 

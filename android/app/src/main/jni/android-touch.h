@@ -14,6 +14,10 @@
  */
 boolean androidTouchEvent(SDL_Event *event, rogueEvent *out);
 
+/* Convert a window pixel to a grid cell using the same viewport as the
+ * renderer (zoomed/panned dungeon, or the centered 1x UI layer). */
+void androidCellFromPixel(int px, int py, int *cx, int *cy);
+
 /*
  * Extract bundled assets from the APK to internal storage so that
  * fopen-based game code can access them as regular files.

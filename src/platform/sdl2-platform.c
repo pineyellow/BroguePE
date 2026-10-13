@@ -313,15 +313,17 @@ static boolean pollBrogueEvent(rogueEvent *returnEvent, boolean textInput) {
                 } else if (event.type == SDL_MOUSEBUTTONUP && event.button.button == SDL_BUTTON_RIGHT) {
                     returnEvent->eventType = RIGHT_MOUSE_UP;
                 }
-                returnEvent->param1 = event.button.x * COLS / windowWidth;
-                returnEvent->param2 = event.button.y * ROWS / windowHeight;
+                int xcell, ycell;
+                androidCellFromPixel(event.button.x, event.button.y, &xcell, &ycell);
+                returnEvent->param1 = xcell;
+                returnEvent->param2 = ycell;
                 return true;
             }
         } else if (event.type == SDL_MOUSEMOTION) {
             // We don't want to return on a mouse motion event, because only the last
             // in the queue is important. That's why we just set ret=true
-            int xcell = event.motion.x * COLS / windowWidth,
-                ycell = event.motion.y * ROWS / windowHeight;
+            int xcell, ycell;
+            androidCellFromPixel(event.motion.x, event.motion.y, &xcell, &ycell);
             if (xcell != mx || ycell != my) {
                 returnEvent->eventType = MOUSE_ENTERED_CELL;
                 returnEvent->param1 = xcell;
@@ -376,6 +378,9 @@ static void _gameLoop() {
 
     SDL_SetHint(SDL_HINT_ORIENTATIONS, "LandscapeLeft LandscapeRight");
     SDL_SetHint(SDL_HINT_TOUCH_MOUSE_EVENTS, "0");
+    // A real mouse is handled as a mouse; without this SDL also reports each
+    // click as a finger tap and the engine sees it twice.
+    SDL_SetHint(SDL_HINT_MOUSE_TOUCH_EVENTS, "0");
     SDL_SetHint(SDL_HINT_ANDROID_BLOCK_ON_PAUSE, "0");
     if (SDL_Init(SDL_INIT_VIDEO) < 0) sdlfatal(__FILE__, __LINE__);
 
