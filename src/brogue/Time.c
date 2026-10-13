@@ -1022,6 +1022,10 @@ static void playerFalls() {
         if (!killed && rogue.depthLevel > rogue.deepestLevel) {
             rogue.deepestLevel = rogue.depthLevel;
         }
+        if (!killed) {
+            // Falling to a new level is a save point just like taking the stairs.
+            androidWriteSaveFile();
+        }
     } else {
         message("A strange force seizes you as you fall.", 0);
         teleport(&player, INVALID_POS, true);

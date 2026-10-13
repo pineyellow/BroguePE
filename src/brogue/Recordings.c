@@ -28,6 +28,7 @@
 #include "Globals.h"
 #include "platform.h"
 #ifdef BROGUE_ANDROID
+#include <unistd.h>
 #include "android-stats.h"
 #endif
 
@@ -1175,10 +1176,64 @@ void saveGameNoPrompt() {
 
 static void copyFile(char *fromFilePath, char *toFilePath, unsigned long fromFileLength);
 
-// Writes the current recording to ANDROID_SAVE_NAME.broguesave via a
-// temp-then-rename so a kill mid-write can't corrupt the existing save.
-void androidWriteSaveFile(void) {
-    if (rogue.playbackMode) return;
+// Copies up to `length` bytes of the recording into a new save file and pushes it to storage.
+// A recording shorter than `length` is copied as far as it goes. Returns false if anything could
+// not be read or written, in which case the new file must not be used.
+static boolean copyRecordingToSaveFile(const char *fromFilePath, const char *toFilePath, unsigned long length) {
+    unsigned char fileBuffer[INPUT_RECORD_BUFFER];
+    unsigned long copied = 0;
+    boolean succeeded = true;
+
+    FILE *fromFile = fopen(fromFilePath, "rb");
+    if (!fromFile) {
+        return false;
+    }
+    FILE *toFile = fopen(toFilePath, "wb");
+    if (!toFile) {
+        fclose(fromFile);
+        return false;
+    }
+
+    while (copied < length) {
+        size_t wanted = min(INPUT_RECORD_BUFFER, length - copied);
+        size_t got = fread((void *) fileBuffer, 1, wanted, fromFile);
+        if (got > 0 && fwrite((void *) fileBuffer, 1, got, toFile) != got) {
+            succeeded = false;
+            break;
+        }
+        copied += got;
+        if (got < wanted) {
+            succeeded = !ferror(fromFile);
+            break;
+        }
+    }
+
+    // A save that does not even hold the header cannot be resumed.
+    if (copied < RECORDING_HEADER_LENGTH) {
+        succeeded = false;
+    }
+    if (fflush(toFile) != 0) {
+        succeeded = false;
+    }
+#ifdef BROGUE_ANDROID
+    if (fsync(fileno(toFile)) != 0) {
+        succeeded = false;
+    }
+#endif
+    fclose(fromFile);
+    if (fclose(toFile) != 0) {
+        succeeded = false;
+    }
+    return succeeded;
+}
+
+// Writes the current recording to ANDROID_SAVE_NAME.broguesave and returns whether it worked.
+// The new save is completed under a temporary name and then renamed over the old one, so the
+// previous save stays intact if the app is killed or the write fails partway.
+boolean androidWriteSaveFile(void) {
+    if (rogue.playbackMode || !rogue.gameInProgress || rogue.gameHasEnded || currentFilePath[0] == '\0') {
+        return false;
+    }
 
     char finalPath[BROGUE_FILENAME_MAX], tmpPath[BROGUE_FILENAME_MAX];
     snprintf(finalPath, sizeof(finalPath), "%s%s", ANDROID_SAVE_NAME, GAME_SUFFIX);
@@ -1186,20 +1241,28 @@ void androidWriteSaveFile(void) {
 
     flushBufferToFile();
     // lengthOfPlaybackFile is the on-disk size; recordingLocation excludes the header.
-    copyFile(currentFilePath, tmpPath, lengthOfPlaybackFile);
-    remove(finalPath);
-    if (rename(tmpPath, finalPath) == 0) {
-        // Saving is also how Android preserves an active run when the app is
-        // closed or backgrounded. Record its high-water marks without ending
-        // the run or counting a death, win or additional game.
-        androidNotifyPlayerQuit(rogue.depthLevel, rogue.deepestLevel,
-                                (int)rogue.playerTurnNumber, rogue.gold);
+    if (!copyRecordingToSaveFile(currentFilePath, tmpPath, lengthOfPlaybackFile)
+        || rename(tmpPath, finalPath) != 0) {
+
+        remove(tmpPath);
+        return false;
     }
+
+    // Saving is also how Android preserves an active run when the app is
+    // closed or backgrounded. Record its high-water marks without ending
+    // the run or counting a death, win or additional game.
+    androidNotifyPlayerQuit(rogue.depthLevel, rogue.deepestLevel,
+                            (int)rogue.playerTurnNumber, rogue.gold);
+    return true;
 }
 
 void androidSaveGameAndReturnToMenu(void) {
     if (rogue.playbackMode) return;
-    androidWriteSaveFile();
+    if (!androidWriteSaveFile()) {
+        // Leaving now would discard everything since the last save, so keep the run going.
+        messageWithColor("Unable to save the game.", &badMessageColor, 0);
+        return;
+    }
     rogue.gameHasEnded = true;
     rogue.gameExitStatusCode = EXIT_STATUS_SUCCESS;
     rogue.nextGame = NG_NOTHING;
@@ -1409,7 +1472,9 @@ void switchToPlaying() {
     rogue.recording             = true;
     locationInRecordingBuffer   = 0;
     copyFile(currentFilePath, lastGamePath, recordingLocation);
-#ifndef ENABLE_PLAYBACK_SWITCH
+#if !defined(ENABLE_PLAYBACK_SWITCH) && !defined(BROGUE_ANDROID)
+    // On Android the save that was just loaded stays on disk until the next save replaces it,
+    // so a crash before then resumes from the same point instead of losing the run.
     if (DELETE_SAVE_FILE_AFTER_LOADING) {
         remove(currentFilePath);
     }

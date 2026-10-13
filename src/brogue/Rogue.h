@@ -3478,7 +3478,7 @@ extern "C" {
     boolean characterForbiddenInFilename(const char theChar);
     void saveGame(void);
     void saveGameNoPrompt(void);
-    void androidWriteSaveFile(void);
+    boolean androidWriteSaveFile(void);
     void androidSaveGameAndReturnToMenu(void);
     void androidAbandonGame(void);
     void androidDeleteSaveFile(void);

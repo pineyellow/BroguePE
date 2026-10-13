@@ -867,6 +867,10 @@ void mainBrogueJunction() {
                         rogue.mode == GAME_MODE_BALANCED_EASY
                             ? GAME_DIFFICULTY_EASY
                             : GAME_DIFFICULTY_DEFAULT);
+                    // Put the new run on disk straight away, so that a crash on the first level
+                    // can be resumed. This follows the game-start notice because saving reports
+                    // the run's progress to the stats bucket that notice selects.
+                    androidWriteSaveFile();
                 }
 
                 mainInputLoop();

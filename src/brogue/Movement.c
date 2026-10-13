@@ -2197,6 +2197,8 @@ boolean useStairs(short stairDirection) {
             if (rogue.depthLevel > rogue.deepestLevel) {
                 rogue.deepestLevel = rogue.depthLevel;
             }
+            // Arriving on a level is a save point, so a crash costs at most one level of play.
+            androidWriteSaveFile();
             //overlayDisplayBuffer(NULL, toBuf);
             //irisFadeBetweenBuffers(fromBuf, toBuf, mapToWindowX(player.loc.x), mapToWindowY(player.loc.y), 20, false);
         } else if (numberOfMatchingPackItems(AMULET, 0, 0, false)) {
@@ -2216,6 +2218,7 @@ boolean useStairs(short stairDirection) {
             } else {
                 message("You ascend.", 0);
                 startLevel(rogue.depthLevel + 1, stairDirection);
+                androidWriteSaveFile();
                 //irisFadeBetweenBuffers(fromBuf, toBuf, mapToWindowX(player.loc.x), mapToWindowY(player.loc.y), 20, true);
             }
             succeeded = true;
