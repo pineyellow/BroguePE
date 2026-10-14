@@ -7,7 +7,8 @@ import android.os.Handler;
 import android.os.Looper;
 import android.os.SystemClock;
 
-/** Persists time spent in the resumed activity while its window has focus. */
+/** Persists time spent with the activity resumed, which includes menus and
+ *  dialogs. Leaving the app or turning the screen off pauses it. */
 final class PlaytimeTracker {
 
     private static final String PREFS = "brogue_playtime";
@@ -20,7 +21,6 @@ final class PlaytimeTracker {
     private long accumulatedMillis;
     private long activeSinceMillis = -1;
     private boolean resumed;
-    private boolean windowFocused;
 
     PlaytimeTracker(Context context) {
         preferences = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE);
@@ -37,11 +37,6 @@ final class PlaytimeTracker {
         updateTrackingState();
     }
 
-    void onWindowFocusChanged(boolean focused) {
-        windowFocused = focused;
-        updateTrackingState();
-    }
-
     long totalMillis() {
         if (activeSinceMillis < 0) return accumulatedMillis;
         return safeAdd(accumulatedMillis,
@@ -50,7 +45,7 @@ final class PlaytimeTracker {
 
     private void updateTrackingState() {
         long now = SystemClock.elapsedRealtime();
-        boolean shouldTrack = resumed && windowFocused;
+        boolean shouldTrack = resumed;
         if (shouldTrack && activeSinceMillis < 0) {
             activeSinceMillis = now;
             scheduleMinuteCheckpoint();

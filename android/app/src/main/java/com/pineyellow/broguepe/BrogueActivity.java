@@ -232,9 +232,6 @@ public class BrogueActivity extends SDLActivity {
         if (hasFocus) {
             hideSystemBars();
         }
-        if (playtimeTracker != null) {
-            playtimeTracker.onWindowFocusChanged(hasFocus);
-        }
     }
 
     /** Shows a separately focused dialog without briefly exposing system bars. */
