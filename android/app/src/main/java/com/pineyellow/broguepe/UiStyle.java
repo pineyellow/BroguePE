@@ -5,10 +5,12 @@ final class UiStyle {
 
     static final int PANEL_CORNER_RADIUS_DP = 8;
     static final int MENU_ITEM_CORNER_RADIUS_DP = 8;
-    static final int HEADER_ICON_BUTTON_SIZE_DP = 32;
-    static final int HEADER_ICON_RIGHT_INSET_DP = 4;
-    static final int HEADER_ICON_TOP_GAP_DP = 2;
-    static final int HEADER_ICON_BOTTOM_GAP_DP = 2;
+    // Title-bar icon button: a 48x32dp box drawn inside a 40dp-tall touch
+    // area, with its right edge on the rows' right edge.
+    static final int HEADER_ICON_BUTTON_HEIGHT_DP = 40;
+    static final int HEADER_ICON_BOX_WIDTH_DP = 48;
+    static final int HEADER_ICON_BOX_HEIGHT_DP = 32;
+    static final int HEADER_ICON_GLYPH_DP = 20;
 
     private UiStyle() {}
 }

@@ -5,6 +5,7 @@ import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.InsetDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -103,7 +104,15 @@ final class DiscoveriesOverlay {
                 panelBg.setStroke(1, Palette.BORDER_DIM);
                 scrollView.setBackground(panelBg);
 
-                panel.addView(makeHeader());
+                // The button's touch area reaches above its box, so pull the
+                // header up by that much: the box then sits the panel's
+                // padding from the top edge, as it does from the right.
+                LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.MATCH_PARENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+                headerParams.topMargin = -activity.dpToPx(
+                    (UiStyle.HEADER_ICON_BUTTON_HEIGHT_DP - UiStyle.HEADER_ICON_BOX_HEIGHT_DP) / 2f);
+                panel.addView(makeHeader(), headerParams);
 
                 for (int s = 0; s < sections.length(); s++) {
                     JSONObject section = sections.getJSONObject(s);
@@ -192,14 +201,10 @@ final class DiscoveriesOverlay {
         inventoryBtn.setOnClickListener(v -> {
             if (claimInput()) KeyInput.sendChar(activity, 'i');
         });
-        int headerButtonSize = activity.dpToPx(UiStyle.HEADER_ICON_BUTTON_SIZE_DP);
-        LinearLayout.LayoutParams headerButtonParams = new LinearLayout.LayoutParams(
-            headerButtonSize, headerButtonSize);
-        headerButtonParams.setMargins(0,
-            activity.dpToPx(UiStyle.HEADER_ICON_TOP_GAP_DP),
-            activity.dpToPx(UiStyle.HEADER_ICON_RIGHT_INSET_DP),
-            activity.dpToPx(UiStyle.HEADER_ICON_BOTTOM_GAP_DP));
-        row.addView(inventoryBtn, headerButtonParams);
+        int headerButtonWidth = activity.dpToPx(UiStyle.HEADER_ICON_BOX_WIDTH_DP);
+        int headerButtonHeight = activity.dpToPx(UiStyle.HEADER_ICON_BUTTON_HEIGHT_DP);
+        row.addView(inventoryBtn, new LinearLayout.LayoutParams(
+            headerButtonWidth, headerButtonHeight));
 
         LinearLayout column = new LinearLayout(activity);
         column.setOrientation(LinearLayout.VERTICAL);
@@ -209,7 +214,10 @@ final class DiscoveriesOverlay {
         sep.setBackgroundColor(Palette.BORDER_DIM);
         LinearLayout.LayoutParams sepP = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 1);
-        sepP.setMargins(activity.dpToPx(4), 0, activity.dpToPx(4), activity.dpToPx(6));
+        // Even space between the header button's box, the divider and the
+        // first section label (which adds its own padding).
+        sepP.setMargins(activity.dpToPx(4), activity.dpToPx(4),
+                        activity.dpToPx(4), activity.dpToPx(3));
         column.addView(sep, sepP);
 
         return column;
@@ -297,16 +305,24 @@ final class DiscoveriesOverlay {
         bg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         bg.setColor(Palette.ITEM_BG);
         bg.setStroke(1, Palette.BORDER_DIM);
+        // The box is drawn shorter than the button, so the touch area is taller
+        // than what shows. The ripple stays inside the box.
+        int width = activity.dpToPx(UiStyle.HEADER_ICON_BOX_WIDTH_DP);
+        int height = activity.dpToPx(UiStyle.HEADER_ICON_BUTTON_HEIGHT_DP);
+        int insetY = (height - activity.dpToPx(UiStyle.HEADER_ICON_BOX_HEIGHT_DP)) / 2;
         btn.setBackground(new RippleDrawable(
-            ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
+            ColorStateList.valueOf(Palette.RIPPLE_GLOW),
+            new InsetDrawable(bg, 0, insetY, 0, insetY), null));
         btn.setStateListAnimator(null);
         btn.setElevation(0);
         btn.setContentDescription(contentDesc);
-        int size = activity.dpToPx(UiStyle.HEADER_ICON_BUTTON_SIZE_DP);
-        btn.setMinimumWidth(size);
-        btn.setMinimumHeight(size);
-        int p = activity.dpToPx(6);
-        btn.setPadding(p, p, p, p);
+        btn.setMinimumWidth(width);
+        btn.setMinimumHeight(height);
+        int glyphPadX = activity.dpToPx(
+            (UiStyle.HEADER_ICON_BOX_WIDTH_DP - UiStyle.HEADER_ICON_GLYPH_DP) / 2f);
+        int glyphPadY = insetY + activity.dpToPx(
+            (UiStyle.HEADER_ICON_BOX_HEIGHT_DP - UiStyle.HEADER_ICON_GLYPH_DP) / 2f);
+        btn.setPadding(glyphPadX, glyphPadY, glyphPadX, glyphPadY);
         btn.setOnTouchListener((v, e) -> {
             if (e.getAction() == MotionEvent.ACTION_DOWN) {
                 v.animate().scaleX(0.9f).scaleY(0.9f).setDuration(60).start();
