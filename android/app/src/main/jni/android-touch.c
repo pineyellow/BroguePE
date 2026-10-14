@@ -184,7 +184,9 @@ void androidDiscardConsumedTouchInput(void) {
     state = TOUCH_IDLE;
     pendingMouseUp = false;
     androidPanOverride = false;
-    endAutoMoveSession();
+    // A held D-pad's walk is left running. The D-pad ends it on release, and
+    // ending it here would turn off its stop when, say, a monster comes into
+    // view, for the rest of the hold.
 }
 
 void androidSetOverlayVisible(boolean visible) {
