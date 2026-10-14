@@ -93,49 +93,68 @@ final class SettingsPanel {
         hSepP.setMargins(activity.dpToPx(4), 0, activity.dpToPx(4), activity.dpToPx(8));
         panel.addView(headerSep, hSepP);
 
+        // Labels inside a section drop its name; stepper prompts keep the full
+        // wording because the panel is hidden while adjusting.
+        addSectionHeader(panel, "DISPLAY");
+        addGraphicsModeCycler(panel);
+        addCameraFollowModeCycler(panel);
         // Game-state toggles notify the engine after persisting the new value.
-        boolean dpadEnabled = GameSettings.getBool(activity, DPadOverlay.PREF_ENABLED, true);
         addGameToggle(panel, "Hide Color Effects", "hide_color_effects");
         addGameToggle(panel, "Display Stealth Range", "display_stealth_range");
-        addCameraFollowModeCycler(panel);
-        addStepperSetting(panel, "Action Button Size", ActionsToolbar.PREF_BUTTON_SIZE,
+
+        addSeparator(panel);
+        addSectionHeader(panel, "ACTION BAR");
+        addActionBarLayoutSetting(panel);
+        addStepperSetting(panel, "Button Size", ActionsToolbar.PREF_BUTTON_SIZE,
             ActionsToolbar.DEFAULT_BUTTON_SIZE,
             ActionsToolbar.MIN_BUTTON_SIZE, ActionsToolbar.MAX_BUTTON_SIZE, 0.05f,
             "Action button size multiplier", activity::applyActionButtonSettings, true);
-        addStepperSetting(panel, "Action Button Opacity", ActionsToolbar.PREF_BUTTON_OPACITY,
+        addStepperSetting(panel, "Button Opacity", ActionsToolbar.PREF_BUTTON_OPACITY,
             ActionsToolbar.DEFAULT_BUTTON_OPACITY,
             ActionsToolbar.MIN_BUTTON_OPACITY, ActionsToolbar.MAX_BUTTON_OPACITY, 0.05f,
             "Action button opacity multiplier", activity::applyActionButtonSettings, true);
-        addActionBarLayoutSetting(panel);
+
+        addSeparator(panel);
+        addSectionHeader(panel, "D-PAD");
+        // The D-pad rows live in their own group, so the toggle can show or
+        // hide them without rebuilding (and re-animating) the whole panel.
+        LinearLayout dpadGroup = new LinearLayout(activity);
+        dpadGroup.setOrientation(LinearLayout.VERTICAL);
         addAppToggle(panel, "Enable D-pad", DPadOverlay.PREF_ENABLED, true,
             enabled -> {
                 activity.setDpadEnabled(enabled);
-                show();
+                dpadGroup.setVisibility(enabled ? View.VISIBLE : View.GONE);
             });
-        if (dpadEnabled) {
-            addStepperSetting(panel, "D-pad X", DPadOverlay.PREF_OFFSET_X,
-                0f, null, null, 1f,
-                "D-pad X position offset in dp\n(- goes left, + goes right)",
-                activity::applyDpadSettings, true);
-            addStepperSetting(panel, "D-pad Y", DPadOverlay.PREF_OFFSET_Y,
-                0f, null, null, 1f,
-                "D-pad Y position offset in dp\n(- goes down, + goes up)",
-                activity::applyDpadSettings, true);
-            addStepperSetting(panel, "D-pad Size", DPadOverlay.PREF_SIZE,
-                DPadOverlay.DEFAULT_SIZE, DPadOverlay.MIN_SIZE, DPadOverlay.MAX_SIZE, 0.05f,
-                "D-pad overall size multiplier", activity::applyDpadSettings, true);
-            addStepperSetting(panel, "D-pad Button Width", DPadOverlay.PREF_BUTTON_WIDTH,
-                DPadOverlay.DEFAULT_BUTTON_WIDTH,
-                DPadOverlay.MIN_BUTTON_WIDTH, DPadOverlay.MAX_BUTTON_WIDTH, 0.05f,
-                "D-pad button width multiplier\n(1 = square buttons)",
-                activity::applyDpadSettings, true);
-            addStepperSetting(panel, "D-pad Opacity", DPadOverlay.PREF_OPACITY,
-                DPadOverlay.DEFAULT_OPACITY,
-                DPadOverlay.MIN_OPACITY, DPadOverlay.MAX_OPACITY, 0.05f,
-                "D-pad opacity multiplier\n(0 = invisible but still works)",
-                activity::applyDpadSettings, true);
-        }
-        addGraphicsModeCycler(panel);
+        addStepperSetting(dpadGroup, "X Offset", DPadOverlay.PREF_OFFSET_X,
+            0f, null, null, 1f,
+            "D-pad X position offset in dp\n(- goes left, + goes right)",
+            activity::applyDpadSettings, true);
+        addStepperSetting(dpadGroup, "Y Offset", DPadOverlay.PREF_OFFSET_Y,
+            0f, null, null, 1f,
+            "D-pad Y position offset in dp\n(- goes down, + goes up)",
+            activity::applyDpadSettings, true);
+        addStepperSetting(dpadGroup, "Size", DPadOverlay.PREF_SIZE,
+            DPadOverlay.DEFAULT_SIZE, DPadOverlay.MIN_SIZE, DPadOverlay.MAX_SIZE, 0.05f,
+            "D-pad overall size multiplier", activity::applyDpadSettings, true);
+        addStepperSetting(dpadGroup, "Button Width", DPadOverlay.PREF_BUTTON_WIDTH,
+            DPadOverlay.DEFAULT_BUTTON_WIDTH,
+            DPadOverlay.MIN_BUTTON_WIDTH, DPadOverlay.MAX_BUTTON_WIDTH, 0.05f,
+            "D-pad button width multiplier\n(1 = square buttons)",
+            activity::applyDpadSettings, true);
+        addStepperSetting(dpadGroup, "Opacity", DPadOverlay.PREF_OPACITY,
+            DPadOverlay.DEFAULT_OPACITY,
+            DPadOverlay.MIN_OPACITY, DPadOverlay.MAX_OPACITY, 0.05f,
+            "D-pad opacity multiplier\n(0 = invisible but still works)",
+            activity::applyDpadSettings, true);
+        dpadGroup.setVisibility(
+            GameSettings.getBool(activity, DPadOverlay.PREF_ENABLED, true)
+                ? View.VISIBLE : View.GONE);
+        panel.addView(dpadGroup, new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT));
+
+        addSeparator(panel);
+        addSectionHeader(panel, "INVENTORY");
         addAppToggle(panel, "Show Call Button", GameSettings.PREF_SHOW_CALL_BUTTON,
             false, null);
 
@@ -303,6 +322,17 @@ final class SettingsPanel {
             LinearLayout.LayoutParams.WRAP_CONTENT);
         p.setMargins(0, activity.dpToPx(2), 0, activity.dpToPx(2));
         panel.addView(row, p);
+    }
+
+    private void addSectionHeader(LinearLayout panel, String title) {
+        TextView header = new TextView(activity);
+        header.setText(title);
+        header.setTextColor(Palette.DIM_BLUE_GRAY);
+        header.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
+        header.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        header.setLetterSpacing(0.15f);
+        header.setPadding(activity.dpToPx(4), activity.dpToPx(4), 0, activity.dpToPx(2));
+        panel.addView(header);
     }
 
     private void addSeparator(LinearLayout panel) {
@@ -498,7 +528,7 @@ final class SettingsPanel {
         String layout = orientation == ActionsToolbar.BUTTONS_VERTICAL
             ? "Vertical"
             : "Horizontal";
-        return "Action Bar Layout: " + layout;
+        return "Layout: " + layout;
     }
 
     private void addCameraFollowModeCycler(LinearLayout panel) {
