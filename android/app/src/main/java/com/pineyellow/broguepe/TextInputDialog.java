@@ -2,6 +2,7 @@ package com.pineyellow.broguepe;
 
 import android.annotation.SuppressLint;
 import android.app.AlertDialog;
+import android.app.Dialog;
 import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Point;
@@ -22,6 +23,7 @@ import android.widget.LinearLayout;
 import android.widget.TextView;
 import java.text.DecimalFormat;
 import java.text.Normalizer;
+import java.util.concurrent.atomic.AtomicBoolean;
 
 /** Engine-driven text prompt (e.g. name, custom seed). Invoked from C when
  *  the engine wants a string from the user. OK/Cancel and the system back
@@ -35,9 +37,58 @@ final class TextInputDialog {
     private enum InputMode { TEXT, INTEGER, DECIMAL }
 
     private final BrogueActivity activity;
+    // The game thread waits for the engine's prompt and cannot handle leaving
+    // the app meanwhile: no autosave, and no redraw on return. Like
+    // ConfirmationDialog, the prompt is cancelled when the app is paused.
+    private final AtomicBoolean activityResumed = new AtomicBoolean(false);
+    private final AtomicBoolean engineResultPending = new AtomicBoolean(false);
+    private Dialog engineDialog;
 
     TextInputDialog(BrogueActivity activity) {
         this.activity = activity;
+    }
+
+    void onActivityResumed() {
+        activityResumed.set(true);
+    }
+
+    void onActivityPaused() {
+        activityResumed.set(false);
+        cancelEngineDialog();
+    }
+
+    void onActivityDestroying() {
+        activityResumed.set(false);
+        cancelEngineDialog();
+    }
+
+    private void cancelEngineDialog() {
+        Dialog dialog = engineDialog;
+        engineDialog = null;
+        if (dialog != null) {
+            dialog.setOnCancelListener(null);
+            if (dialog.isShowing()) {
+                dialog.dismiss();
+            }
+        }
+        completeEngineResult(false, "");
+    }
+
+    private void finishEngineDialog(Dialog dialog, boolean confirmed, String text) {
+        if (dialog != engineDialog) return;
+
+        engineDialog = null;
+        dialog.setOnCancelListener(null);
+        if (dialog.isShowing()) {
+            dialog.dismiss();
+        }
+        completeEngineResult(confirmed, text);
+    }
+
+    private void completeEngineResult(boolean confirmed, String text) {
+        if (engineResultPending.compareAndSet(true, false)) {
+            activity.nativeTextInputResult(confirmed, text);
+        }
     }
 
     static String normalizeEngineText(String text, int maxLen) {
@@ -69,8 +120,14 @@ final class TextInputDialog {
         return ascii.toString();
     }
 
+    /** Engine prompt; the game thread waits until the result is sent. */
     void show(final String prompt, final String defaultText,
               final int maxLen, final boolean numericOnly) {
+        engineResultPending.set(true);
+        if (!activityResumed.get()) {
+            completeEngineResult(false, "");
+            return;
+        }
         show(prompt, defaultText, maxLen, numericOnly, null);
     }
 
@@ -247,6 +304,14 @@ final class TextInputDialog {
                       final int maxLen, final InputMode inputMode,
                       final java.util.function.Consumer<String> onResult) {
         activity.runOnUiThread(() -> {
+            // The app can be paused after the engine asks but before this
+            // runs. onPause has then already cancelled; never show it late.
+            if (onResult == null
+                    && (!activityResumed.get() || !engineResultPending.get())) {
+                completeEngineResult(false, "");
+                return;
+            }
+
             EditText input = new EditText(activity);
             input.setTextColor(Palette.GHOST_WHITE);
             input.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
@@ -338,23 +403,30 @@ final class TextInputDialog {
                     android.R.style.Theme_DeviceDefault_Dialog_NoActionBar)
                 .setView(layout)
                 .setCancelable(true)
-                .setOnCancelListener(d -> {
-                    if (onResult != null) onResult.accept(null);
-                    else activity.nativeTextInputResult(false, "");
-                })
                 .create();
+            if (onResult == null) engineDialog = dialog;
 
-            cancelBtn.setOnClickListener(v -> {
+            dialog.setOnCancelListener(d -> {
                 if (onResult != null) onResult.accept(null);
-                else activity.nativeTextInputResult(false, "");
-                dialog.dismiss();
+                else finishEngineDialog(dialog, false, "");
+            });
+            cancelBtn.setOnClickListener(v -> {
+                if (onResult != null) {
+                    onResult.accept(null);
+                    dialog.dismiss();
+                } else {
+                    finishEngineDialog(dialog, false, "");
+                }
             });
             okBtn.setOnClickListener(v -> {
                 String text = input.getText().toString();
-                if (onResult != null) onResult.accept(text);
-                else activity.nativeTextInputResult(
-                    true, normalizeEngineText(text, maxLen));
-                dialog.dismiss();
+                if (onResult != null) {
+                    onResult.accept(text);
+                    dialog.dismiss();
+                } else {
+                    finishEngineDialog(dialog, true,
+                        normalizeEngineText(text, maxLen));
+                }
             });
 
             // Configure window before show() so there is no default slide

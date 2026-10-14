@@ -181,6 +181,7 @@ public class BrogueActivity extends SDLActivity {
         // Mark the UI available before SDL resumes the game thread; that
         // thread can request a confirmation immediately after being woken.
         confirmationDialog.onActivityResumed();
+        textInputDialog.onActivityResumed();
         super.onResume();
         playtimeTracker.onResume();
         requestHighestRefreshRate();
@@ -211,10 +212,11 @@ public class BrogueActivity extends SDLActivity {
 
     @Override
     protected void onPause() {
-        // Native confirmation waits block the same game thread that services
-        // SDL lifecycle events. Resolve an open or not-yet-attached prompt as
-        // No before asking SDL to pause that thread.
+        // Native confirmation and text waits block the same game thread that
+        // services SDL lifecycle events. Resolve an open or not-yet-attached
+        // prompt as No/Cancel before asking SDL to pause that thread.
         confirmationDialog.onActivityPaused();
+        textInputDialog.onActivityPaused();
         playtimeTracker.onPause();
         stopDebugUiFpsTracking();
         captureResumeSnapshot();
@@ -274,6 +276,7 @@ public class BrogueActivity extends SDLActivity {
         snapshotCaptureGeneration++;
         setBackHandlingEnabled(false);
         confirmationDialog.onActivityDestroying();
+        textInputDialog.onActivityDestroying();
         deathModal.onActivityDestroying();
         if (snapshotThread != null) {
             snapshotThread.quitSafely();
