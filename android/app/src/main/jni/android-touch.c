@@ -93,7 +93,9 @@ static PinchGesture pinchGesture = PINCH_UNDECIDED;
 /* Swipe to move. The anchor starts at the touch-down point. */
 static float swipeAnchorX, swipeAnchorY;
 static boolean swipeControlsEnabled = false;
-/* The D-pad covers the sidebar, so its entries take taps only without it. */
+/* The D-pad covers part of the sidebar, so with it the entries take taps only
+ * when the player turns that on. The D-pad's view sits above the game and
+ * consumes touches inside its box, so it wins where they overlap. */
 static boolean sidebarTouchEnabled = false;
 static float displayDensity = 1.0f;
 static int swipeDirection = -1;     /* index into swipeKeys; -1 in the dead zone */
@@ -384,7 +386,8 @@ void androidApplySettings(void) {
     int movementControls = androidGetSettingInt("movement_controls",
         ANDROID_MOVEMENT_DPAD);
     swipeControlsEnabled = movementControls == ANDROID_MOVEMENT_SWIPE;
-    sidebarTouchEnabled = movementControls != ANDROID_MOVEMENT_DPAD;
+    sidebarTouchEnabled = movementControls != ANDROID_MOVEMENT_DPAD
+        || androidGetSettingBool("dpad_sidebar_taps");
     displayDensity = fmaxf(0.5f, androidGetDisplayDensity());
     int mode = androidGetSettingInt("graphics_mode", TILES_GRAPHICS);
     if (mode < TEXT_GRAPHICS || mode > HYBRID_GRAPHICS) mode = TILES_GRAPHICS;

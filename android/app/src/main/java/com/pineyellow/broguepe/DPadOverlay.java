@@ -27,6 +27,10 @@ final class DPadOverlay {
     static final String PREF_SIZE = "dpad_size";
     static final String PREF_BUTTON_WIDTH = "dpad_button_width";
     static final String PREF_OPACITY = "dpad_opacity";
+    // Lets sidebar entries take taps alongside the D-pad (off by default).
+    // The D-pad still consumes every touch inside its box, so it wins where
+    // the two overlap. Read by native code; without the D-pad they always do.
+    static final String PREF_SIDEBAR_TAPS = "dpad_sidebar_taps";
 
     static final float DEFAULT_SIZE = 1f;
     static final float DEFAULT_BUTTON_WIDTH = 1f;

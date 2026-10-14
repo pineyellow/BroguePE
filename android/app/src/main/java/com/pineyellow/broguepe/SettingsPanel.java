@@ -147,6 +147,7 @@ final class SettingsPanel {
             DPadOverlay.MIN_OPACITY, DPadOverlay.MAX_OPACITY, 0.05f,
             "D-pad opacity multiplier\n(0 = invisible but still works)",
             activity::applyDpadSettings, true);
+        addGameToggle(dpadGroup, "Sidebar Taps", DPadOverlay.PREF_SIDEBAR_TAPS);
         dpadGroup.setVisibility(
             GameSettings.movementControls(activity) == GameSettings.MOVEMENT_DPAD
                 ? View.VISIBLE : View.GONE);
