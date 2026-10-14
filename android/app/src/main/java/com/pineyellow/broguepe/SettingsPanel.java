@@ -94,7 +94,10 @@ final class SettingsPanel {
         headerSep.setBackgroundColor(Palette.BORDER_DIM);
         LinearLayout.LayoutParams hSepP = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 1);
-        hSepP.setMargins(activity.dpToPx(4), 0, activity.dpToPx(4), activity.dpToPx(8));
+        // The space above makes up for the DISPLAY header's padding and font
+        // spacing below, so the divider sits centred between the two titles.
+        hSepP.setMargins(activity.dpToPx(4), activity.dpToPx(7),
+                         activity.dpToPx(4), activity.dpToPx(8));
         panel.addView(headerSep, hSepP);
 
         // Labels inside a section drop its name; stepper prompts keep the full
@@ -106,7 +109,7 @@ final class SettingsPanel {
         addGameToggle(panel, "Hide Color Effects", "hide_color_effects");
         addGameToggle(panel, "Display Stealth Range", "display_stealth_range");
 
-        addSeparator(panel);
+        addSeparator(panel, true);
         addSectionHeader(panel, "ACTION BAR");
         addActionBarLayoutSetting(panel);
         addStepperSetting(panel, "Button Size", ActionsToolbar.PREF_BUTTON_SIZE,
@@ -118,7 +121,7 @@ final class SettingsPanel {
             ActionsToolbar.MIN_BUTTON_OPACITY, ActionsToolbar.MAX_BUTTON_OPACITY, 0.05f,
             "Action button opacity multiplier", activity::applyActionButtonSettings, true);
 
-        addSeparator(panel);
+        addSeparator(panel, true);
         addSectionHeader(panel, "CONTROLS");
         // The D-pad rows live in their own group, so the Movement choice can
         // show or hide them without rebuilding (and re-animating) the panel.
@@ -155,12 +158,12 @@ final class SettingsPanel {
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT));
 
-        addSeparator(panel);
+        addSeparator(panel, true);
         addSectionHeader(panel, "INVENTORY");
         addAppToggle(panel, "Show Call Button", GameSettings.PREF_SHOW_CALL_BUTTON,
             false, null);
 
-        addSeparator(panel);
+        addSeparator(panel, false);
 
         // Shows the seed itself; tapping copies it. Seeds are unsigned 64-bit,
         // so larger ones come back from native code as negative longs.
@@ -337,12 +340,15 @@ final class SettingsPanel {
         panel.addView(header);
     }
 
-    private void addSeparator(LinearLayout panel) {
+    /** Divider between sections. Before a header it gets more space above, to
+     *  match the header's padding and font spacing below it, so it sits
+     *  centred between the rows and the header text. */
+    private void addSeparator(LinearLayout panel, boolean beforeHeader) {
         View sep = new View(activity);
         sep.setBackgroundColor(Palette.BORDER_DIM);
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 1);
-        p.setMargins(activity.dpToPx(4), activity.dpToPx(4),
+        p.setMargins(activity.dpToPx(4), activity.dpToPx(beforeHeader ? 9 : 4),
                      activity.dpToPx(4), activity.dpToPx(4));
         panel.addView(sep, p);
     }

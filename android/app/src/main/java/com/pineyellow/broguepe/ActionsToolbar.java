@@ -518,7 +518,9 @@ final class ActionsToolbar {
         headerSep.setBackgroundColor(Palette.BORDER_DIM);
         LinearLayout.LayoutParams hSepP = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 1);
-        hSepP.setMargins(dp(4), 0, dp(4), dp(8));
+        // The space above matches the first row's margin below, so the divider
+        // sits centred between the title and the rows.
+        hSepP.setMargins(dp(4), dp(2), dp(4), dp(8));
         panel.addView(headerSep, hSepP);
 
         LinearLayout rowsContainer = new LinearLayout(activity);
