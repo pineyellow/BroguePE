@@ -311,6 +311,11 @@ final class TextInputDialog {
                 completeEngineResult(false, "");
                 return;
             }
+            if (onResult == null) {
+                // The game thread waits for this prompt. Stop a held D-pad so
+                // its repeated moves do not queue up and run once it closes.
+                activity.cancelDpadInput();
+            }
 
             EditText input = new EditText(activity);
             input.setTextColor(Palette.GHOST_WHITE);
