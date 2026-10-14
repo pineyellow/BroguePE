@@ -102,6 +102,10 @@ final class SettingsPanel {
             ActionsToolbar.DEFAULT_BUTTON_SIZE,
             ActionsToolbar.MIN_BUTTON_SIZE, ActionsToolbar.MAX_BUTTON_SIZE, 0.05f,
             "Action button size multiplier", activity::applyActionButtonSettings, true);
+        addStepperSetting(panel, "Action Button Opacity", ActionsToolbar.PREF_BUTTON_OPACITY,
+            ActionsToolbar.DEFAULT_BUTTON_OPACITY,
+            ActionsToolbar.MIN_BUTTON_OPACITY, ActionsToolbar.MAX_BUTTON_OPACITY, 0.05f,
+            "Action button opacity multiplier", activity::applyActionButtonSettings, true);
         addActionBarLayoutSetting(panel);
         addAppToggle(panel, "Enable D-pad", DPadOverlay.PREF_ENABLED, true,
             enabled -> {

@@ -42,6 +42,13 @@ final class ActionsToolbar {
     static final float DEFAULT_BUTTON_SIZE   = 1f;
     static final float MIN_BUTTON_SIZE       = 0.5f;
     static final float MAX_BUTTON_SIZE       = 2f;
+    // Multiplies the hamburger and pinned buttons. It stops above 0 because
+    // the hamburger is the only way back to Settings, and invisible buttons
+    // would still run actions when tapped.
+    static final String PREF_BUTTON_OPACITY  = "action_button_opacity";
+    static final float DEFAULT_BUTTON_OPACITY = 1f;
+    static final float MIN_BUTTON_OPACITY    = 0.1f;
+    static final float MAX_BUTTON_OPACITY    = 1f;
     static final String PREF_BUTTON_ORIENTATION = "action_button_orientation";
     static final int BUTTONS_HORIZONTAL      = 0;
     static final int BUTTONS_VERTICAL        = 1;
@@ -76,6 +83,9 @@ final class ActionsToolbar {
     private LinearLayout toolbarContainer;
     private LinearLayout submenu;
     private View menuBtn;
+    // True from expand until collapse starts; the submenu stays VISIBLE
+    // during its fade-out, so its visibility cannot tell.
+    private boolean submenuOpen;
     private View submenuBackdrop;
     private java.util.List<String> cachedActionOrder;
     private boolean actionReordering;
@@ -193,7 +203,7 @@ final class ActionsToolbar {
         return controlsLayer;
     }
 
-    /** Applies the saved size and orientation to the action controls. */
+    /** Applies the saved size, orientation and opacity to the action controls. */
     void applyButtonSizeSetting() {
         float scale = buttonSizeScale();
 
@@ -228,6 +238,8 @@ final class ActionsToolbar {
                 .start();
         }
         animateToggle(menuBtn, false);
+        submenuOpen = false;
+        menuBtn.setAlpha(barButtonAlpha(menuBtn, menuBtn.isEnabled()));
     }
 
     /** Android Back closes the Actions panel or the submenu, the same as a tap
@@ -848,6 +860,8 @@ final class ActionsToolbar {
             .setInterpolator(new DecelerateInterpolator())
             .start();
         animateToggle(menuBtn, true);
+        submenuOpen = true;
+        menuBtn.setAlpha(barButtonAlpha(menuBtn, menuBtn.isEnabled()));
     }
 
     private void animateToggle(View v, boolean active) {
@@ -945,7 +959,7 @@ final class ActionsToolbar {
                 || isTargetingAction(view.getTag(R.id.action_key_tag));
             // Keep disabled buttons as touch targets so taps cannot hit the dungeon.
             view.setEnabled(enabled);
-            view.setAlpha(enabled ? 1f : DISABLED_BUTTON_ALPHA);
+            view.setAlpha(barButtonAlpha(view, enabled));
             if (!enabled) {
                 view.animate().cancel();
                 view.setScaleX(1f);
@@ -1076,6 +1090,26 @@ final class ActionsToolbar {
             GameSettings.setFloat(activity, PREF_BUTTON_SIZE, scale);
         }
         return scale;
+    }
+
+    private float buttonOpacity() {
+        float saved = GameSettings.getFloat(
+            activity, PREF_BUTTON_OPACITY, DEFAULT_BUTTON_OPACITY);
+        float opacity = Float.isFinite(saved)
+            ? Math.max(MIN_BUTTON_OPACITY, Math.min(MAX_BUTTON_OPACITY, saved))
+            : DEFAULT_BUTTON_OPACITY;
+        if (saved != opacity) {
+            GameSettings.setFloat(activity, PREF_BUTTON_OPACITY, opacity);
+        }
+        return opacity;
+    }
+
+    /** Disabled buttons stay dimmer relative to the opacity setting; the
+     *  hamburger shows at full strength while its menu is open. */
+    private float barButtonAlpha(View view, boolean enabled) {
+        if (!enabled) return DISABLED_BUTTON_ALPHA * buttonOpacity();
+        if (view == menuBtn && submenuOpen) return 1f;
+        return buttonOpacity();
     }
 
     private int buttonSizePx() {
