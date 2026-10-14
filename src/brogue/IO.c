@@ -2557,6 +2557,9 @@ void executeMouseClick(rogueEvent *theEvent) {
     windowpos mouse = { theEvent->param1, theEvent->param2 };
     boolean autoConfirm = theEvent->controlKey;
 
+    // The Target button's 't' never arrived as a command; see executeKeystroke().
+    androidQuickTargetSelectionRequested = false;
+
     if (theEvent->eventType == RIGHT_MOUSE_UP) {
         displayInventory(ALL_ITEMS, 0, 0, true, true);
     } else if (isPosInMap(windowToMap(mouse))) {
@@ -2572,6 +2575,13 @@ void executeMouseClick(rogueEvent *theEvent) {
 
 void executeKeystroke(signed long keystroke, boolean controlKey, boolean shiftKey) {
     short direction = -1;
+
+    // The Target button arms this flag and sends 't'. If something else used
+    // up that 't', such as a --MORE-- prompt, the flag must not carry over to
+    // a later throw, where it would zap a staff or wand instead of throwing it.
+    if (keystroke != THROW_KEY) {
+        androidQuickTargetSelectionRequested = false;
+    }
 
     confirmMessages();
     stripShiftFromMovementKeystroke(&keystroke);
