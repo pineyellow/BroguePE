@@ -593,7 +593,11 @@ public class BrogueActivity extends SDLActivity {
             dismissGameplayPanels();
             latch.countDown();
         });
-        try { latch.await(); } catch (InterruptedException ignored) {}
+        // Bounded: during shutdown the UI thread may be joining this thread in
+        // SDLActivity.onDestroy(), so the runnable would never run.
+        try {
+            latch.await(500, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (InterruptedException ignored) {}
     }
 
     /** Removes any open drawer or submenu at once. They belong to a run and
