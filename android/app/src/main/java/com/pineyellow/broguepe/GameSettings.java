@@ -23,8 +23,25 @@ final class GameSettings {
     static final int CAMERA_FOLLOW_VERY_FAST = 2;
     static final int CAMERA_FOLLOW_INSTANT = 3;
     static final int DEFAULT_CAMERA_FOLLOW_MODE = CAMERA_FOLLOW_SMOOTH;
+    // Read in C too, which only checks for Swipe.
+    static final String PREF_MOVEMENT_CONTROLS = "movement_controls";
+    static final int MOVEMENT_OFF = 0;
+    static final int MOVEMENT_DPAD = 1;
+    static final int MOVEMENT_SWIPE = 2;
 
     private GameSettings() {}
+
+    /** Movement controls: D-pad, Swipe or Off. Installs from before this
+     *  setting keep their Enable D-pad choice. */
+    static int movementControls(Context c) {
+        int mode = getInt(c, PREF_MOVEMENT_CONTROLS, -1);
+        if (mode >= MOVEMENT_OFF && mode <= MOVEMENT_SWIPE) {
+            return mode;
+        }
+        mode = getBool(c, DPadOverlay.PREF_ENABLED, true) ? MOVEMENT_DPAD : MOVEMENT_OFF;
+        setInt(c, PREF_MOVEMENT_CONTROLS, mode);
+        return mode;
+    }
 
     static boolean getBool(Context c, String key) {
         return getBool(c, key, false);

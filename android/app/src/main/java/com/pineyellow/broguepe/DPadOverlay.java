@@ -20,6 +20,7 @@ import android.widget.LinearLayout;
  *  the rest of the screen's touch handling alone. */
 final class DPadOverlay {
 
+    // Replaced by GameSettings.PREF_MOVEMENT_CONTROLS; read once to migrate.
     static final String PREF_ENABLED = "enable_dpad";
     static final String PREF_OFFSET_X = "dpad_offset_x";
     static final String PREF_OFFSET_Y = "dpad_offset_y";

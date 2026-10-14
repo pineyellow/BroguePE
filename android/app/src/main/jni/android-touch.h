@@ -14,6 +14,14 @@
  */
 boolean androidTouchEvent(SDL_Event *event, rogueEvent *out);
 
+/*
+ * The next step of a held swipe, when one is due. Call only while the game
+ * waits for a command, never while polling to interrupt a pause, so a hold
+ * cannot cut animations short or queue steps. Returns true and fills `out`
+ * with a movement keystroke.
+ */
+boolean androidSwipeRepeatEvent(rogueEvent *out);
+
 /* Convert a window pixel to a grid cell using the same viewport as the
  * renderer (zoomed/panned dungeon, or the centered 1x UI layer). */
 void androidCellFromPixel(int px, int py, int *cx, int *cy);

@@ -13,6 +13,11 @@
  *   Two-finger pinch  → continuous camera zoom
  *   Three-plus fingers → consumed
  *
+ * With Movement set to Swipe, during a game:
+ *   Single-finger swipe → move; holding it repeats, steered like a joystick
+ *                         whose anchor trails the finger on a leash
+ *   Two fingers         → zoom or free-look pan, whichever they do first
+ *
  * A physical mouse hovers and right-clicks as on desktop, and additionally:
  *   Left click       → MOUSE_DOWN + MOUSE_UP  (on release)
  *   Left drag        → free-look camera pan
@@ -39,6 +44,16 @@
 #define MIN_PINCH_DISTANCE_PX 8.0f
 #define WHEEL_ZOOM_STEP      1.1f   /* zoom factor per mouse wheel notch */
 
+#define ANDROID_MOVEMENT_SWIPE   2     /* "movement_controls" value for Swipe */
+#define SWIPE_THRESHOLD_DP    24.0f    /* travel that turns a touch into a swipe */
+#define SWIPE_DEAD_ZONE_DP    16.0f    /* this close to the anchor, a hold pauses */
+#define SWIPE_LEASH_DP        40.0f    /* farthest the anchor trails the finger */
+#define SWIPE_HYSTERESIS_DEG   5.0f    /* past a direction's edge before turning */
+#define SWIPE_HOLD_DELAY_MS     300    /* after the first step, as on the D-pad */
+#define SWIPE_REPEAT_MS          70    /* between held steps, as on the D-pad */
+#define PINCH_DECIDE_DP       24.0f    /* two-finger spread or travel that picks
+                                          zoom or pan, in Swipe mode */
+
 /* ---- Internal state ---- */
 
 typedef enum {
@@ -46,6 +61,7 @@ typedef enum {
     TOUCH_DOWN,         /* single finger down, waiting to classify */
     TOUCH_DRAGGING,     /* one-finger free-look camera pan */
     TOUCH_INSPECTING,   /* long press engaged — emitting hover events */
+    TOUCH_SWIPING,      /* swipe to move — finger steering the player */
     TOUCH_PINCHING,     /* two-finger continuous zoom */
     TOUCH_MULTITOUCH,   /* three-plus fingers; consume until release */
 } TouchState;
@@ -61,6 +77,32 @@ static float lastPanX, lastPanY;
 static SDL_FingerID secondFinger;
 static float secondX, secondY;
 static float lastPinchDistance;
+static float pinchStartMidX, pinchStartMidY;
+
+/* In Swipe mode a two-finger gesture zooms or pans, whichever it does first,
+ * until the fingers lift. Otherwise it always zooms. */
+typedef enum {
+    PINCH_UNDECIDED,
+    PINCH_ZOOMING,
+    PINCH_PANNING,
+} PinchGesture;
+
+static PinchGesture pinchGesture = PINCH_UNDECIDED;
+
+/* Swipe to move. The anchor starts at the touch-down point. */
+static float swipeAnchorX, swipeAnchorY;
+static boolean swipeControlsEnabled = false;
+static float displayDensity = 1.0f;
+static int swipeDirection = -1;     /* index into swipeKeys; -1 in the dead zone */
+static Uint32 swipeLastStepTime;
+static boolean swipeHolding = false; /* held past the delay; repeating */
+static boolean swipeHalted = false;  /* walk stopped; nothing more until lift */
+
+/* Clockwise from right, matching atan2 with screen y pointing down. */
+static const char swipeKeys[8] = {
+    RIGHT_KEY, DOWNRIGHT_KEY, DOWN_KEY, DOWNLEFT_KEY,
+    LEFT_KEY, UPLEFT_KEY, UP_KEY, UPRIGHT_KEY,
+};
 
 /* Physical mouse: left button held, and whether it has moved far enough to
  * be a camera drag instead of a click. */
@@ -168,7 +210,26 @@ void androidSetTargetingActive(boolean active) {
     (*env)->DeleteLocalRef(env, activity);
 }
 
+/* Stops a held swipe's walk, as a monster coming into view stops a held
+ * D-pad. Nothing more happens until the finger lifts. */
+static void haltSwipe(void) {
+    endAutoMoveSession();
+    swipeHolding = false;
+    swipeHalted = true;
+}
+
+/* Ends a swipe: on lift, a second finger, or a reset. */
+static void endSwipe(void) {
+    haltSwipe();
+    swipeHalted = false;
+    swipeDirection = -1;
+}
+
 void androidResetTouchState(void) {
+    if (state == TOUCH_SWIPING) {
+        endSwipe();
+    }
+    pinchGesture = PINCH_UNDECIDED;
     state = TOUCH_IDLE;
     mouseHeld = false;
     mouseDragging = false;
@@ -181,7 +242,11 @@ void androidResetTouchState(void) {
 }
 
 void androidDiscardConsumedTouchInput(void) {
-    state = TOUCH_IDLE;
+    // A swipe whose first step closed a description keeps going, like a held
+    // D-pad below; its finger is still down and will end it on lift.
+    if (state != TOUCH_SWIPING) {
+        state = TOUCH_IDLE;
+    }
     pendingMouseUp = false;
     androidPanOverride = false;
     // A held D-pad's walk is left running. The D-pad ends it on release, and
@@ -253,6 +318,18 @@ void androidUpdateDebugFps(int fps) {
 }
 #endif
 
+static float androidGetDisplayDensity(void) {
+    JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();
+    jobject activity = (jobject)SDL_AndroidGetActivity();
+    jclass cls = (*env)->GetObjectClass(env, activity);
+    jmethodID mid = (*env)->GetMethodID(env, cls, "getDisplayDensity", "()F");
+    float density = 1.0f;
+    if (mid) density = (*env)->CallFloatMethod(env, activity, mid);
+    (*env)->DeleteLocalRef(env, cls);
+    (*env)->DeleteLocalRef(env, activity);
+    return density;
+}
+
 static boolean androidGetSettingBool(const char *key) {
     JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();
     jobject activity = (jobject)SDL_AndroidGetActivity();
@@ -299,6 +376,11 @@ void androidApplySettings(void) {
             && cameraFollowMode <= ANDROID_CAMERA_FOLLOW_INSTANT
         ? (enum androidCameraFollowModes)cameraFollowMode
         : ANDROID_CAMERA_FOLLOW_SMOOTH;
+    // Before the first launch migrates it, the setting reads as the D-pad
+    // default, which is correct here: only Swipe matters to this file.
+    swipeControlsEnabled = androidGetSettingInt("movement_controls", 1)
+        == ANDROID_MOVEMENT_SWIPE;
+    displayDensity = fmaxf(0.5f, androidGetDisplayDensity());
     int mode = androidGetSettingInt("graphics_mode", TILES_GRAPHICS);
     if (mode < TEXT_GRAPHICS || mode > HYBRID_GRAPHICS) mode = TILES_GRAPHICS;
     if (mode != (int)graphicsMode) {
@@ -820,6 +902,78 @@ static void cellFromPixel(float px, float py, int *cx, int *cy) {
     if (*cy >= ROWS) *cy = ROWS - 1;
 }
 
+/* ---- Swipe to move ---- */
+
+/* Only during play: on the title screen a direction key is a menu hotkey. */
+static boolean swipeAllowed(void) {
+    return swipeControlsEnabled && rogue.gameInProgress && !rogue.gameHasEnded
+        && !rogue.playbackMode;
+}
+
+/* The direction for a finger at (dx, dy) from the anchor, or -1 inside the
+ * dead zone. Keeps `current` until the finger is clearly in another
+ * direction's slice, so a slowly drifting thumb does not flip between
+ * neighbours. */
+static int swipeSectorFor(float dx, float dy, int current) {
+    float deadZone = SWIPE_DEAD_ZONE_DP * displayDensity;
+    if (dx * dx + dy * dy < deadZone * deadZone) {
+        return -1;
+    }
+    float angle = atan2f(dy, dx) * 57.29578f; /* degrees, -180 to 180 */
+    if (current >= 0
+            && fabsf(remainderf(angle - current * 45.0f, 360.0f))
+                <= 22.5f + SWIPE_HYSTERESIS_DEG) {
+        return current;
+    }
+    return ((int)lroundf(angle / 45.0f) + 8) % 8;
+}
+
+/* Points the swipe at the finger. The anchor trails the finger on a leash,
+ * so however far the finger has travelled, a short swipe back reverses. */
+static void steerSwipe(float px, float py) {
+    float dx = px - swipeAnchorX;
+    float dy = py - swipeAnchorY;
+    float distance = sqrtf(dx * dx + dy * dy);
+    float leash = SWIPE_LEASH_DP * displayDensity;
+    if (distance > leash) {
+        /* Pull the anchor along the same line, so the angle is unchanged. */
+        swipeAnchorX = px - dx * leash / distance;
+        swipeAnchorY = py - dy * leash / distance;
+    }
+    swipeDirection = swipeSectorFor(dx, dy, swipeDirection);
+}
+
+static void setSwipeKey(rogueEvent *out) {
+    out->eventType = KEYSTROKE;
+    out->param1 = swipeKeys[swipeDirection];
+    out->param2 = 0;
+    out->shiftKey = false;
+    out->controlKey = false;
+}
+
+boolean androidSwipeRepeatEvent(rogueEvent *out) {
+    if (state != TOUCH_SWIPING || swipeHalted) {
+        return false;
+    }
+    if (!swipeAllowed() || !SDL_AtomicGet(&autoMoveSessionActive)
+            || rogue.disturbed) {
+        haltSwipe();
+        return false;
+    }
+    if (swipeDirection < 0) {
+        return false; /* paused in the dead zone */
+    }
+    Uint32 now = SDL_GetTicks();
+    Uint32 wait = swipeHolding ? SWIPE_REPEAT_MS : SWIPE_HOLD_DELAY_MS;
+    if (now - swipeLastStepTime < wait) {
+        return false;
+    }
+    swipeHolding = true;
+    swipeLastStepTime = now;
+    setSwipeKey(out);
+    return true;
+}
+
 /* ---- Public API ---- */
 
 void androidCellFromPixel(int px, int py, int *cx, int *cy) {
@@ -934,12 +1088,19 @@ boolean androidTouchEvent(SDL_Event *event, rogueEvent *out) {
             startTime = event->tfinger.timestamp;
         } else if (event->tfinger.fingerId != primaryFinger) {
             if (state != TOUCH_PINCHING && state != TOUCH_MULTITOUCH) {
+                if (state == TOUCH_SWIPING) {
+                    /* A second finger ends the swipe and starts a pinch. */
+                    endSwipe();
+                }
                 state = TOUCH_PINCHING;
                 secondFinger = event->tfinger.fingerId;
                 secondX = px;
                 secondY = py;
                 lastPinchDistance = fmaxf(MIN_PINCH_DISTANCE_PX,
                     dist(primaryX, primaryY, secondX, secondY));
+                pinchStartMidX = (primaryX + secondX) / 2.0f;
+                pinchStartMidY = (primaryY + secondY) / 2.0f;
+                pinchGesture = PINCH_UNDECIDED;
                 androidPanOverride = true;
             } else if (state == TOUCH_PINCHING
                     && event->tfinger.fingerId != secondFinger) {
@@ -965,6 +1126,34 @@ boolean androidTouchEvent(SDL_Event *event, rogueEvent *out) {
         if (state == TOUCH_PINCHING) {
             float pinchDistance = fmaxf(MIN_PINCH_DISTANCE_PX,
                 dist(primaryX, primaryY, secondX, secondY));
+            float midX = (primaryX + secondX) / 2.0f;
+            float midY = (primaryY + secondY) / 2.0f;
+            if (swipeAllowed() && pinchGesture == PINCH_UNDECIDED) {
+                /* One finger moves the player, so two fingers zoom or pan.
+                 * Until one is picked nothing moves, and lastPinchDistance
+                 * stays at the start, so the picked one loses no travel. */
+                float threshold = PINCH_DECIDE_DP * displayDensity;
+                if (fabsf(pinchDistance - lastPinchDistance) > threshold) {
+                    pinchGesture = PINCH_ZOOMING;
+                } else if (dist(pinchStartMidX, pinchStartMidY, midX, midY)
+                        > threshold) {
+                    /* Enter free-look. */
+                    pinchGesture = PINCH_PANNING;
+                    androidCameraDetached = true;
+                    androidCameraFastRecenter = false;
+                    lastPanX = pinchStartMidX;
+                    lastPanY = pinchStartMidY;
+                } else {
+                    return false;
+                }
+            }
+            if (pinchGesture == PINCH_PANNING) {
+                androidPanX += midX - lastPanX;
+                androidPanY += midY - lastPanY;
+                lastPanX = midX;
+                lastPanY = midY;
+                return false;
+            }
             androidZoomLevel = fminf(MAX_ZOOM_LEVEL,
                 fmaxf(MIN_ZOOM_LEVEL,
                     androidZoomLevel * pinchDistance / lastPinchDistance));
@@ -992,6 +1181,23 @@ boolean androidTouchEvent(SDL_Event *event, rogueEvent *out) {
                 out->shiftKey = false;
                 out->controlKey = false;
                 return true;
+            } else if (swipeAllowed()) {
+                if (moved > SWIPE_THRESHOLD_DP * displayDensity) {
+                    /* Crossed the swipe threshold: step now, and keep
+                     * stepping while held. The threshold is beyond the dead
+                     * zone, so this always picks a direction. */
+                    state = TOUCH_SWIPING;
+                    swipeHolding = false;
+                    swipeHalted = false;
+                    swipeAnchorX = startX;
+                    swipeAnchorY = startY;
+                    swipeDirection = -1;
+                    steerSwipe(px, py);
+                    swipeLastStepTime = SDL_GetTicks();
+                    beginAutoMoveSession();
+                    setSwipeKey(out);
+                    return true;
+                }
             } else if (moved > TAP_MAX_MOVE_PX) {
                 /* Crossed the tap threshold: detach and begin free-look. */
                 state = TOUCH_DRAGGING;
@@ -1008,6 +1214,11 @@ boolean androidTouchEvent(SDL_Event *event, rogueEvent *out) {
             androidPanY += py - lastPanY;
             lastPanX = px;
             lastPanY = py;
+        } else if (state == TOUCH_SWIPING && event->tfinger.fingerId == primaryFinger) {
+            /* Steer: the next held step goes the way the finger now points. */
+            if (!swipeHalted) {
+                steerSwipe(px, py);
+            }
         } else if (state == TOUCH_INSPECTING && event->tfinger.fingerId == primaryFinger) {
             /* Drag during inspect — emit hover events */
             int cx, cy;
@@ -1054,6 +1265,12 @@ boolean androidTouchEvent(SDL_Event *event, rogueEvent *out) {
             return false;
         }
 
+        if (state == TOUCH_SWIPING && event->tfinger.fingerId == primaryFinger) {
+            endSwipe();
+            state = TOUCH_IDLE;
+            return false;
+        }
+
         if (state == TOUCH_INSPECTING && event->tfinger.fingerId == primaryFinger) {
             /* Lift after inspecting — click where we lifted */
             int cx, cy;
@@ -1072,6 +1289,7 @@ boolean androidTouchEvent(SDL_Event *event, rogueEvent *out) {
 
         if (state == TOUCH_PINCHING) {
             androidPanOverride = false;
+            pinchGesture = PINCH_UNDECIDED;
             state = TOUCH_IDLE;
             return false;
         }

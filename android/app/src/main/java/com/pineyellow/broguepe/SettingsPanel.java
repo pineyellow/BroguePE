@@ -28,6 +28,10 @@ final class SettingsPanel {
     private static final String[] GRAPHICS_MODE_LABELS = {
         "Graphics: ASCII", "Graphics: Tiles", "Graphics: Hybrid"
     };
+    // Indexed by GameSettings.MOVEMENT_OFF, MOVEMENT_DPAD and MOVEMENT_SWIPE.
+    private static final String[] MOVEMENT_CONTROLS_LABELS = {
+        "Movement: Off", "Movement: D-pad", "Movement: Swipe"
+    };
     private static final String[] CAMERA_FOLLOW_MODE_LABELS = {
         "Camera Follow Speed: Smooth",
         "Camera Follow Speed: Fast",
@@ -115,39 +119,36 @@ final class SettingsPanel {
             "Action button opacity multiplier", activity::applyActionButtonSettings, true);
 
         addSeparator(panel);
-        addSectionHeader(panel, "D-PAD");
-        // The D-pad rows live in their own group, so the toggle can show or
-        // hide them without rebuilding (and re-animating) the whole panel.
+        addSectionHeader(panel, "MOVEMENT");
+        // The D-pad rows live in their own group, so the Movement choice can
+        // show or hide them without rebuilding (and re-animating) the panel.
+        // They keep their "D-pad" prefix, since the section covers Swipe too.
         LinearLayout dpadGroup = new LinearLayout(activity);
         dpadGroup.setOrientation(LinearLayout.VERTICAL);
-        addAppToggle(panel, "Enable D-pad", DPadOverlay.PREF_ENABLED, true,
-            enabled -> {
-                activity.setDpadEnabled(enabled);
-                dpadGroup.setVisibility(enabled ? View.VISIBLE : View.GONE);
-            });
-        addStepperSetting(dpadGroup, "X Offset", DPadOverlay.PREF_OFFSET_X,
+        addMovementControlsCycler(panel, dpadGroup);
+        addStepperSetting(dpadGroup, "D-pad X Offset", DPadOverlay.PREF_OFFSET_X,
             0f, null, null, 1f,
             "D-pad X position offset in dp\n(- goes left, + goes right)",
             activity::applyDpadSettings, true);
-        addStepperSetting(dpadGroup, "Y Offset", DPadOverlay.PREF_OFFSET_Y,
+        addStepperSetting(dpadGroup, "D-pad Y Offset", DPadOverlay.PREF_OFFSET_Y,
             0f, null, null, 1f,
             "D-pad Y position offset in dp\n(- goes down, + goes up)",
             activity::applyDpadSettings, true);
-        addStepperSetting(dpadGroup, "Size", DPadOverlay.PREF_SIZE,
+        addStepperSetting(dpadGroup, "D-pad Size", DPadOverlay.PREF_SIZE,
             DPadOverlay.DEFAULT_SIZE, DPadOverlay.MIN_SIZE, DPadOverlay.MAX_SIZE, 0.05f,
             "D-pad overall size multiplier", activity::applyDpadSettings, true);
-        addStepperSetting(dpadGroup, "Button Width", DPadOverlay.PREF_BUTTON_WIDTH,
+        addStepperSetting(dpadGroup, "D-pad Button Width", DPadOverlay.PREF_BUTTON_WIDTH,
             DPadOverlay.DEFAULT_BUTTON_WIDTH,
             DPadOverlay.MIN_BUTTON_WIDTH, DPadOverlay.MAX_BUTTON_WIDTH, 0.05f,
             "D-pad button width multiplier\n(1 = square buttons)",
             activity::applyDpadSettings, true);
-        addStepperSetting(dpadGroup, "Opacity", DPadOverlay.PREF_OPACITY,
+        addStepperSetting(dpadGroup, "D-pad Opacity", DPadOverlay.PREF_OPACITY,
             DPadOverlay.DEFAULT_OPACITY,
             DPadOverlay.MIN_OPACITY, DPadOverlay.MAX_OPACITY, 0.05f,
             "D-pad opacity multiplier\n(0 = invisible but still works)",
             activity::applyDpadSettings, true);
         dpadGroup.setVisibility(
-            GameSettings.getBool(activity, DPadOverlay.PREF_ENABLED, true)
+            GameSettings.movementControls(activity) == GameSettings.MOVEMENT_DPAD
                 ? View.VISIBLE : View.GONE);
         panel.addView(dpadGroup, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
@@ -495,6 +496,26 @@ final class SettingsPanel {
             currentMode[0] = (currentMode[0] + 1) % GRAPHICS_MODE_LABELS.length;
             GameSettings.setInt(activity, GameSettings.PREF_GRAPHICS_MODE, currentMode[0]);
             labelView.setText(GRAPHICS_MODE_LABELS[currentMode[0]]);
+            activity.nativeApplyGameSettings();
+        });
+    }
+
+    /** Cycles D-pad → Swipe → Off. Swipe is handled in C, which re-reads the
+     *  setting through nativeApplyGameSettings. */
+    private void addMovementControlsCycler(LinearLayout panel, View dpadGroup) {
+        int mode = GameSettings.movementControls(activity);
+
+        LinearLayout row = addRow(panel, MOVEMENT_CONTROLS_LABELS[mode]);
+        TextView labelView = (TextView) row.getChildAt(0);
+
+        final int[] currentMode = {mode};
+        row.setOnClickListener(v -> {
+            currentMode[0] = (currentMode[0] + 1) % MOVEMENT_CONTROLS_LABELS.length;
+            GameSettings.setInt(activity, GameSettings.PREF_MOVEMENT_CONTROLS, currentMode[0]);
+            labelView.setText(MOVEMENT_CONTROLS_LABELS[currentMode[0]]);
+            boolean dpad = currentMode[0] == GameSettings.MOVEMENT_DPAD;
+            activity.setDpadEnabled(dpad);
+            dpadGroup.setVisibility(dpad ? View.VISIBLE : View.GONE);
             activity.nativeApplyGameSettings();
         });
     }

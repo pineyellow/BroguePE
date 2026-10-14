@@ -157,7 +157,7 @@ public class BrogueActivity extends SDLActivity {
                 applyDpadSettings();
             }
         });
-        setDpadEnabled(GameSettings.getBool(this, DPadOverlay.PREF_ENABLED, true));
+        setDpadEnabled(GameSettings.movementControls(this) == GameSettings.MOVEMENT_DPAD);
 
         resumeInputBlocker = new View(this);
         resumeInputBlocker.setBackgroundColor(Color.TRANSPARENT);
@@ -375,6 +375,11 @@ public class BrogueActivity extends SDLActivity {
     /** Called from native code to pace frames it does not draw. */
     public float getDisplayRefreshRate() {
         return getWindowManager().getDefaultDisplay().getRefreshRate();
+    }
+
+    /** Called from native code to size swipe gestures in dp. */
+    public float getDisplayDensity() {
+        return getResources().getDisplayMetrics().density;
     }
 
     private void addDebugFpsOverlay() {

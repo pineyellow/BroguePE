@@ -519,6 +519,7 @@ static void _nextKeyOrMouseEvent(rogueEvent *returnEvent, boolean textInput, boo
         updateScreen();
 
         if (pollBrogueEvent(returnEvent, textInput)) break;
+        if (!textInput && androidSwipeRepeatEvent(returnEvent)) break;
 
         _delayUpTo(PAUSE_BETWEEN_EVENT_POLLING);
     }
