@@ -226,7 +226,8 @@ final class PlayerStats {
      *  removing any prior occurrence so each seed appears once, then truncates
      *  to the cap. */
     PlayerStats withSeedPlayed(long seed, int variant, int difficulty) {
-        if (seed <= 0) return this;
+        // Seeds are unsigned 64-bit, so a negative long is a large valid seed.
+        if (seed == 0) return this;
         List<RecentSeed> next = new ArrayList<>(recentSeeds.size() + 1);
         next.add(new RecentSeed(seed, variant, difficulty));
         for (RecentSeed existing : recentSeeds) {
@@ -359,7 +360,7 @@ final class PlayerStats {
             JSONObject entry = arr.optJSONObject(i);
             if (entry != null) {
                 long seed = entry.optLong("seed", 0L);
-                if (seed > 0) {
+                if (seed != 0) {
                     out.add(new RecentSeed(seed,
                         entry.optInt("variant", StartMenu.VARIANT_BROGUE),
                         entry.optInt("difficulty", StartMenu.DIFFICULTY_DEFAULT)));
@@ -368,7 +369,7 @@ final class PlayerStats {
                 // Legacy stats stored bare seed numbers and predate variant
                 // metadata, so replay them as standard Brogue.
                 long seed = arr.optLong(i, 0L);
-                if (seed > 0) {
+                if (seed != 0) {
                     out.add(new RecentSeed(seed, StartMenu.VARIANT_BROGUE,
                         StartMenu.DIFFICULTY_DEFAULT));
                 }

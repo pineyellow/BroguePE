@@ -222,6 +222,22 @@ public class PlayerStatsArchiveTest {
         assertEquals(0, backgroundSave.deadliestDepth());
     }
 
+    @Test
+    public void seedsAboveSignedLongRangeSurviveRoundTrip() throws Exception {
+        long largest = Long.parseUnsignedLong("18446744073709551615");
+        PlayerStatsArchive archive = PlayerStatsArchive.empty()
+            .withSeedPlayed(largest, StartMenu.VARIANT_BROGUE,
+                StartMenu.DIFFICULTY_DEFAULT);
+
+        PlayerStatsArchive restored = PlayerStatsArchive.fromJson(
+            new JSONObject(archive.toJson().toString()));
+        PlayerStats classic = restored.bucket(
+            StartMenu.VARIANT_BROGUE, StartMenu.DIFFICULTY_DEFAULT);
+        assertEquals(1, classic.recentSeeds.size());
+        assertEquals("18446744073709551615",
+            Long.toUnsignedString(classic.recentSeeds.get(0).seed));
+    }
+
     private static int countSeed(PlayerStats stats, long seed) {
         int count = 0;
         for (PlayerStats.RecentSeed recent : stats.recentSeeds) {

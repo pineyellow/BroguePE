@@ -300,7 +300,7 @@ final class PlayerStatsModal {
         if (recent.difficulty == StartMenu.DIFFICULTY_EASY) {
             mode += "/easy";
         }
-        row.setText(recent.seed + " (" + mode + ")");
+        row.setText(Long.toUnsignedString(recent.seed) + " (" + mode + ")");
         row.setTextColor(Palette.GHOST_WHITE);
         row.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
         row.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);

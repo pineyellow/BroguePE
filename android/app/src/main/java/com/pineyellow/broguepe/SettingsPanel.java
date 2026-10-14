@@ -132,12 +132,13 @@ final class SettingsPanel {
 
         addSeparator(panel);
 
-        // Shows the seed itself; tapping copies it.
-        final long seed = activity.nativeGetSeed();
+        // Shows the seed itself; tapping copies it. Seeds are unsigned 64-bit,
+        // so larger ones come back from native code as negative longs.
+        final String seed = Long.toUnsignedString(activity.nativeGetSeed());
         addAction(activity, panel, "Seed: " + seed, v -> {
             ClipboardManager clipboard =
                 (ClipboardManager) activity.getSystemService(android.content.Context.CLIPBOARD_SERVICE);
-            clipboard.setPrimaryClip(ClipData.newPlainText("Brogue Seed", String.valueOf(seed)));
+            clipboard.setPrimaryClip(ClipData.newPlainText("Brogue Seed", seed));
             // Android 13 and newer show their own confirmation when something is copied.
             if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) {
                 Toast.makeText(activity,

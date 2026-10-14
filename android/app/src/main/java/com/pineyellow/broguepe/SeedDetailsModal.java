@@ -25,7 +25,8 @@ class SeedDetailsModal {
 
     protected int getContentTopGapDp() { return 12; }
 
-    protected String getHeaderLabel() { return String.valueOf(seed); }
+    // Seeds are unsigned 64-bit; larger ones are held as negative longs.
+    protected String getHeaderLabel() { return Long.toUnsignedString(seed); }
 
     protected void onSeedViewBuilt(TextView seedView) {}
 
@@ -72,7 +73,7 @@ class SeedDetailsModal {
 
     private void launchRun() {
         onBeforeLaunch();
-        if (seed <= 0) return;
+        if (seed == 0) return;
         activity.modalStack.clear();
         activity.startMenu.dismiss();
         activity.nativeDeleteSaveFile();

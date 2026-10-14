@@ -28,10 +28,11 @@ import java.util.Random;
  *  (or the seed itself) to override via the soft keyboard. */
 final class NewGameSeedModal extends SeedDetailsModal {
 
-    // Java signed-long range caps user-entered seeds at 19 digits. Brogue C
-    // accepts 20 (uint64_t) but we can't
-    // round-trip those through Long.parseLong without overflow.
-    private static final int MAX_SEED_DIGITS = 19;
+    // Seeds are unsigned 64-bit, as in Brogue CE. Java has no unsigned long, so
+    // seeds above Long.MAX_VALUE are held as negative longs with the same bits
+    // and must be parsed and shown with the Long *Unsigned* methods.
+    private static final int MAX_SEED_DIGITS = 20;
+    private static final long MAX_SEED = -1L; // 18446744073709551615 unsigned
     // Client-picked random seeds match the shape of Brogue's clock-based
     // seeds: `(uint64_t) time(NULL) - 1352700000` at Math.c:186 produces
     // ~9-digit values at the current date range. A 9-digit random keeps
@@ -128,7 +129,7 @@ final class NewGameSeedModal extends SeedDetailsModal {
             return false;
         });
 
-        seedEdit.setText(String.valueOf(seed));
+        seedEdit.setText(Long.toUnsignedString(seed));
     }
 
     @Override
@@ -307,7 +308,7 @@ final class NewGameSeedModal extends SeedDetailsModal {
     }
 
     private void focusEditor() {
-        seedEdit.setText(String.valueOf(seed));
+        seedEdit.setText(Long.toUnsignedString(seed));
         seedEdit.requestFocus();
         seedEdit.setCursorVisible(true);
         seedEdit.selectAll();
@@ -315,22 +316,25 @@ final class NewGameSeedModal extends SeedDetailsModal {
         if (imm != null) imm.showSoftInput(seedEdit, 0);
     }
 
-    /** Empty input becomes seed 1. Invalid, overflowing, or non-positive input
-     *  retains the prior seed. The display is rewritten from {@code seed} so
-     *  it matches what's committed. Called by IME dismissal, Done, and Play. */
+    /** Empty input becomes seed 1, and a number too large becomes the largest
+     *  seed, as in Brogue CE. Invalid input or 0 retains the prior seed. The
+     *  display is rewritten from {@code seed} so it matches what's committed.
+     *  Called by IME dismissal, Done, and Play. */
     private void commitEdit() {
         if (seedEdit == null || seedEdit.getWindowToken() == null) return;
 
         String trimmed = seedEdit.getText().toString().trim();
         long parsed = trimmed.isEmpty() ? 1L : 0L;
         if (!trimmed.isEmpty()) {
-            try { parsed = Long.parseLong(trimmed); }
-            catch (NumberFormatException ignored) { /* parsed stays 0 */ }
+            try { parsed = Long.parseUnsignedLong(trimmed); }
+            catch (NumberFormatException ignored) {
+                if (trimmed.matches("[0-9]+")) parsed = MAX_SEED;
+            }
         }
-        if (parsed > 0L && parsed != seed) {
+        if (parsed != 0L && parsed != seed) {
             seed = parsed;
         }
-        seedEdit.setText(String.valueOf(seed));
+        seedEdit.setText(Long.toUnsignedString(seed));
 
         InputMethodManager imm = (InputMethodManager) activity.getSystemService(Context.INPUT_METHOD_SERVICE);
         if (imm != null) imm.hideSoftInputFromWindow(seedEdit.getWindowToken(), 0);
@@ -344,6 +348,7 @@ final class NewGameSeedModal extends SeedDetailsModal {
      *  the current date range. See RANDOM_SEED_MIN/MAX for rationale. */
     private long pickRandomSeed() {
         long span = RANDOM_SEED_MAX - RANDOM_SEED_MIN + 1;
-        return RANDOM_SEED_MIN + (Math.abs(random.nextLong()) % span);
+        // floorMod, unlike Math.abs, is never negative, even for Long.MIN_VALUE.
+        return RANDOM_SEED_MIN + Math.floorMod(random.nextLong(), span);
     }
 }
