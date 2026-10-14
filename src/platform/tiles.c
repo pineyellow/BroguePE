@@ -42,8 +42,8 @@ static boolean victoryScreenActive = false;
 // Measured in character cells: negative moves left, positive moves right.
 static float androidMessageTextXOffsetCells = 0.0f;
 
-// Visual-only horizontal position of the left sidebar. Positive moves right.
-// Sidebar touch coordinates intentionally do not follow this offset.
+// Horizontal position of the left sidebar. Positive moves right. Touches on
+// sidebar entries follow it through sidebarOffsetPixels().
 static float androidSidebarXOffsetCells = 2.0f;
 
 static Uint64 cameraLastUpdateCounter = 0;
@@ -130,7 +130,7 @@ static void recordDebugPresentedFrame(void) {
 }
 #endif
 
-static int sidebarOffsetPixels(int rowCenterY, float cellWidth) {
+int sidebarOffsetPixels(int rowCenterY, float cellWidth) {
     int offset = (int)roundf(androidSidebarXOffsetCells * cellWidth);
     int radius = androidTopLeftCornerRadiusPx;
     int centerX = androidTopLeftCornerCenterXPx;

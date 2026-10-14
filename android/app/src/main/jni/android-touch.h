@@ -23,8 +23,13 @@ boolean androidTouchEvent(SDL_Event *event, rogueEvent *out);
 boolean androidSwipeRepeatEvent(rogueEvent *out);
 
 /* Convert a window pixel to a grid cell using the same viewport as the
- * renderer (zoomed/panned dungeon, or the centered 1x UI layer). */
+ * renderer (zoomed/panned dungeon, sidebar entries when they take taps, or
+ * the centered 1x UI layer). */
 void androidCellFromPixel(int px, int py, int *cx, int *cy);
+
+/* Whether sidebar entries can be tapped. Off in D-pad mode, where the D-pad
+ * covers the sidebar and taps there reach the dungeon behind it. */
+boolean androidSidebarTouchEnabled(void);
 
 /* Physical mouse, left button. A click is delivered on release: returns true
  * and fills `out` (its MOUSE_UP is queued like a tap's). Releasing after a

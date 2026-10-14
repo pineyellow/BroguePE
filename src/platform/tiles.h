@@ -27,4 +27,8 @@ void resetCameraFrameClock(void);
 void calculateDungeonViewport(int screenWidth, int screenHeight, float zoom,
     float *panX, float *panY, SDL_Rect *viewport);
 
+// How far right the sidebar row centred at rowCenterY is drawn, in pixels:
+// the fixed offset, or more to clear a rounded top-left screen corner.
+int sidebarOffsetPixels(int rowCenterY, float cellWidth);
+
 #endif

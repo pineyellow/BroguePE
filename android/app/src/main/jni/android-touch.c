@@ -44,6 +44,7 @@
 #define MIN_PINCH_DISTANCE_PX 8.0f
 #define WHEEL_ZOOM_STEP      1.1f   /* zoom factor per mouse wheel notch */
 
+#define ANDROID_MOVEMENT_DPAD    1     /* "movement_controls" value for D-pad */
 #define ANDROID_MOVEMENT_SWIPE   2     /* "movement_controls" value for Swipe */
 #define SWIPE_THRESHOLD_DP    24.0f    /* travel that turns a touch into a swipe */
 #define SWIPE_DEAD_ZONE_DP    16.0f    /* this close to the anchor, a hold pauses */
@@ -92,6 +93,8 @@ static PinchGesture pinchGesture = PINCH_UNDECIDED;
 /* Swipe to move. The anchor starts at the touch-down point. */
 static float swipeAnchorX, swipeAnchorY;
 static boolean swipeControlsEnabled = false;
+/* The D-pad covers the sidebar, so its entries take taps only without it. */
+static boolean sidebarTouchEnabled = false;
 static float displayDensity = 1.0f;
 static int swipeDirection = -1;     /* index into swipeKeys; -1 in the dead zone */
 static Uint32 swipeLastStepTime;
@@ -377,9 +380,11 @@ void androidApplySettings(void) {
         ? (enum androidCameraFollowModes)cameraFollowMode
         : ANDROID_CAMERA_FOLLOW_SMOOTH;
     // Before the first launch migrates it, the setting reads as the D-pad
-    // default, which is correct here: only Swipe matters to this file.
-    swipeControlsEnabled = androidGetSettingInt("movement_controls", 1)
-        == ANDROID_MOVEMENT_SWIPE;
+    // default, which matches the old "enable_dpad" default.
+    int movementControls = androidGetSettingInt("movement_controls",
+        ANDROID_MOVEMENT_DPAD);
+    swipeControlsEnabled = movementControls == ANDROID_MOVEMENT_SWIPE;
+    sidebarTouchEnabled = movementControls != ANDROID_MOVEMENT_DPAD;
     displayDensity = fmaxf(0.5f, androidGetDisplayDensity());
     int mode = androidGetSettingInt("graphics_mode", TILES_GRAPHICS);
     if (mode < TEXT_GRAPHICS || mode > HYBRID_GRAPHICS) mode = TILES_GRAPHICS;
@@ -859,6 +864,30 @@ static float dist(float x1, float y1, float x2, float y2) {
     return sqrtf(dx * dx + dy * dy);
 }
 
+/* The sidebar is drawn at 1x against the left edge, over the zoomed dungeon
+ * (see tiles.c). A touch on a row that lists something gets that sidebar
+ * cell; anywhere else falls through to the dungeon drawn behind it. */
+static boolean sidebarCellFromPixel(float px, float py, int fitW, int fitH,
+                                    int *cx, int *cy) {
+    extern int windowHeight;
+
+    int baseY = (windowHeight - fitH) / 2;
+    if (py < baseY) return false;
+    int row = (int)((py - baseY) * ROWS / fitH);
+    if (row >= ROWS - 1 || !isPosInMap(rogue.sidebarLocationList[row])) {
+        return false;
+    }
+    int rowTop = baseY + row * fitH / ROWS;
+    int rowHeight = (row + 1) * fitH / ROWS - row * fitH / ROWS;
+    float cellWidth = (float)fitW / COLS;
+    int offset = sidebarOffsetPixels(rowTop + rowHeight / 2, cellWidth);
+    int column = (int)floorf((px - offset) / cellWidth);
+    if (column >= STAT_BAR_WIDTH) return false;
+    *cx = column < 0 ? 0 : column;  /* the margin left of it counts too */
+    *cy = row;
+    return true;
+}
+
 static void cellFromPixel(float px, float py, int *cx, int *cy) {
     extern int windowWidth, windowHeight;
 
@@ -881,6 +910,10 @@ static void cellFromPixel(float px, float py, int *cx, int *cy) {
         ofsX = (windowWidth - w) / 2;
         ofsY = (windowHeight - h) / 2;
     } else {
+        if (sidebarTouchEnabled
+                && sidebarCellFromPixel(px, py, fitW, fitH, cx, cy)) {
+            return;
+        }
         // Dungeon layer: zoomed + panned
         zoom = androidZoomLevel;
         float panX = androidPanX;
@@ -975,6 +1008,10 @@ boolean androidSwipeRepeatEvent(rogueEvent *out) {
 }
 
 /* ---- Public API ---- */
+
+boolean androidSidebarTouchEnabled(void) {
+    return sidebarTouchEnabled;
+}
 
 void androidCellFromPixel(int px, int py, int *cx, int *cy) {
     cellFromPixel((float)px, (float)py, cx, cy);

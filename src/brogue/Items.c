@@ -5728,7 +5728,7 @@ boolean moveCursor(boolean *targetConfirmed,
 
         if (theEvent.eventType == MOUSE_UP || theEvent.eventType == MOUSE_ENTERED_CELL) {
 #ifdef BROGUE_ANDROID
-            const boolean sidebarTouchEnabled = false;
+            const boolean sidebarTouchEnabled = androidSidebarTouchEnabled();
 #else
             const boolean sidebarTouchEnabled = true;
 #endif
@@ -5740,13 +5740,22 @@ boolean moveCursor(boolean *targetConfirmed,
                 && isPosInMap(rogue.sidebarLocationList[theEvent.param2])) {
 
                 // If the cursor is on an entity in the sidebar.
-                rogue.cursorLoc = rogue.sidebarLocationList[theEvent.param2];
-                sidebarHighlighted = true;
-                cursorMovementCommand = true;
-                refreshSideBar(rogue.cursorLoc.x, rogue.cursorLoc.y, false);
+                const pos entityLoc = rogue.sidebarLocationList[theEvent.param2];
+#ifdef BROGUE_ANDROID
+                // A finger cannot hover, so the first tap highlights the entry and a second
+                // tap on it confirms, as on the map.
+                if (theEvent.eventType == MOUSE_UP && posEq(rogue.cursorLoc, entityLoc)) {
+                    *targetConfirmed = true;
+                }
+#else
                 if (theEvent.eventType == MOUSE_UP) {
                     *targetConfirmed = true;
                 }
+#endif
+                rogue.cursorLoc = entityLoc;
+                sidebarHighlighted = true;
+                cursorMovementCommand = true;
+                refreshSideBar(rogue.cursorLoc.x, rogue.cursorLoc.y, false);
             } else if (coordinatesAreInMap(windowToMapX(theEvent.param1), windowToMapY(theEvent.param2))
                        || targetCanLeaveMap && theEvent.eventType != MOUSE_UP) {
 
