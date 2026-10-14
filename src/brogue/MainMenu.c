@@ -231,8 +231,15 @@ void deathFlameLoop(void) {
     while (!androidIsDeathScreenDismissed()) {
         updateTitleFlames(flameColors, flameColorSources, flameState);
         drawTitleFlames(flameState, flameMask);
-        updateScreen();
-        SDL_Delay(MENU_FLAME_UPDATE_DELAY);
+        // Pausing draws the frame and also handles Android leaving and
+        // returning, without which the flames are drawn to a destroyed surface
+        // and the screen stays black. The death panel takes all taps, so
+        // anything reaching the game here is dropped.
+        if (pauseForMilliseconds(MENU_FLAME_UPDATE_DELAY,
+                (PauseBehavior){.interuptForMouseMove = true})) {
+            rogueEvent ignored;
+            nextKeyOrMouseEvent(&ignored, false, false);
+        }
     }
 }
 
