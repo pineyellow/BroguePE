@@ -25,6 +25,7 @@ final class DPadOverlay {
     static final String PREF_OFFSET_Y = "dpad_offset_y";
     static final String PREF_SIZE = "dpad_size";
     static final String PREF_BUTTON_WIDTH = "dpad_button_width";
+    static final String PREF_OPACITY = "dpad_opacity";
 
     static final float DEFAULT_SIZE = 1f;
     static final float DEFAULT_BUTTON_WIDTH = 1f;
@@ -32,6 +33,11 @@ final class DPadOverlay {
     static final float MAX_SIZE = 2.0f;
     static final float MIN_BUTTON_WIDTH = 0.5f;
     static final float MAX_BUTTON_WIDTH = 2.0f;
+    // Multiplies the whole D-pad, so borders and glyphs keep their ratio.
+    // At 0 it is invisible but still takes touches.
+    static final float DEFAULT_OPACITY = 1f;
+    static final float MIN_OPACITY = 0f;
+    static final float MAX_OPACITY = 1f;
     static final int SIZE_DP = 185;
     static final int MARGIN_DP = 12;
     static final float DEAD_ZONE_BASE_DP = 12.5f;

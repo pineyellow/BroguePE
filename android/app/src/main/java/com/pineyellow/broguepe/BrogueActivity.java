@@ -672,6 +672,17 @@ public class BrogueActivity extends SDLActivity {
 
     void applyDpadSettings() {
         if (dpadView == null || gameOverlay == null) return;
+
+        // Opacity needs no layout bounds, so apply it before the early return.
+        float savedOpacity = GameSettings.getFloat(
+            this, DPadOverlay.PREF_OPACITY, DPadOverlay.DEFAULT_OPACITY);
+        float opacity = boundedOrDefault(savedOpacity, DPadOverlay.DEFAULT_OPACITY,
+            DPadOverlay.MIN_OPACITY, DPadOverlay.MAX_OPACITY);
+        if (savedOpacity != opacity) {
+            GameSettings.setFloat(this, DPadOverlay.PREF_OPACITY, opacity);
+        }
+        dpadView.setAlpha(opacity);
+
         if (gameOverlay.getVisibility() != View.VISIBLE
                 || gameOverlay.getWidth() == 0 || gameOverlay.getHeight() == 0) {
             return;

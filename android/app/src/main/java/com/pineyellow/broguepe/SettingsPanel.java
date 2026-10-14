@@ -125,6 +125,11 @@ final class SettingsPanel {
                 DPadOverlay.MIN_BUTTON_WIDTH, DPadOverlay.MAX_BUTTON_WIDTH, 0.05f,
                 "D-pad button width multiplier\n(1 = square buttons)",
                 activity::applyDpadSettings, true);
+            addStepperSetting(panel, "D-pad Opacity", DPadOverlay.PREF_OPACITY,
+                DPadOverlay.DEFAULT_OPACITY,
+                DPadOverlay.MIN_OPACITY, DPadOverlay.MAX_OPACITY, 0.05f,
+                "D-pad opacity multiplier\n(0 = invisible but still works)",
+                activity::applyDpadSettings, true);
         }
         addGraphicsModeCycler(panel);
         addAppToggle(panel, "Show Call Button", GameSettings.PREF_SHOW_CALL_BUTTON,
