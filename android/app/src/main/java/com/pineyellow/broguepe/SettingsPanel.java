@@ -30,7 +30,7 @@ final class SettingsPanel {
     };
     // Indexed by GameSettings.MOVEMENT_OFF, MOVEMENT_DPAD and MOVEMENT_SWIPE.
     private static final String[] MOVEMENT_CONTROLS_LABELS = {
-        "Movement: Off", "Movement: D-pad", "Movement: Swipe"
+        "Movement: Tap Only", "Movement: D-pad", "Movement: Swipe"
     };
     private static final String[] CAMERA_FOLLOW_MODE_LABELS = {
         "Camera Follow Speed: Smooth",
@@ -119,7 +119,7 @@ final class SettingsPanel {
             "Action button opacity multiplier", activity::applyActionButtonSettings, true);
 
         addSeparator(panel);
-        addSectionHeader(panel, "MOVEMENT");
+        addSectionHeader(panel, "CONTROLS");
         // The D-pad rows live in their own group, so the Movement choice can
         // show or hide them without rebuilding (and re-animating) the panel.
         // They keep their "D-pad" prefix, since the section covers Swipe too.
@@ -147,7 +147,7 @@ final class SettingsPanel {
             DPadOverlay.MIN_OPACITY, DPadOverlay.MAX_OPACITY, 0.05f,
             "D-pad opacity multiplier\n(0 = invisible but still works)",
             activity::applyDpadSettings, true);
-        addGameToggle(dpadGroup, "Sidebar Taps", DPadOverlay.PREF_SIDEBAR_TAPS);
+        addGameToggle(dpadGroup, "Interactive Sidebar", DPadOverlay.PREF_SIDEBAR_TAPS);
         dpadGroup.setVisibility(
             GameSettings.movementControls(activity) == GameSettings.MOVEMENT_DPAD
                 ? View.VISIBLE : View.GONE);

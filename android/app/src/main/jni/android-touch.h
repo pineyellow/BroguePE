@@ -28,7 +28,8 @@ boolean androidSwipeRepeatEvent(rogueEvent *out);
 void androidCellFromPixel(int px, int py, int *cx, int *cy);
 
 /* Whether sidebar entries can be tapped. In D-pad mode only with the
- * "Sidebar Taps" setting; otherwise taps there reach the dungeon behind. */
+ * "Interactive Sidebar" setting; otherwise taps there reach the dungeon
+ * behind. */
 boolean androidSidebarTouchEnabled(void);
 
 /* Physical mouse, left button. A click is delivered on release: returns true
