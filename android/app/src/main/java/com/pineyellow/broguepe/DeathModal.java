@@ -267,10 +267,13 @@ final class DeathModal {
         }
 
         LinearLayout panel = ModalChrome.makePanel(activity);
-        panel.addView(ModalChrome.makeTitle(
-            activity, activity.getString(R.string.death_title)));
-        panel.addView(ModalChrome.makeDimSeparator(activity),
-                      ModalChrome.separatorParams(activity, 8, 8, 0, 12));
+        // Tighter header than the other modals so the columns get more room.
+        panel.setPadding(panel.getPaddingLeft(), activity.dpToPx(12),
+                         panel.getPaddingRight(), panel.getPaddingBottom());
+        TextView title = ModalChrome.makeTitle(
+            activity, activity.getString(R.string.death_title));
+        title.setPadding(0, 0, 0, activity.dpToPx(8));
+        panel.addView(title);
 
         LinearLayout columns = new LinearLayout(activity);
         columns.setOrientation(LinearLayout.HORIZONTAL);
@@ -438,27 +441,24 @@ final class DeathModal {
         LinearLayout row = new LinearLayout(activity);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        // Every row gets the same inset so names line up whether or not
-        // the row has the equipped background.
-        row.setPadding(activity.dpToPx(6), activity.dpToPx(2),
+        row.setPadding(activity.dpToPx(2), activity.dpToPx(2),
                        activity.dpToPx(6), activity.dpToPx(2));
         row.setContentDescription(name);
 
-        if (item.optBoolean("equipped", false)) {
-            // Same fill as an equipped row in the inventory panel.
-            GradientDrawable bg = new GradientDrawable();
-            bg.setShape(GradientDrawable.RECTANGLE);
-            bg.setCornerRadius(activity.dpToPx(5));
-            bg.setColor(Palette.EQUIPPED_GLOW);
-            row.setBackground(bg);
-            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.MATCH_PARENT,
-                LinearLayout.LayoutParams.WRAP_CONTENT);
-            params.setMargins(0, activity.dpToPx(1), 0, activity.dpToPx(1));
-            row.setLayoutParams(params);
-        }
+        // Same fills as the rows in the inventory panel.
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.RECTANGLE);
+        bg.setCornerRadius(activity.dpToPx(5));
+        bg.setColor(item.optBoolean("equipped", false)
+            ? Palette.EQUIPPED_GLOW : Palette.ITEM_BG);
+        row.setBackground(bg);
+        LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT);
+        params.setMargins(0, activity.dpToPx(1), 0, activity.dpToPx(2));
+        row.setLayoutParams(params);
 
-        InventoryOverlay.addItemIcon(activity, row, item, true, 18, 22);
+        InventoryOverlay.addItemIcon(activity, row, item, true, 22, 25);
         InventoryOverlay.addMagicIndicator(activity, row, item.optInt("magicPolarity", 0));
 
         TextView nameView = new TextView(activity);
@@ -466,7 +466,7 @@ final class DeathModal {
         nameView.setTextColor(Palette.GHOST_WHITE);
         nameView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         nameView.setTypeface(Typeface.MONOSPACE);
-        nameView.setPadding(activity.dpToPx(6), 0, 0, 0);
+        nameView.setPadding(activity.dpToPx(2), 0, 0, 0);
         row.addView(nameView, new LinearLayout.LayoutParams(
             0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
         return row;
