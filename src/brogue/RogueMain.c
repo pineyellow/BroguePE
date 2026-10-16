@@ -1063,7 +1063,8 @@ void freeEverything() {
 }
 
 void gameOver(char *killedBy, boolean useCustomPhrasing) {
-    char buf[200], highScoreText[200], buf2[200];
+    char highScoreText[200], cause[200] = "";
+    unsigned long collectedGold = rogue.gold;
     rogueHighScoresEntry theEntry;
     boolean playback;
     char recordingFilename[BROGUE_FILENAME_MAX] = {0};
@@ -1095,13 +1096,11 @@ void gameOver(char *killedBy, boolean useCustomPhrasing) {
         rogue.highScoreSaved = true;
 
         if (useCustomPhrasing) {
-            sprintf(buf, "%s on depth %i", killedBy, rogue.depthLevel);
+            sprintf(cause, "%s", killedBy);
         } else {
-            sprintf(buf, "Killed by a%s %s on depth %i", (isVowelish(killedBy) ? "n" : ""), killedBy,
-                    rogue.depthLevel);
+            sprintf(cause, "Killed by a%s %s", (isVowelish(killedBy) ? "n" : ""), killedBy);
         }
-
-        const unsigned long collectedGold = rogue.gold;
+        sprintf(highScoreText, "%s on depth %i.", cause, rogue.depthLevel);
 
         // Count gems as 500 gold each
         short numGems = numberOfMatchingPackItems(GEM, 0, 0, false);
@@ -1111,16 +1110,6 @@ void gameOver(char *killedBy, boolean useCustomPhrasing) {
         if (rogue.mode == GAME_MODE_EASY) {
             theEntry.score /= 10;
         }
-        strcpy(highScoreText, buf);
-        if (theEntry.score > 0) {
-            sprintf(buf2, (numGems > 0) ? " with treasure worth %li gold" : " with %li gold", theEntry.score);
-            strcat(buf, buf2);
-        }
-        if (numberOfMatchingPackItems(AMULET, 0, 0, false) > 0) {
-            strcat(buf, ", amulet in hand");
-        }
-        strcat(buf, ".");
-        strcat(highScoreText, ".");
 
         strcpy(theEntry.description, highScoreText);
 
@@ -1190,7 +1179,9 @@ void gameOver(char *killedBy, boolean useCustomPhrasing) {
     }
 
     if (!rogue.quit) {
-        androidShowDeathScreen(buf, (int)rogue.playerTurnNumber);
+        char *deathJson = deathScreenJson(cause, collectedGold, theEntry.score);
+        androidShowDeathScreen(deathJson ? deathJson : "{}");
+        free(deathJson);
         deathFlameLoop();
         blackOutScreen();
     }

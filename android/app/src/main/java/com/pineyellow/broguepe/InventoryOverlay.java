@@ -411,8 +411,8 @@ final class InventoryOverlay {
             });
         }
 
-        addItemIcon(headerRow, item, selectable);
-        addMagicIndicator(headerRow, magicPolarity);
+        addItemIcon(activity, headerRow, item, selectable);
+        addMagicIndicator(activity, headerRow, magicPolarity);
 
         TextView nameView = new TextView(activity);
         nameView.setText(displayName);
@@ -643,9 +643,15 @@ final class InventoryOverlay {
         return btn;
     }
 
-    private void addItemIcon(LinearLayout row, JSONObject item, boolean enabled) {
-        int iconWidth = activity.dpToPx(28);
-        int iconHeight = activity.dpToPx(32);
+    static void addItemIcon(BrogueActivity activity, LinearLayout row, JSONObject item,
+                            boolean enabled) {
+        addItemIcon(activity, row, item, enabled, 28, 32);
+    }
+
+    static void addItemIcon(BrogueActivity activity, LinearLayout row, JSONObject item,
+                            boolean enabled, int widthDp, int heightDp) {
+        int iconWidth = activity.dpToPx(widthDp);
+        int iconHeight = activity.dpToPx(heightDp);
         String glyphKey = GameSettings.useTileCreatureAndItemGlyphs(activity)
             ? "tileGlyph" : "textGlyph";
         Bitmap mask = TileAtlasMask.get(activity,
@@ -670,7 +676,7 @@ final class InventoryOverlay {
         row.addView(icon, iconParams);
     }
 
-    private void addMagicIndicator(LinearLayout row, int magicPolarity) {
+    static void addMagicIndicator(BrogueActivity activity, LinearLayout row, int magicPolarity) {
         if (magicPolarity == 0) return;
         TextView v = new TextView(activity);
         v.setText(magicPolarity > 0 ? Palette.GOOD_MAGIC_GLYPH : Palette.BAD_MAGIC_GLYPH);

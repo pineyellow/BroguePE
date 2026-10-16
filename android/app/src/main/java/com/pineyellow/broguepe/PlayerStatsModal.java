@@ -17,12 +17,12 @@ import android.widget.TextView;
 /** Detailed local player-stats view opened from the title menu. */
 final class PlayerStatsModal {
 
-    private static final String[] VARIANT_LABELS = {
+    static final String[] VARIANT_LABELS = {
         "Classic",
         "Rapid",
         "Bullet"
     };
-    private static final String[] DIFFICULTY_LABELS = {
+    static final String[] DIFFICULTY_LABELS = {
         "Default",
         "Easy"
     };
@@ -155,32 +155,7 @@ final class PlayerStatsModal {
     }
 
     private void addKeyValueRow(LinearLayout panel, String key, String value) {
-        LinearLayout row = new LinearLayout(activity);
-        row.setOrientation(LinearLayout.HORIZONTAL);
-        row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(activity.dpToPx(8), activity.dpToPx(8),
-                       activity.dpToPx(8), activity.dpToPx(8));
-
-        TextView keyView = new TextView(activity);
-        keyView.setText(key);
-        keyView.setTextColor(Palette.PALE_BLUE);
-        keyView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        keyView.setTypeface(Typeface.MONOSPACE);
-        row.addView(keyView, new LinearLayout.LayoutParams(
-            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
-
-        TextView valueView = new TextView(activity);
-        valueView.setText(value);
-        valueView.setTextColor(Palette.GHOST_WHITE);
-        valueView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        valueView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-        row.addView(valueView);
-
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT);
-        p.topMargin = activity.dpToPx(2);
-        panel.addView(row, p);
+        ModalChrome.addKeyValueRow(activity, panel, key, value, Palette.GHOST_WHITE);
     }
 
     private void addTallySection(LinearLayout panel, String title,
@@ -516,44 +491,6 @@ final class PlayerStatsModal {
     }
 
     private void addStatCell(LinearLayout grid, int value, String label) {
-        LinearLayout cell = new LinearLayout(activity);
-        cell.setOrientation(LinearLayout.VERTICAL);
-        cell.setGravity(Gravity.CENTER);
-        cell.setPadding(activity.dpToPx(6), activity.dpToPx(10),
-                        activity.dpToPx(6), activity.dpToPx(10));
-
-        GradientDrawable bg = new GradientDrawable();
-        bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
-        bg.setColor(Palette.ITEM_BG);
-        cell.setBackground(bg);
-
-        TextView number = new TextView(activity);
-        number.setText(String.valueOf(value));
-        number.setTextColor(Palette.GHOST_WHITE);
-        number.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
-        number.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-        number.setGravity(Gravity.CENTER);
-        cell.addView(number, new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT));
-
-        TextView caption = new TextView(activity);
-        caption.setText(label);
-        caption.setTextColor(Palette.PALE_BLUE);
-        caption.setTextSize(TypedValue.COMPLEX_UNIT_SP, 10);
-        caption.setTypeface(Typeface.MONOSPACE);
-        caption.setLetterSpacing(0.05f);
-        caption.setGravity(Gravity.CENTER);
-        caption.setPadding(0, activity.dpToPx(2), 0, 0);
-        cell.addView(caption, new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT));
-
-        LinearLayout.LayoutParams cellP = new LinearLayout.LayoutParams(
-            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
-        int margin = activity.dpToPx(2);
-        cellP.setMargins(margin, 0, margin, 0);
-        grid.addView(cell, cellP);
+        ModalChrome.addStatCell(activity, grid, String.valueOf(value), label);
     }
 }

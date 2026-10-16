@@ -560,8 +560,8 @@ public class BrogueActivity extends SDLActivity {
             killedBy, currentDepth, deepestDepthReached, turns, gold);
     }
 
-    public void showDeathScreen(String description, int turns) {
-        deathModal.show(description, turns);
+    public void showDeathScreen(String summaryJson) {
+        deathModal.show(summaryJson);
     }
 
     public native void nativeDeathFadeDone();

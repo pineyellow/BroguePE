@@ -3040,6 +3040,81 @@ static boolean appendItemDescriptionRuns(jsonBuffer *json, const char *descripti
     return appendJsonFormat(json, "]");
 }
 
+// Summary of the run and the pack at death, for the native death screen.
+// Item names are what the player knew; nothing is identified. Returns a
+// malloc'd string the caller frees, or NULL on failure.
+char *deathScreenJson(const char *cause, unsigned long collectedGold, long score) {
+    item *theItem;
+    item *itemList[DROWS];
+    short i, itemNumber = 0;
+    char buf[COLS*3], nameClean[COLS*3], nameEsc[COLS*6], causeEsc[400];
+
+    assureCosmeticRNG;
+
+    // Same order as the inventory panel: equipped first, then the rest.
+    if (rogue.weapon) { itemList[itemNumber++] = rogue.weapon; }
+    if (rogue.armor)  { itemList[itemNumber++] = rogue.armor; }
+    if (rogue.ringLeft)  { itemList[itemNumber++] = rogue.ringLeft; }
+    if (rogue.ringRight) { itemList[itemNumber++] = rogue.ringRight; }
+    for (theItem = packItems->nextItem; theItem != NULL && itemNumber < DROWS; theItem = theItem->nextItem) {
+        if (!(theItem->flags & ITEM_EQUIPPED)) {
+            itemList[itemNumber++] = theItem;
+        }
+    }
+
+    jsonBuffer json;
+    boolean jsonOK = initializeJsonBuffer(&json);
+    jsonEscape(causeEsc, cause ? cause : "", sizeof(causeEsc));
+    if (jsonOK) {
+        jsonOK = appendJsonFormat(&json,
+            "{\"cause\":\"%s\",\"depth\":%d,\"deepestDepth\":%d,\"turns\":%lu,"
+            "\"gold\":%lu,\"score\":%ld,\"amulet\":%s,\"seed\":\"%llu\","
+            "\"variant\":%d,\"difficulty\":%d,\"items\":[",
+            causeEsc, rogue.depthLevel, rogue.deepestLevel, (unsigned long) rogue.playerTurnNumber,
+            collectedGold, score,
+            numberOfMatchingPackItems(AMULET, 0, 0, false) > 0 ? "true" : "false",
+            (unsigned long long) rogue.seed,
+            gameVariant,
+            rogue.mode == GAME_MODE_BALANCED_EASY ? GAME_DIFFICULTY_EASY : GAME_DIFFICULTY_DEFAULT);
+    }
+
+    for (i = 0; i < itemNumber && jsonOK; i++) {
+        theItem = itemList[i];
+
+        // Same fields as the inventory panel's select mode.
+        itemName(theItem, buf, true, true, NULL);
+        upperCase(buf);
+        stripEscapes(nameClean, buf, sizeof(nameClean));
+        jsonEscape(nameEsc, nameClean, sizeof(nameEsc));
+
+        int magicPol = displayMagicCharForItem(theItem) ? itemMagicPolarity(theItem) : 0;
+        int iconRed = clamp(theItem->foreColor->red, 0, 100) * 255 / 100;
+        int iconGreen = clamp(theItem->foreColor->green, 0, 100) * 255 / 100;
+        int iconBlue = clamp(theItem->foreColor->blue, 0, 100) * 255 / 100;
+        int tileGlyph = theItem->displayChar + 128 - 2;
+        int textGlyph = textFontIndex(theItem->displayChar);
+
+        jsonOK = appendJsonFormat(&json,
+            "%s{\"name\":\"%s\",\"equipped\":%s,\"magicPolarity\":%d,"
+            "\"tileGlyph\":%d,\"textGlyph\":%d,"
+            "\"iconRed\":%d,\"iconGreen\":%d,\"iconBlue\":%d}",
+            (i > 0 ? "," : ""), nameEsc,
+            (theItem->flags & ITEM_EQUIPPED) ? "true" : "false",
+            magicPol, tileGlyph, textGlyph, iconRed, iconGreen, iconBlue);
+    }
+    if (jsonOK) {
+        jsonOK = appendJsonFormat(&json, "]}");
+    }
+
+    restoreRNG;
+
+    if (!jsonOK) {
+        freeJsonBuffer(&json);
+        return NULL;
+    }
+    return json.data;
+}
+
 char displayInventory(unsigned short categoryMask,
                       unsigned long requiredFlags,
                       unsigned long forbiddenFlags,

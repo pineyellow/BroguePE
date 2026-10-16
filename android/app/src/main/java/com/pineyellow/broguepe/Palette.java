@@ -26,7 +26,6 @@ final class Palette {
     static final int BORDER_ACTIVE  = Color.argb(200, 154, 143, 191);
 
     static final int INVENTORY_BG   = Color.argb(245, 13, 8, 25);
-    static final int DEATH_MODAL_BG = Color.argb(230, 13, 8, 25);
     static final int ITEM_BG        = Color.argb(200, 25, 17, 42);
     static final int EQUIPPED_GLOW  = Color.argb(220, 52, 38, 63);
     static final int ACTION_BG      = Color.argb(220, 40, 28, 63);

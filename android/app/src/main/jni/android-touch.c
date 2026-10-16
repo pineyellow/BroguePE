@@ -783,7 +783,7 @@ static void signalDeathFadeDone(void) {
     pthread_mutex_unlock(&deathMutex);
 }
 
-void androidShowDeathScreen(const char *description, int turns) {
+void androidShowDeathScreen(const char *summaryJson) {
     pthread_mutex_lock(&deathMutex);
     deathFadeDone = false;
     SDL_AtomicSet(&deathScreenDismissed, 0);
@@ -793,11 +793,11 @@ void androidShowDeathScreen(const char *description, int turns) {
     jobject activity = (jobject)SDL_AndroidGetActivity();
     jclass cls = (*env)->GetObjectClass(env, activity);
     jmethodID mid = (*env)->GetMethodID(env, cls, "showDeathScreen",
-        "(Ljava/lang/String;I)V");
+        "(Ljava/lang/String;)V");
     if (mid) {
-        jstring jdesc = (*env)->NewStringUTF(env, description ? description : "");
-        (*env)->CallVoidMethod(env, activity, mid, jdesc, (jint)turns);
-        (*env)->DeleteLocalRef(env, jdesc);
+        jstring jjson = (*env)->NewStringUTF(env, summaryJson ? summaryJson : "{}");
+        (*env)->CallVoidMethod(env, activity, mid, jjson);
+        (*env)->DeleteLocalRef(env, jjson);
     }
     (*env)->DeleteLocalRef(env, cls);
     (*env)->DeleteLocalRef(env, activity);

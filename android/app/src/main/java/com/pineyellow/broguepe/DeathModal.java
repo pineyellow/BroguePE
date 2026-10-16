@@ -4,6 +4,7 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
+import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.View;
@@ -13,6 +14,12 @@ import android.widget.FrameLayout;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
+
+import org.json.JSONArray;
+import org.json.JSONException;
+import org.json.JSONObject;
+
+import java.util.Locale;
 
 final class DeathModal {
 
@@ -27,25 +34,28 @@ final class DeathModal {
         DESTROYING
     }
 
+    private static final String NOT_TRACKED = "TBD";
+    private static final String MISSING = "—";
+
     private final BrogueActivity activity;
     private FrameLayout root;
     private View fadeView;
     private View modalView;
-    private DeathDetails details;
+    private String summaryJson;
     private State state = State.INACTIVE;
 
     DeathModal(BrogueActivity activity) {
         this.activity = activity;
     }
 
-    void show(String description, int turns) {
+    void show(String summaryJson) {
         if (!transition(State.INACTIVE, State.FADING_TO_BLACK)) {
             // A late JNI request can race Activity teardown. Never leave its
             // native caller waiting for UI that can no longer be displayed.
             activity.nativeCancelDeathScreen();
             return;
         }
-        activity.runOnUiThread(() -> fadeToBlack(description, turns));
+        activity.runOnUiThread(() -> fadeToBlack(summaryJson));
     }
 
     void onFlamesReady() {
@@ -120,7 +130,7 @@ final class DeathModal {
         root = null;
         fadeView = null;
         modalView = null;
-        details = null;
+        summaryJson = null;
         synchronized (this) {
             if (state != State.DESTROYING) {
                 state = State.INACTIVE;
@@ -128,7 +138,7 @@ final class DeathModal {
         }
     }
 
-    private void fadeToBlack(String description, int turns) {
+    private void fadeToBlack(String json) {
         if (!isInState(State.FADING_TO_BLACK)) {
             return;
         }
@@ -162,7 +172,7 @@ final class DeathModal {
         root.requestFocus();
 
         // This field is written and later read only on the UI thread.
-        details = new DeathDetails(description, turns);
+        summaryJson = json;
         fadeView.animate()
             .alpha(1f)
             .setDuration(3000)
@@ -175,7 +185,7 @@ final class DeathModal {
         if (!transition(State.WAITING_FOR_FLAMES, State.SHOWING)) {
             return;
         }
-        if (root == null || details == null) {
+        if (root == null || summaryJson == null) {
             synchronized (this) {
                 if (state == State.SHOWING) {
                     state = State.WAITING_FOR_TITLE;
@@ -197,9 +207,9 @@ final class DeathModal {
         // exist, expose their individual labels instead of grouping the whole
         // modal under the root's temporary description.
         root.setContentDescription(null);
-        DeathDetails currentDetails = details;
-        details = null;
-        buildModal(currentDetails.description, currentDetails.turns);
+        String json = summaryJson;
+        summaryJson = null;
+        buildModal(json);
     }
 
     private void requestDismiss() {
@@ -242,71 +252,224 @@ final class DeathModal {
         }
     }
 
-    private void buildModal(String description, int turns) {
+    /** One panel: the run summary on the left, the pack at death on the
+     *  right. Each column scrolls on its own; Continue stays pinned under
+     *  the summary. */
+    private void buildModal(String json) {
         if (root == null) return;
 
-        LinearLayout panel = new LinearLayout(activity);
-        panel.setOrientation(LinearLayout.VERTICAL);
-        int pad = activity.dpToPx(16);
-        panel.setPadding(pad, pad, pad, pad);
+        JSONObject summary;
+        try {
+            summary = new JSONObject(json);
+        } catch (JSONException e) {
+            // Still show the title and Continue so the player is never stuck.
+            summary = new JSONObject();
+        }
 
-        GradientDrawable panelBg = new GradientDrawable();
-        panelBg.setShape(GradientDrawable.RECTANGLE);
-        panelBg.setCornerRadius(activity.dpToPx(UiStyle.PANEL_CORNER_RADIUS_DP));
-        panelBg.setColor(Palette.DEATH_MODAL_BG);
-        panelBg.setStroke(1, Palette.BORDER_DIM);
-        panel.setBackground(panelBg);
-        panel.setElevation(activity.dpToPx(12));
-
-        TextView header = new TextView(activity);
-        header.setText(R.string.death_title);
-        header.setTextColor(Palette.DIM_WHITE_BLUE);
-        header.setTextSize(TypedValue.COMPLEX_UNIT_SP, 15);
-        header.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-        header.setLetterSpacing(0.2f);
-        header.setGravity(Gravity.CENTER);
-        header.setPadding(0, activity.dpToPx(4), 0, activity.dpToPx(8));
-        panel.addView(header);
-
+        LinearLayout panel = ModalChrome.makePanel(activity);
+        panel.addView(ModalChrome.makeTitle(
+            activity, activity.getString(R.string.death_title)));
         panel.addView(ModalChrome.makeDimSeparator(activity),
                       ModalChrome.separatorParams(activity, 8, 8, 0, 12));
 
-        addLine(panel, description, Palette.GHOST_WHITE, 13);
-        addLine(panel, turns + " turns", Palette.PALE_BLUE, 12);
+        LinearLayout columns = new LinearLayout(activity);
+        columns.setOrientation(LinearLayout.HORIZONTAL);
+        columns.setBaselineAligned(false);
+        panel.addView(columns, new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
 
-        panel.addView(new View(activity), new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, activity.dpToPx(16)));
-
+        LinearLayout summaryColumn = new LinearLayout(activity);
+        summaryColumn.setOrientation(LinearLayout.VERTICAL);
+        addSummary(addScrollingBody(summaryColumn), summary);
         View continueButton = StartMenu.addButton(
-            panel, "Continue", true, v -> requestDismiss());
+            summaryColumn, "Continue", true, v -> requestDismiss());
         continueButton.setFocusable(true);
+        ((LinearLayout.LayoutParams) continueButton.getLayoutParams()).topMargin =
+            activity.dpToPx(12);
+        columns.addView(summaryColumn, new LinearLayout.LayoutParams(
+            0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
 
-        ScrollView scroll = new ScrollView(activity);
-        scroll.addView(panel);
+        View divider = ModalChrome.makeDimSeparator(activity);
+        LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
+            1, LinearLayout.LayoutParams.MATCH_PARENT);
+        dividerParams.setMargins(activity.dpToPx(12), 0, activity.dpToPx(12), 0);
+        columns.addView(divider, dividerParams);
 
-        int panelWidth = Math.min(activity.dpToPx(340),
-            (int)(activity.getResources().getDisplayMetrics().widthPixels * 0.85f));
-        FrameLayout.LayoutParams panelParams = new FrameLayout.LayoutParams(
-            panelWidth, FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER);
-        root.addView(scroll, panelParams);
-        modalView = scroll;
+        LinearLayout inventoryColumn = new LinearLayout(activity);
+        inventoryColumn.setOrientation(LinearLayout.VERTICAL);
+        addInventory(addScrollingBody(inventoryColumn), summary.optJSONArray("items"));
+        columns.addView(inventoryColumn, new LinearLayout.LayoutParams(
+            0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
+
+        DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
+        int width = Math.min(activity.dpToPx(600), (int)(metrics.widthPixels * 0.9f));
+        int height = Math.min(activity.dpToPx(440), (int)(metrics.heightPixels * 0.85f));
+        root.addView(panel, new FrameLayout.LayoutParams(width, height, Gravity.CENTER));
+        modalView = panel;
 
         ModalChrome.animateIn(panel);
         continueButton.requestFocus();
     }
 
-    private void addLine(LinearLayout panel, String text, int color, int sp) {
-        TextView tv = new TextView(activity);
-        tv.setText(text);
-        tv.setTextColor(color);
-        tv.setTextSize(TypedValue.COMPLEX_UNIT_SP, sp);
-        tv.setTypeface(Typeface.MONOSPACE);
-        tv.setGravity(Gravity.CENTER);
-        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
+    /** Adds a scroll area that fills the rest of the column and returns its
+     *  content. */
+    private LinearLayout addScrollingBody(LinearLayout card) {
+        ScrollView scroll = new ScrollView(activity);
+        scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
+        scroll.setFadingEdgeLength(activity.dpToPx(24));
+        scroll.setVerticalFadingEdgeEnabled(true);
+
+        LinearLayout content = new LinearLayout(activity);
+        content.setOrientation(LinearLayout.VERTICAL);
+        scroll.addView(content);
+
+        card.addView(scroll, new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
+        return content;
+    }
+
+    private void addSummary(LinearLayout content, JSONObject s) {
+        String cause = s.optString("cause", "");
+        if (!cause.isEmpty()) {
+            TextView causeView = new TextView(activity);
+            causeView.setText(cause);
+            causeView.setTextColor(Palette.GHOST_WHITE);
+            causeView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+            causeView.setTypeface(Typeface.MONOSPACE);
+            causeView.setGravity(Gravity.CENTER);
+            causeView.setPadding(activity.dpToPx(4), 0,
+                                 activity.dpToPx(4), activity.dpToPx(12));
+            content.addView(causeView);
+        }
+
+        LinearLayout grid = new LinearLayout(activity);
+        grid.setOrientation(LinearLayout.HORIZONTAL);
+        grid.setBaselineAligned(false);
+        ModalChrome.addStatCell(activity, grid,
+            s.has("depth") ? String.valueOf(s.optInt("depth")) : MISSING, "Depth");
+        ModalChrome.addStatCell(activity, grid,
+            s.has("turns")
+                ? String.format(Locale.US, "%,d", s.optLong("turns")) : MISSING,
+            "Turns");
+        ModalChrome.addStatCell(activity, grid,
+            s.has("gold") ? Long.toString(s.optLong("gold")) : MISSING, "Gold");
+        LinearLayout.LayoutParams gridParams = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT);
-        p.setMargins(0, activity.dpToPx(4), 0, 0);
-        panel.addView(tv, p);
+        gridParams.bottomMargin = activity.dpToPx(6);
+        content.addView(grid, gridParams);
+
+        addRow(content, "Deepest depth",
+            s.has("deepestDepth") ? "Depth " + s.optInt("deepestDepth") : MISSING);
+        addRow(content, "Score",
+            s.has("score") ? Long.toString(s.optLong("score")) : MISSING);
+        if (s.optBoolean("amulet", false)) {
+            addRow(content, "Amulet", "In hand");
+        }
+        addRow(content, "Seed", s.optString("seed", MISSING));
+        addRow(content, "Mode", modeLabel(s));
+
+        // Not tracked per run yet.
+        addPlaceholderRow(content, "Monsters slain");
+        addPlaceholderRow(content, "Allies freed");
+        addPlaceholderRow(content, "Allies lost");
+        addPlaceholderRow(content, "Run playtime");
+    }
+
+    private void addRow(LinearLayout content, String key, String value) {
+        ModalChrome.addKeyValueRow(activity, content, key, value, Palette.GHOST_WHITE);
+    }
+
+    private void addPlaceholderRow(LinearLayout content, String key) {
+        ModalChrome.addKeyValueRow(activity, content, key, NOT_TRACKED,
+                                   Palette.DISABLED_TEXT);
+    }
+
+    private static String modeLabel(JSONObject s) {
+        if (!s.has("variant")) return MISSING;
+        int variant = s.optInt("variant");
+        String label = variant >= 0 && variant < PlayerStatsModal.VARIANT_LABELS.length
+            ? PlayerStatsModal.VARIANT_LABELS[variant]
+            : PlayerStatsModal.VARIANT_LABELS[StartMenu.VARIANT_BROGUE];
+        if (s.optInt("difficulty") == StartMenu.DIFFICULTY_EASY) {
+            label += " / " + PlayerStatsModal.DIFFICULTY_LABELS[StartMenu.DIFFICULTY_EASY];
+        }
+        return label;
+    }
+
+    /** The pack at death, equipped items first and a divider after them.
+     *  Names are what the player knew when they died. */
+    private void addInventory(LinearLayout content, JSONArray items) {
+        if (items == null || items.length() == 0) {
+            TextView empty = new TextView(activity);
+            empty.setText(R.string.inventory_empty);
+            empty.setTextColor(Color.argb(160, 144, 148, 190));
+            empty.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            empty.setTypeface(Typeface.MONOSPACE, Typeface.ITALIC);
+            empty.setGravity(Gravity.CENTER);
+            empty.setPadding(activity.dpToPx(8), activity.dpToPx(16),
+                             activity.dpToPx(8), activity.dpToPx(16));
+            content.addView(empty);
+            return;
+        }
+
+        int equippedCount = 0;
+        for (int i = 0; i < items.length(); i++) {
+            JSONObject item = items.optJSONObject(i);
+            if (item != null && item.optBoolean("equipped", false)) equippedCount++;
+        }
+
+        for (int i = 0; i < items.length(); i++) {
+            JSONObject item = items.optJSONObject(i);
+            if (item == null) continue;
+            if (i == equippedCount && equippedCount > 0) {
+                content.addView(ModalChrome.makeDimSeparator(activity),
+                                ModalChrome.separatorParams(activity, 4, 4, 4, 4));
+            }
+            content.addView(makeItemRow(item));
+        }
+    }
+
+    /** A plain line: icon, good/bad magic mark and name. Nothing here is
+     *  tapped, so it is far denser than the inventory panel's rows. */
+    private View makeItemRow(JSONObject item) {
+        String name = item.optString("name", "???");
+
+        LinearLayout row = new LinearLayout(activity);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        // Every row gets the same inset so names line up whether or not
+        // the row has the equipped background.
+        row.setPadding(activity.dpToPx(6), activity.dpToPx(2),
+                       activity.dpToPx(6), activity.dpToPx(2));
+        row.setContentDescription(name);
+
+        if (item.optBoolean("equipped", false)) {
+            // Same fill as an equipped row in the inventory panel.
+            GradientDrawable bg = new GradientDrawable();
+            bg.setShape(GradientDrawable.RECTANGLE);
+            bg.setCornerRadius(activity.dpToPx(5));
+            bg.setColor(Palette.EQUIPPED_GLOW);
+            row.setBackground(bg);
+            LinearLayout.LayoutParams params = new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT);
+            params.setMargins(0, activity.dpToPx(1), 0, activity.dpToPx(1));
+            row.setLayoutParams(params);
+        }
+
+        InventoryOverlay.addItemIcon(activity, row, item, true, 18, 22);
+        InventoryOverlay.addMagicIndicator(activity, row, item.optInt("magicPolarity", 0));
+
+        TextView nameView = new TextView(activity);
+        nameView.setText(name);
+        nameView.setTextColor(Palette.GHOST_WHITE);
+        nameView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        nameView.setTypeface(Typeface.MONOSPACE);
+        nameView.setPadding(activity.dpToPx(6), 0, 0, 0);
+        row.addView(nameView, new LinearLayout.LayoutParams(
+            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+        return row;
     }
 
     private synchronized boolean transition(State expected, State next) {
@@ -319,15 +482,5 @@ final class DeathModal {
 
     private synchronized boolean isInState(State expected) {
         return state == expected;
-    }
-
-    private static final class DeathDetails {
-        final String description;
-        final int turns;
-
-        DeathDetails(String description, int turns) {
-            this.description = description;
-            this.turns = turns;
-        }
     }
 }

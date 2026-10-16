@@ -20,7 +20,7 @@ void androidNotifyAllyDied(const char *monsterName);
 void androidNotifyPlayerDied(const char *killedBy, int currentDepth,
                              int deepestDepthReached, int turns,
                              unsigned long gold);
-void androidShowDeathScreen(const char *description, int turns);
+void androidShowDeathScreen(const char *summaryJson);
 boolean androidIsDeathScreenDismissed(void);
 void androidNotifyPlayerWon(boolean superVictory, int currentDepth,
                             int deepestDepthReached, int turns,
