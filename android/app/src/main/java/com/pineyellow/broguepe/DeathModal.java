@@ -149,6 +149,9 @@ final class DeathModal {
 
         root = new FrameLayout(activity);
         root.setClickable(true);
+        // Touches never reach root (fadeView covers it); this handles Enter /
+        // D-pad centre while root holds focus, and a screen reader's click.
+        root.setOnClickListener(v -> requestDismiss());
         root.setFocusable(true);
         root.setFocusableInTouchMode(true);
         root.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_YES);
@@ -162,8 +165,10 @@ final class DeathModal {
         fadeView.setBackgroundColor(Color.BLACK);
         fadeView.setAlpha(0f);
         // This view remains behind the centered panel and consumes every tap
-        // outside it, so input can never fall through to SDL.
+        // outside it, so input can never fall through to SDL. Once the panel
+        // is showing, such a tap dismisses it; earlier taps are ignored.
         fadeView.setClickable(true);
+        fadeView.setOnClickListener(v -> requestDismiss());
         fadeView.setImportantForAccessibility(
             View.IMPORTANT_FOR_ACCESSIBILITY_NO);
         root.addView(fadeView, new FrameLayout.LayoutParams(
@@ -257,8 +262,8 @@ final class DeathModal {
     }
 
     /** One panel: the run summary on the left, the pack at death on the
-     *  right. Each column scrolls on its own; Continue sits in the title
-     *  row, top-right. */
+     *  right. Each column scrolls on its own. A tap outside the panel, or
+     *  Back, dismisses it. */
     private void buildModal(String json) {
         if (root == null) return;
 
@@ -266,7 +271,7 @@ final class DeathModal {
         try {
             summary = new JSONObject(json);
         } catch (JSONException e) {
-            // Still show the title and Continue so the player is never stuck.
+            // Still show the panel so the player can always dismiss it.
             summary = new JSONObject();
         }
 
@@ -274,36 +279,12 @@ final class DeathModal {
         // Tighter header than the other modals so the columns get more room.
         panel.setPadding(panel.getPaddingLeft(), activity.dpToPx(12),
                          panel.getPaddingRight(), panel.getPaddingBottom());
-        // Title row: "YOU DIED" centred, compact Continue on the right.
-        FrameLayout header = new FrameLayout(activity);
+        // Taps inside the panel must not reach fadeView, which dismisses.
+        panel.setClickable(true);
         TextView title = ModalChrome.makeTitle(
             activity, activity.getString(R.string.death_title));
-        title.setPadding(0, 0, 0, 0);
-        header.addView(title, new FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.MATCH_PARENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.CENTER_VERTICAL));
-
-        LinearLayout buttonHolder = new LinearLayout(activity);
-        View continueButton = StartMenu.addButton(
-            buttonHolder, "Continue", true, v -> requestDismiss());
-        continueButton.setFocusable(true);
-        continueButton.setMinimumHeight(activity.dpToPx(28));
-        continueButton.setPadding(activity.dpToPx(14), activity.dpToPx(4),
-                                  activity.dpToPx(14), activity.dpToPx(4));
-        LinearLayout.LayoutParams continueParams =
-            (LinearLayout.LayoutParams) continueButton.getLayoutParams();
-        continueParams.width = LinearLayout.LayoutParams.WRAP_CONTENT;
-        continueParams.setMargins(0, 0, 0, 0);
-        header.addView(buttonHolder, new FrameLayout.LayoutParams(
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            FrameLayout.LayoutParams.WRAP_CONTENT,
-            Gravity.END | Gravity.CENTER_VERTICAL));
-
-        LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT);
-        headerParams.bottomMargin = activity.dpToPx(8);
-        panel.addView(header, headerParams);
+        title.setPadding(0, 0, 0, activity.dpToPx(8));
+        panel.addView(title);
 
         LinearLayout columns = new LinearLayout(activity);
         columns.setOrientation(LinearLayout.HORIZONTAL);
@@ -336,7 +317,7 @@ final class DeathModal {
         modalView = panel;
 
         ModalChrome.animateIn(panel);
-        continueButton.requestFocus();
+        root.requestFocus();
     }
 
     /** Adds a scroll area that fills the rest of the column and returns its
