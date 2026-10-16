@@ -4,6 +4,10 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.os.Build;
+import android.text.SpannableStringBuilder;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
+import android.text.style.StyleSpan;
 import android.util.DisplayMetrics;
 import android.util.TypedValue;
 import android.view.Gravity;
@@ -290,7 +294,7 @@ final class DeathModal {
         ((LinearLayout.LayoutParams) continueButton.getLayoutParams()).topMargin =
             activity.dpToPx(12);
         columns.addView(summaryColumn, new LinearLayout.LayoutParams(
-            0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
+            0, LinearLayout.LayoutParams.MATCH_PARENT, 0.8f));
 
         View divider = ModalChrome.makeDimSeparator(activity);
         LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
@@ -302,7 +306,7 @@ final class DeathModal {
         inventoryColumn.setOrientation(LinearLayout.VERTICAL);
         addInventory(addScrollingBody(inventoryColumn), summary.optJSONArray("items"));
         columns.addView(inventoryColumn, new LinearLayout.LayoutParams(
-            0, LinearLayout.LayoutParams.MATCH_PARENT, 1f));
+            0, LinearLayout.LayoutParams.MATCH_PARENT, 1.2f));
 
         DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
         int width = Math.min(activity.dpToPx(600), (int)(metrics.widthPixels * 0.9f));
@@ -345,47 +349,73 @@ final class DeathModal {
             content.addView(causeView);
         }
 
-        LinearLayout grid = new LinearLayout(activity);
-        grid.setOrientation(LinearLayout.HORIZONTAL);
-        grid.setBaselineAligned(false);
-        ModalChrome.addStatCell(activity, grid,
-            s.has("depth") ? String.valueOf(s.optInt("depth")) : MISSING, "Depth");
-        ModalChrome.addStatCell(activity, grid,
+        // All stats in one wrapping text block. Spaces inside a stat are
+        // non-breaking, so a line only ever breaks between two stats.
+        SpannableStringBuilder stats = new SpannableStringBuilder();
+        addStat(stats, "Depth",
+            s.has("depth") ? String.valueOf(s.optInt("depth")) : MISSING);
+        addStat(stats, "Turns",
             s.has("turns")
-                ? String.format(Locale.US, "%,d", s.optLong("turns")) : MISSING,
-            "Turns");
-        ModalChrome.addStatCell(activity, grid,
-            s.has("gold") ? Long.toString(s.optLong("gold")) : MISSING, "Gold");
-        LinearLayout.LayoutParams gridParams = new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT);
-        gridParams.bottomMargin = activity.dpToPx(6);
-        content.addView(grid, gridParams);
-
-        addRow(content, "Deepest depth",
+                ? String.format(Locale.US, "%,d", s.optLong("turns")) : MISSING);
+        addStat(stats, "Gold",
+            s.has("gold") ? Long.toString(s.optLong("gold")) : MISSING);
+        addStat(stats, "Deepest depth",
             s.has("deepestDepth") ? "Depth " + s.optInt("deepestDepth") : MISSING);
-        addRow(content, "Score",
-            s.has("score") ? Long.toString(s.optLong("score")) : MISSING);
-        if (s.optBoolean("amulet", false)) {
-            addRow(content, "Amulet", "In hand");
+        // On a death the score is the gold, except with gems in the pack or
+        // after switching to easy mode mid-run, so only show it then.
+        if (s.has("score") && s.optLong("score") != s.optLong("gold", -1)) {
+            addStat(stats, "Score", Long.toString(s.optLong("score")));
         }
-        addRow(content, "Seed", s.optString("seed", MISSING));
-        addRow(content, "Mode", modeLabel(s));
+        if (s.optBoolean("amulet", false)) {
+            addStat(stats, "Amulet", "In hand");
+        }
+        addStat(stats, "Seed", s.optString("seed", MISSING));
+        addStat(stats, "Mode", modeLabel(s));
 
         // Not tracked per run yet.
-        addPlaceholderRow(content, "Monsters slain");
-        addPlaceholderRow(content, "Allies freed");
-        addPlaceholderRow(content, "Allies lost");
-        addPlaceholderRow(content, "Run playtime");
+        addPlaceholderStat(stats, "Monsters slain");
+        addPlaceholderStat(stats, "Allies freed");
+        addPlaceholderStat(stats, "Allies lost");
+        addPlaceholderStat(stats, "Run playtime");
+
+        TextView statsView = new TextView(activity);
+        statsView.setText(stats);
+        statsView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        statsView.setTypeface(Typeface.MONOSPACE);
+        statsView.setLineSpacing(activity.dpToPx(10), 1f);
+        statsView.setPadding(activity.dpToPx(4), 0, activity.dpToPx(4), 0);
+        content.addView(statsView);
     }
 
-    private void addRow(LinearLayout content, String key, String value) {
-        ModalChrome.addKeyValueRow(activity, content, key, value, Palette.GHOST_WHITE);
+    private static void addStat(SpannableStringBuilder stats, String key,
+                                String value) {
+        appendStat(stats, key, value, Palette.GHOST_WHITE);
     }
 
-    private void addPlaceholderRow(LinearLayout content, String key) {
-        ModalChrome.addKeyValueRow(activity, content, key, NOT_TRACKED,
-                                   Palette.DISABLED_TEXT);
+    private static void addPlaceholderStat(SpannableStringBuilder stats,
+                                           String key) {
+        appendStat(stats, key, NOT_TRACKED, Palette.DISABLED_TEXT);
+    }
+
+    /** Appends "Key: Value", coloured like ModalChrome.addKeyValueRow. */
+    private static void appendStat(SpannableStringBuilder stats, String key,
+                                   String value, int valueColor) {
+        if (stats.length() > 0) {
+            stats.append("  ");
+        }
+        stats.append(nonBreaking(key + ": "),
+                     new ForegroundColorSpan(Palette.PALE_BLUE),
+                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        int valueStart = stats.length();
+        stats.append(nonBreaking(value));
+        stats.setSpan(new ForegroundColorSpan(valueColor), valueStart,
+                      stats.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        stats.setSpan(new StyleSpan(Typeface.BOLD), valueStart,
+                      stats.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+    }
+
+    private static String nonBreaking(String text) {
+        return text.replace(' ', (char) 0xA0); // no-break space
     }
 
     private static String modeLabel(JSONObject s) {
