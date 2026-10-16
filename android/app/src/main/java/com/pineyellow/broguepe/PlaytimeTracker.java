@@ -84,7 +84,7 @@ final class PlaytimeTracker {
         activeSinceMillis = now;
     }
 
-    private static long safeAdd(long a, long b) {
+    static long safeAdd(long a, long b) {
         return Long.MAX_VALUE - a < b ? Long.MAX_VALUE : a + b;
     }
 }

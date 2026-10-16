@@ -59,6 +59,7 @@ public class BrogueActivity extends SDLActivity {
     private boolean activityDestroyed;
     private Object appBackCallback;
     private PlaytimeTracker playtimeTracker;
+    private RunPlaytimeTracker runPlaytimeTracker;
     private LinearLayout debugFpsOverlay;
     private TextView debugFpsView;
     private TextView debugUiFpsView;
@@ -94,6 +95,7 @@ public class BrogueActivity extends SDLActivity {
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         playtimeTracker = new PlaytimeTracker(this);
+        runPlaytimeTracker = new RunPlaytimeTracker(this);
         requestHighestRefreshRate();
         configureRoundedCornerInsets();
 
@@ -184,6 +186,7 @@ public class BrogueActivity extends SDLActivity {
         textInputDialog.onActivityResumed();
         super.onResume();
         playtimeTracker.onResume();
+        runPlaytimeTracker.onResume();
         requestHighestRefreshRate();
         getWindow().getDecorView().requestApplyInsets();
         startDebugUiFpsTracking();
@@ -218,6 +221,7 @@ public class BrogueActivity extends SDLActivity {
         confirmationDialog.onActivityPaused();
         textInputDialog.onActivityPaused();
         playtimeTracker.onPause();
+        runPlaytimeTracker.onPause();
         stopDebugUiFpsTracking();
         captureResumeSnapshot();
         if (dpadOverlay != null) {
@@ -264,6 +268,11 @@ public class BrogueActivity extends SDLActivity {
 
     long totalPlaytimeMillis() {
         return playtimeTracker == null ? 0L : playtimeTracker.totalMillis();
+    }
+
+    /** Time played in the current or most recent run, or -1 if untimed. */
+    long runPlaytimeMillis() {
+        return runPlaytimeTracker == null ? -1L : runPlaytimeTracker.runMillis();
     }
 
     @Override
@@ -481,6 +490,7 @@ public class BrogueActivity extends SDLActivity {
 
     public void showStartMenu(final boolean hasSave, final boolean saveCompatible,
                               final int saveVariant, final int saveDifficulty) {
+        runOnUiThread(() -> runPlaytimeTracker.onRunEnded());
         startMenu.show(hasSave, saveCompatible, saveVariant, saveDifficulty);
     }
 
@@ -536,6 +546,7 @@ public class BrogueActivity extends SDLActivity {
         if (!isResume) {
             runOnUiThread(() -> inventoryRenderer.resetScrollMemory());
         }
+        runOnUiThread(() -> runPlaytimeTracker.onRunStarted(seed, isResume));
         // Resuming selects the original bucket without counting another game.
         StatsStore.get(this).recordGameStart(
             seed, variant, difficulty, isResume);
@@ -556,6 +567,8 @@ public class BrogueActivity extends SDLActivity {
     public void onPlayerDied(final String killedBy, final int currentDepth,
                              final int deepestDepthReached, final int turns,
                              final long gold) {
+        // Posted before showDeathScreen, so the death screen reads a stopped clock.
+        runOnUiThread(() -> runPlaytimeTracker.onRunEnded());
         StatsStore.get(this).recordPlayerDied(
             killedBy, currentDepth, deepestDepthReached, turns, gold);
     }
@@ -575,6 +588,7 @@ public class BrogueActivity extends SDLActivity {
     public void onPlayerWon(final boolean superVictory, final int currentDepth,
                             final int deepestDepthReached, final int turns,
                             final long gold) {
+        runOnUiThread(() -> runPlaytimeTracker.onRunEnded());
         StatsStore.get(this).recordPlayerWon(
             superVictory, currentDepth, deepestDepthReached, turns, gold);
     }

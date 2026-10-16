@@ -372,12 +372,16 @@ final class DeathModal {
         }
         addStat(stats, "Seed", s.optString("seed", MISSING));
         addStat(stats, "Mode", modeLabel(s));
+        // Left out for a run that isn't timed, e.g. resumed from an older save.
+        long playtime = activity.runPlaytimeMillis();
+        if (playtime >= 0) {
+            addStat(stats, "Run playtime", PlayerStatsModal.formatPlaytime(playtime));
+        }
 
         // Not tracked per run yet.
         addPlaceholderStat(stats, "Monsters slain");
         addPlaceholderStat(stats, "Allies freed");
         addPlaceholderStat(stats, "Allies lost");
-        addPlaceholderStat(stats, "Run playtime");
 
         TextView statsView = new TextView(activity);
         statsView.setText(stats);
