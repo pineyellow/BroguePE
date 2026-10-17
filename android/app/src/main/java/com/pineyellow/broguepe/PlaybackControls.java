@@ -50,6 +50,10 @@ final class PlaybackControls {
     // Set by Exit. Leaving pauses or unpauses the recording on the way out,
     // which must not change the buttons in the frames before they close.
     private boolean leaving;
+    // A recording is being watched. The controls can still be hidden while
+    // it loads another depth.
+    private boolean active;
+    private boolean loading;
 
     PlaybackControls(BrogueActivity activity) {
         this.activity = activity;
@@ -69,22 +73,38 @@ final class PlaybackControls {
         paused = false;
         wholeMap = false;
         leaving = false;
+        active = true;
+        loading = false;
         populate();
         root.setVisibility(View.VISIBLE);
     }
 
     void hide() {
+        active = false;
+        loading = false;
         if (root == null) return;
         collapseMenu();
         root.setVisibility(View.GONE);
     }
 
+    /** True while a recording is being watched, including while it loads. */
     boolean isShowing() {
-        return root != null && root.getVisibility() == View.VISIBLE;
+        return active;
     }
 
-    /** Back closes the menu first. Returns false when it isn't open. */
+    /** Hidden while the recording loads another depth, as nothing they do
+     *  can act until it's there. */
+    void setLoading(boolean loading) {
+        if (!active || root == null) return;
+        this.loading = loading;
+        collapseMenu();
+        root.setVisibility(loading ? View.GONE : View.VISIBLE);
+    }
+
+    /** Back closes the menu first. Returns false when it isn't open. While
+     *  loading, Back does nothing. */
     boolean handleBack() {
+        if (loading) return true;
         if (menu != null && menu.getVisibility() == View.VISIBLE) {
             collapseMenu();
             return true;

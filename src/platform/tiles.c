@@ -9,6 +9,9 @@
 
 static enum RenderMode renderMode = RENDER_TITLE;
 static int modalNestCount = 0;
+// Replaying a game behind the loading screen opens and closes the same menus the player did.
+// Closing them goes back to the loading screen, not to the game.
+static boolean modalOverLoading = false;
 static boolean messageArchiveActive = false;
 static boolean victoryScreenActive = false;
 
@@ -268,6 +271,7 @@ static void clearOverlayRegion(void) {
 void setRenderMode(enum RenderMode mode) {
     renderMode = mode;
     modalNestCount = 0;
+    modalOverLoading = false;
     if (mode == RENDER_GAMEPLAY) {
         clearOverlayRegion();
         cameraLastUpdateCounter = 0;
@@ -324,6 +328,7 @@ void setLoadingProgress(unsigned long amount, unsigned long maximum) {
 void enterModalMode(void) {
     if (modalNestCount++ == 0) {
         memset(modalOverlayCells, 0, sizeof(modalOverlayCells));
+        modalOverLoading = renderMode == RENDER_LOADING;
         renderMode = RENDER_MODAL;
     }
 }
@@ -331,7 +336,8 @@ void enterModalMode(void) {
 void exitModalMode(void) {
     if (--modalNestCount <= 0) {
         modalNestCount = 0;
-        renderMode = RENDER_GAMEPLAY;
+        renderMode = modalOverLoading ? RENDER_LOADING : RENDER_GAMEPLAY;
+        modalOverLoading = false;
         memset(modalOverlayCells, 0, sizeof(modalOverlayCells));
         clearOverlayRegion();
     }

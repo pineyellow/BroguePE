@@ -303,6 +303,25 @@ static uint64_t recallNumber(short numberOfBytes) {
     return n;
 }
 
+// While a recording is watched: the turn on which it first reached each depth, as far as it has
+// played. Going back a depth replays exactly that far, so its loading bar fills evenly.
+#define ANDROID_TRACKED_DEPTHS 128
+static boolean androidDepthArrivalKnown[ANDROID_TRACKED_DEPTHS];
+static unsigned long androidDepthArrivalTurn[ANDROID_TRACKED_DEPTHS];
+
+void androidForgetDepthArrivals(void) {
+    memset(androidDepthArrivalKnown, 0, sizeof(androidDepthArrivalKnown));
+}
+
+// Called before each recorded input is read, so nothing has happened since the player arrived.
+static void androidNoteDepthArrival(void) {
+    short depth = rogue.depthLevel;
+    if (depth > 0 && depth < ANDROID_TRACKED_DEPTHS && !androidDepthArrivalKnown[depth]) {
+        androidDepthArrivalKnown[depth] = true;
+        androidDepthArrivalTurn[depth] = rogue.playerTurnNumber;
+    }
+}
+
 #define OOS_APOLOGY "Playback of the recording has diverged from the originally recorded game.\n\n\
 This could be caused by recording or playing the file on a modified version of Brogue, or it could \
 simply be the result of a bug.\n\n\
@@ -348,6 +367,10 @@ static void playbackPanic() {
 void recallEvent(rogueEvent *event) {
     unsigned char c;
     boolean tryAgain;
+
+    if (androidWatchingRecording) {
+        androidNoteDepthArrival();
+    }
 
     do {
         tryAgain = false;
@@ -712,13 +735,27 @@ static void resetPlayback() {
     startLevel(rogue.depthLevel, 1);
 }
 
+// Leaves the loading screen a long seek shows. The camera jumps to the player instead of sliding
+// there, and the playback controls come back.
+static void leaveSeekLoadingScreen(void) {
+    if (getRenderMode() != RENDER_LOADING) {
+        return;
+    }
+    androidCameraSnap = true;
+    setRenderMode(RENDER_GAMEPLAY);
+    androidSetLoadingVisible(false);
+}
+
 static void seek(unsigned long seekTarget, enum recordingSeekModes seekMode) {
-    unsigned long progressBarRefreshInterval = 1, startTurnNumber = 0, targetTurnNumber = 0, avgTurnsPerLevel = 1;
+    unsigned long startTurnNumber = 0, targetTurnNumber = 0, avgTurnsPerLevel = 1;
+    unsigned long turnsToGo = 1, turnsDone, progressStep = 0;
     rogueEvent theEvent;
     boolean pauseState, useProgressBar = false, arrivedAtDestination = false;
-    screenDisplayBuffer dbuf;
 
     pauseState = rogue.playbackPaused;
+    if (androidWatchingRecording) {
+        androidNoteDepthArrival();
+    }
 
     // configure progress bar
     switch (seekMode) {
@@ -733,6 +770,12 @@ static void seek(unsigned long seekTarget, enum recordingSeekModes seekMode) {
                 startTurnNumber = rogue.playerTurnNumber;
                 targetTurnNumber = rogue.playerTurnNumber + avgTurnsPerLevel;
             }
+            // A depth already watched was reached on a known turn, so the guess isn't needed.
+            if (seekTarget < ANDROID_TRACKED_DEPTHS && androidDepthArrivalKnown[seekTarget]
+                && androidDepthArrivalTurn[seekTarget] >= startTurnNumber) {
+
+                targetTurnNumber = androidDepthArrivalTurn[seekTarget];
+            }
             break;
         case RECORDING_SEEK_MODE_TURN :
             if (seekTarget < rogue.playerTurnNumber) {
@@ -745,9 +788,14 @@ static void seek(unsigned long seekTarget, enum recordingSeekModes seekMode) {
             break;
     }
 
-    if (targetTurnNumber - startTurnNumber > 100) {
+    if (targetTurnNumber > startTurnNumber + 100) {
         useProgressBar = true;
-        progressBarRefreshInterval = max(1, (targetTurnNumber) / 500);
+        turnsToGo = targetTurnNumber - startTurnNumber;
+        // As when resuming a game: only the bar, on its own screen, so neither the zoom nor the
+        // player rushing around the level moves it. The controls can't act meanwhile.
+        setRenderMode(RENDER_LOADING);
+        androidSetLoadingVisible(true);
+        setLoadingProgress(0, turnsToGo);
     }
 
     // there is no rewind, so start over at depth 1
@@ -761,28 +809,26 @@ static void seek(unsigned long seekTarget, enum recordingSeekModes seekMode) {
         }
     }
 
-    if (useProgressBar) {
-        clearDisplayBuffer(&dbuf);
-        rectangularShading((COLS - 20) / 2, ROWS / 2, 20, 1, &black, INTERFACE_OPACITY, &dbuf);
-        overlayDisplayBuffer(&dbuf);
-        commitDraws();
-    }
     rogue.playbackFastForward = true;
 
     while (!arrivedAtDestination && !rogue.gameHasEnded && !rogue.playbackOOS) {
-        if (useProgressBar && !(rogue.playerTurnNumber % progressBarRefreshInterval)) {
+        turnsDone = rogue.playerTurnNumber > startTurnNumber ? rogue.playerTurnNumber - startTurnNumber : 0;
+        // About 20 updates, as when resuming: each one waits for the display.
+        if (useProgressBar && min(turnsDone, turnsToGo) * 20 / turnsToGo != progressStep) {
+            progressStep = min(turnsDone, turnsToGo) * 20 / turnsToGo;
             rogue.playbackFastForward = false; // so that pauseBrogue looks for inputs
-            printProgressBar((COLS - 20) / 2, ROWS / 2, "[     Loading...   ]",
-                             rogue.playerTurnNumber - startTurnNumber,
-                             targetTurnNumber - startTurnNumber, &darkPurple, false);
+            setLoadingProgress(turnsDone, turnsToGo);
             while (pauseBrogue(0, PAUSE_BEHAVIOR_DEFAULT)) { // pauseBrogue(0) is necessary to flush the display to the window in SDL
                 if (rogue.gameHasEnded) {
-                    return;
+                    break;
                 }
                 rogue.creaturesWillFlashThisTurn = false; // prevent monster flashes from showing up on screen
                 nextBrogueEvent(&theEvent, true, false, true); // eat the input if it isn't clicking x
             }
             rogue.playbackFastForward = true;
+            if (rogue.gameHasEnded) {
+                break;
+            }
         }
 
         rogue.RNG = RNG_COSMETIC; // dancing terrain colors can't influence recordings
@@ -800,6 +846,11 @@ static void seek(unsigned long seekTarget, enum recordingSeekModes seekMode) {
 
     rogue.playbackPaused = pauseState;
     rogue.playbackFastForward = false;
+    leaveSeekLoadingScreen();
+    if (seekMode == RECORDING_SEEK_MODE_DEPTH) {
+        // Another depth is another map, so the camera jumps there too.
+        androidCameraSnap = true;
+    }
     confirmMessages();
     updateMessageDisplay();
     refreshSideBar(-1, -1, false);
@@ -1365,6 +1416,8 @@ boolean androidWatchingRecording = false;
 // at its last save. CE would call this out of sync. Instead, say so, wait for a tap, and end
 // the playback.
 void androidEndOfRecording(void) {
+    // A seek can run out of recording too, and the message must not wait behind its loading screen.
+    leaveSeekLoadingScreen();
     if (rogue.playbackFastForward) {
         rogue.playbackFastForward = false;
         displayLevel();

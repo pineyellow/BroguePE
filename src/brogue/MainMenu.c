@@ -950,6 +950,7 @@ void mainBrogueJunction() {
                     initializeGameVariant();
                     androidWatchingRecording = true;
                     androidPlaybackDelay = 0;
+                    androidForgetDepthArrivals();
 
                     setRenderMode(RENDER_LOADING);
                     setLoadingProgress(0, 2);

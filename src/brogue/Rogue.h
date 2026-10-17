@@ -3498,6 +3498,7 @@ extern "C" {
     boolean androidRecordingIsPlayable(const char *path);
     extern boolean androidWatchingRecording;
     void androidEndOfRecording(void);
+    void androidForgetDepthArrivals(void);
     int androidSaveDifficulty(void);
     boolean androidSaveIsCompatible(void);
     void androidShowStartMenu(boolean hasSave, boolean saveCompatible, int saveVariant, int saveDifficulty);

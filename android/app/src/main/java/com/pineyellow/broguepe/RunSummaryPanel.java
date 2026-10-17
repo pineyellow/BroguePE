@@ -317,8 +317,8 @@ final class RunSummaryPanel {
         button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         button.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         button.setGravity(Gravity.CENTER);
-        button.setPadding(activity.dpToPx(12), activity.dpToPx(6),
-                          activity.dpToPx(12), activity.dpToPx(6));
+        button.setPadding(activity.dpToPx(12), activity.dpToPx(10),
+                          activity.dpToPx(12), activity.dpToPx(10));
 
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);

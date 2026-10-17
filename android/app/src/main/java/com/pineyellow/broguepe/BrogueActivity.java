@@ -762,7 +762,9 @@ public class BrogueActivity extends SDLActivity {
     }
 
     public void setLoadingVisible(final boolean visible) {
-        // Retained as a JNI hook; startup and save loading now render directly.
+        // Startup and save loading render directly. A recording jumping to
+        // another depth hides its controls meanwhile, as they can't act.
+        runOnUiThread(() -> playbackControls.setLoading(visible));
     }
 
     public void setRestoringVisible(final boolean visible) {
