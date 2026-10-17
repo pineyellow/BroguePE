@@ -82,6 +82,8 @@ public class BrogueActivity extends SDLActivity {
     // The Recent Games entry whose recording is playing, to reopen afterwards.
     // UI thread only.
     private org.json.JSONObject watchedGame;
+    // Darkens the screen between the end of a recording and its panel.
+    private View watchEndCover;
     private SettingsPanel settingsPanel;
     private ActionsToolbar actionsToolbar;
     private DPadOverlay dpadOverlay;
@@ -525,19 +527,61 @@ public class BrogueActivity extends SDLActivity {
         watchedGame = null;
         playerStatsModal.show(RecentGames.variant(game), RecentGames.difficulty(game), true);
         recentGameModal.show(game);
+        // Removed in the same frame the panels appear, so nothing shows between.
+        removeWatchEndCover();
     }
 
-    /** Called from C when a recording starts or stops playing. */
+    /** The engine shows the title screen before Android can build the panel,
+     *  so until then the screen is as dark as the two panels' backdrops. */
+    private void coverUntilWatchedGameReopens() {
+        if (watchEndCover != null) return;
+        watchEndCover = new View(this);
+        watchEndCover.setBackgroundColor(Color.argb(220, 0, 0, 0));
+        addContentView(watchEndCover, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT));
+    }
+
+    private void removeWatchEndCover() {
+        if (watchEndCover == null) return;
+        if (watchEndCover.getParent() != null) {
+            ((ViewGroup) watchEndCover.getParent()).removeView(watchEndCover);
+        }
+        watchEndCover = null;
+    }
+
+    /** Called from C when a recording starts or stops playing. Stopping
+     *  returns once the cover is on screen, as the engine draws the title
+     *  screen next. */
     public void setPlaybackVisible(final boolean visible) {
-        runOnUiThread(() -> {
-            if (visible) {
+        if (visible) {
+            runOnUiThread(() -> {
                 playbackControls.show();
                 // The controls' keys go to whichever view has focus.
                 if (mSurface != null) mSurface.requestFocus();
-            } else {
-                playbackControls.hide();
+            });
+            return;
+        }
+        final java.util.concurrent.CountDownLatch covered =
+            new java.util.concurrent.CountDownLatch(1);
+        runOnUiThread(() -> {
+            playbackControls.hide();
+            if (watchedGame == null) {
+                covered.countDown();
+                return;
             }
+            coverUntilWatchedGameReopens();
+            // The next frame draws the cover; by the one after, it has gone
+            // to the screen.
+            Choreographer.getInstance().postFrameCallback(frame ->
+                Choreographer.getInstance().postFrameCallback(next -> covered.countDown()));
         });
+        try {
+            // Bounded, as no frames come while the app is in the background.
+            covered.await(250, java.util.concurrent.TimeUnit.MILLISECONDS);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
     }
 
     /** Called from C when the recording pauses or plays on. */
@@ -697,6 +741,7 @@ public class BrogueActivity extends SDLActivity {
                 // resurface after the engine returns to the title later.
                 applyDpadSettings();
                 modalStack.clear();
+                removeWatchEndCover();
             } else {
                 // Engine is returning to the title menu. This fires at the
                 // top of titleMenu() in C, before its Phase 1 tap-to-continue

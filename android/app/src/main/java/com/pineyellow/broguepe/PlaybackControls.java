@@ -2,6 +2,7 @@ package com.pineyellow.broguepe;
 
 import android.annotation.SuppressLint;
 import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
@@ -27,11 +28,10 @@ import android.widget.TextView;
 final class PlaybackControls {
 
     private static final char TIMES = (char) 0x00D7;
-    private static final char HALF = (char) 0x00BD;
     // Delays per turn in milliseconds; 50 is the engine's default.
     private static final int[] SPEED_DELAYS = { 50, 25, 12, 6, 100 };
     private static final String[] SPEED_LABELS = {
-        "1" + TIMES, "2" + TIMES, "4" + TIMES, "8" + TIMES, HALF + "" + TIMES };
+        "1" + TIMES, "2" + TIMES, "4" + TIMES, "8" + TIMES, "0.5" + TIMES };
     private static final int BUTTON_HALF_GAP_DP = 2;
     private static final int BAR_PADDING_DP = 2;
     private static final float DISABLED_BUTTON_ALPHA = 0.35f;
@@ -47,6 +47,9 @@ final class PlaybackControls {
     private int speedIndex;
     private boolean paused;
     private boolean wholeMap;
+    // Set by Exit. Leaving pauses or unpauses the recording on the way out,
+    // which must not change the buttons in the frames before they close.
+    private boolean leaving;
 
     PlaybackControls(BrogueActivity activity) {
         this.activity = activity;
@@ -65,6 +68,7 @@ final class PlaybackControls {
         speedIndex = 0;
         paused = false;
         wholeMap = false;
+        leaving = false;
         populate();
         root.setVisibility(View.VISIBLE);
     }
@@ -91,7 +95,7 @@ final class PlaybackControls {
     /** The engine paused the recording or played it again. */
     void setPaused(boolean paused) {
         this.paused = paused;
-        if (playPause == null) return;
+        if (playPause == null || leaving) return;
         playPause.setImageResource(paused ? R.drawable.ic_play : R.drawable.ic_pause);
         playPause.setContentDescription(paused ? "Play" : "Pause");
         // Kept as a touch target while disabled, so taps can't reach the game.
@@ -103,6 +107,7 @@ final class PlaybackControls {
      *  continue", or pauses; Q then ends the playback. */
     void exit() {
         collapseMenu();
+        leaving = true;
         KeyInput.sendKey(activity, KeyEvent.KEYCODE_ESCAPE);
         KeyInput.sendChar(activity, 'Q');
     }
@@ -257,7 +262,7 @@ final class PlaybackControls {
         TextView chip = new TextView(activity);
         chip.setText(SPEED_LABELS[speedIndex]);
         chip.setContentDescription("Speed " + SPEED_LABELS[speedIndex]);
-        chip.setTextColor(Palette.ACTION_BUTTON_TEXT);
+        chip.setTextColor(iconColor());
         chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14 * scale);
         chip.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         chip.setGravity(Gravity.CENTER);
@@ -267,6 +272,17 @@ final class PlaybackControls {
         chip.setOnTouchListener(PlaybackControls::pressAnimation);
         chip.setOnClickListener(v -> nextSpeed());
         return chip;
+    }
+
+    /** The colour the icons show in: white under the half-transparent
+     *  ACTION_BUTTON_TEXT filter. The speed label matches it. */
+    private static int iconColor() {
+        int filter = Palette.ACTION_BUTTON_TEXT;
+        float a = Color.alpha(filter) / 255f;
+        return Color.rgb(
+            Math.round(Color.red(filter) * a + 255 * (1 - a)),
+            Math.round(Color.green(filter) * a + 255 * (1 - a)),
+            Math.round(Color.blue(filter) * a + 255 * (1 - a)));
     }
 
     private static boolean pressAnimation(View v, MotionEvent e) {

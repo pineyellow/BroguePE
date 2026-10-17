@@ -109,7 +109,7 @@ final class RunSummaryPanel {
         if (onWatch == null && onPlayAgain == null) {
             columns.addView(summaryColumn, leftParams);
         } else {
-            // Under the card, at the bottom right of the left column.
+            // Under the card, sharing the left column's width equally.
             LinearLayout leftColumn = new LinearLayout(activity);
             leftColumn.setOrientation(LinearLayout.VERTICAL);
             leftColumn.addView(summaryColumn, new LinearLayout.LayoutParams(
@@ -117,19 +117,18 @@ final class RunSummaryPanel {
             LinearLayout buttons = new LinearLayout(activity);
             buttons.setOrientation(LinearLayout.HORIZONTAL);
             if (onWatch != null) {
-                buttons.addView(makeSmallButton("Watch", onWatch));
+                buttons.addView(makeSmallButton("Watch", onWatch), new LinearLayout.LayoutParams(
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
             }
             if (onPlayAgain != null) {
                 LinearLayout.LayoutParams playAgainParams = new LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.WRAP_CONTENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT);
+                    0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f);
                 if (onWatch != null) playAgainParams.leftMargin = activity.dpToPx(8);
                 buttons.addView(makeSmallButton("Play Again", onPlayAgain), playAgainParams);
             }
             LinearLayout.LayoutParams buttonsParams = new LinearLayout.LayoutParams(
-                LinearLayout.LayoutParams.WRAP_CONTENT,
+                LinearLayout.LayoutParams.MATCH_PARENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
-            buttonsParams.gravity = Gravity.END;
             buttonsParams.topMargin = activity.dpToPx(8);
             leftColumn.addView(buttons, buttonsParams);
             columns.addView(leftColumn, leftParams);
@@ -317,6 +316,7 @@ final class RunSummaryPanel {
         button.setTextColor(Palette.GHOST_WHITE);
         button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         button.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        button.setGravity(Gravity.CENTER);
         button.setPadding(activity.dpToPx(12), activity.dpToPx(6),
                           activity.dpToPx(12), activity.dpToPx(6));
 

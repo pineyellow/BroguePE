@@ -740,7 +740,11 @@ void mainInputLoop() {
             rogue.playbackMode = false;
             }
 
-            if (state.buttonChosen == 3) { // Actions menu button.
+            if (state.buttonChosen == 3 && playingBack && androidWatchingRecording) {
+                // Watch has its own controls instead of this menu. Its Exit sends Escape
+                // and then Q, and the menu would show for a moment in between.
+                doEvent = false;
+            } else if (state.buttonChosen == 3) { // Actions menu button.
                 buttonInput = actionMenu(buttons[3].x - 4, playingBack); // Returns the corresponding keystroke.
                 if (buttonInput == -1) { // Canceled.
                     doEvent = false;
