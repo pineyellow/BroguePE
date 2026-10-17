@@ -901,7 +901,11 @@ void pausePlayback() {
         //rogue.RNG = oldRNG;
         messageWithColor("recording unpaused.", &teal, 0);
         rogue.playbackPaused = false;
-        androidPlaybackPausedChanged(false);
+        if (!rogue.gameHasEnded) {
+            // Leaving the recording ends the pause too. Its controls are about to close, and
+            // their play/pause button would change for a frame.
+            androidPlaybackPausedChanged(false);
+        }
         refreshSideBar(-1, -1, false);
         rogue.playbackDelayThisTurn = DEFAULT_PLAYBACK_DELAY;
     }
@@ -1079,6 +1083,11 @@ boolean executePlaybackInput(rogueEvent *recordingInput) {
                 rogue.playbackMode = true;
                 return true;
             case QUIT_KEY:
+                // Asked like leaving a game. Exit pauses the recording first, so it waits behind
+                // the question.
+                if (androidWatchingRecording && !confirm("Stop watching this replay?", true)) {
+                    return true;
+                }
                 //freeEverything();
                 rogue.gameHasEnded = true;
                 rogue.gameExitStatusCode = EXIT_STATUS_SUCCESS;

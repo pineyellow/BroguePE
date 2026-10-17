@@ -47,9 +47,6 @@ final class PlaybackControls {
     private int speedIndex;
     private boolean paused;
     private boolean wholeMap;
-    // Set by Exit. Leaving pauses or unpauses the recording on the way out,
-    // which must not change the buttons in the frames before they close.
-    private boolean leaving;
     // A recording is being watched. The controls can still be hidden while
     // it loads another depth.
     private boolean active;
@@ -72,7 +69,6 @@ final class PlaybackControls {
         speedIndex = 0;
         paused = false;
         wholeMap = false;
-        leaving = false;
         active = true;
         loading = false;
         populate();
@@ -115,7 +111,7 @@ final class PlaybackControls {
     /** The engine paused the recording or played it again. */
     void setPaused(boolean paused) {
         this.paused = paused;
-        if (playPause == null || leaving) return;
+        if (playPause == null) return;
         playPause.setImageResource(paused ? R.drawable.ic_play : R.drawable.ic_pause);
         playPause.setContentDescription(paused ? "Play" : "Pause");
         // Kept as a touch target while disabled, so taps can't reach the game.
@@ -124,10 +120,9 @@ final class PlaybackControls {
     }
 
     /** Leaves the recording. Escape first answers a waiting "tap to
-     *  continue", or pauses; Q then ends the playback. */
+     *  continue", or pauses; Q then asks, and ends the playback on Yes. */
     void exit() {
         collapseMenu();
-        leaving = true;
         KeyInput.sendKey(activity, KeyEvent.KEYCODE_ESCAPE);
         KeyInput.sendChar(activity, 'Q');
     }
