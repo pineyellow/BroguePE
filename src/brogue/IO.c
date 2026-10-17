@@ -2522,6 +2522,12 @@ void nextBrogueEvent(rogueEvent *returnEvent, boolean textInput, boolean colorsD
     if (rogue.playbackMode && !realInputEvenInPlayback) {
         do {
             repeatAgain = false;
+            // The speed picked on the playback controls. Set again every turn, because going
+            // back a depth restarts the recording at the default speed.
+            if (androidPlaybackDelay > 0 && rogue.playbackDelayPerTurn != androidPlaybackDelay) {
+                rogue.playbackDelayPerTurn = androidPlaybackDelay;
+                rogue.playbackDelayThisTurn = androidPlaybackDelay;
+            }
             if ((!rogue.playbackFastForward && rogue.playbackBetweenTurns)
                 || rogue.playbackOOS) {
 
@@ -2535,6 +2541,19 @@ void nextBrogueEvent(rogueEvent *returnEvent, boolean textInput, boolean colorsD
             }
         } while ((repeatAgain || rogue.playbackOOS) && !rogue.gameHasEnded);
         rogue.playbackDelayThisTurn = rogue.playbackDelayPerTurn;
+        if (androidWatchingRecording && recordingLocation >= lengthOfPlaybackFile
+            && !rogue.gameHasEnded) {
+
+            androidEndOfRecording();
+        }
+        if (androidWatchingRecording && rogue.gameHasEnded) {
+            // Nothing is left to read. Return a key that does nothing.
+            returnEvent->eventType = KEYSTROKE;
+            returnEvent->param1 = UNKNOWN_KEY;
+            returnEvent->param2 = 0;
+            returnEvent->controlKey = returnEvent->shiftKey = false;
+            return;
+        }
         recallEvent(returnEvent);
     } else {
         commitDraws();

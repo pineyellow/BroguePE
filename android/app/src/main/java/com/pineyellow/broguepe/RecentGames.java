@@ -6,12 +6,15 @@ import org.json.JSONObject;
 import org.json.JSONTokener;
 
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 
 /** The Recent Games list: finished runs, newest first, kept per mode like the
  *  Personal Stats buckets. Each game is the engine's run summary (see
  *  runSummaryJson in Items.c) plus "endedAt" and "playtimeMillis", added when
- *  it was stored. No Android calls here, so it can be unit tested. */
+ *  it was stored, and "recording" when its recording was kept. No Android
+ *  calls here, so it can be unit tested. */
 final class RecentGames {
 
     /** Games kept for each variant and difficulty. */
@@ -21,6 +24,14 @@ final class RecentGames {
     static final String OUTCOME_QUIT = "quit";
     static final String OUTCOME_ESCAPED = "escaped";
     static final String OUTCOME_MASTERED = "mastered";
+
+    /** The game's key for its recording: a file name in the recordings folder. */
+    static final String RECORDING = "recording";
+    static final String RECORDING_SUFFIX = ".broguerec";
+    /** Where the engine leaves a finished or abandoned run's recording until
+     *  that run's game takes it (see Recordings.c). */
+    static final String FINISHED_RECORDING = "finished" + RECORDING_SUFFIX;
+    static final String ABANDONED_RECORDING = "abandoned" + RECORDING_SUFFIX;
 
     private static final int VERSION = 1;
 
@@ -101,6 +112,37 @@ final class RecentGames {
      *  deaths. */
     static String outcome(JSONObject game) {
         return game.optString("outcome", OUTCOME_DIED);
+    }
+
+    /** The file name of the game's recording, or null if it has none. Only a
+     *  plain name inside the recordings folder is accepted. */
+    static String recordingName(JSONObject game) {
+        String name = game.optString(RECORDING, "");
+        if (!name.endsWith(RECORDING_SUFFIX) || name.indexOf('/') >= 0
+                || name.indexOf('\\') >= 0) {
+            return null;
+        }
+        return name;
+    }
+
+    /** The recordings among fileNames that no game names, which can go. The
+     *  engine's waiting files are never included, nor anything that isn't a
+     *  recording, such as a copy still being written. */
+    static List<String> recordingsToDelete(List<JSONObject> games, String[] fileNames) {
+        Set<String> kept = new HashSet<>();
+        for (JSONObject game : games) {
+            String name = recordingName(game);
+            if (name != null) kept.add(name);
+        }
+        List<String> unused = new ArrayList<>();
+        if (fileNames == null) return unused;
+        for (String name : fileNames) {
+            if (name.endsWith(RECORDING_SUFFIX) && !kept.contains(name)
+                    && !name.equals(FINISHED_RECORDING) && !name.equals(ABANDONED_RECORDING)) {
+                unused.add(name);
+            }
+        }
+        return unused;
     }
 
     static boolean isVictory(JSONObject game) {

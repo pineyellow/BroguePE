@@ -3489,9 +3489,15 @@ extern "C" {
     void androidSaveGameAndReturnToMenu(void);
     void androidAbandonGame(void);
     void androidDeleteSaveFile(void);
+    void androidKeepFinishedRecording(void);
+    void androidSetAsideSaveFile(void);
     void androidRemoveStaleRecordings(const char *keepPath);
     boolean androidSaveFileExists(void);
     int androidSaveVariant(void);
+    int androidRecordingVariant(const char *path);
+    boolean androidRecordingIsPlayable(const char *path);
+    extern boolean androidWatchingRecording;
+    void androidEndOfRecording(void);
     int androidSaveDifficulty(void);
     boolean androidSaveIsCompatible(void);
     void androidShowStartMenu(boolean hasSave, boolean saveCompatible, int saveVariant, int saveDifficulty);

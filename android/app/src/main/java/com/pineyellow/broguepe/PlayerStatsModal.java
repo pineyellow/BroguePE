@@ -45,14 +45,23 @@ final class PlayerStatsModal {
     private final BrogueActivity activity;
     private int selectedVariant = StartMenu.VARIANT_BROGUE;
     private int selectedDifficulty = StartMenu.DIFFICULTY_DEFAULT;
+    // Kept while the modal is open, so switching modes leaves it as it was.
+    private boolean recentGamesExpanded;
 
     PlayerStatsModal(BrogueActivity activity) {
         this.activity = activity;
     }
 
     void show() {
-        selectedVariant = StartMenu.VARIANT_BROGUE;
-        selectedDifficulty = StartMenu.DIFFICULTY_DEFAULT;
+        show(StartMenu.VARIANT_BROGUE, StartMenu.DIFFICULTY_DEFAULT, false);
+    }
+
+    /** Opens on the given mode. Coming back from a recording, the Recent
+     *  Games list starts expanded. */
+    void show(int variant, int difficulty, boolean expandRecentGames) {
+        selectedVariant = PlayerStatsArchive.normalizeVariant(variant);
+        selectedDifficulty = PlayerStatsArchive.normalizeDifficulty(difficulty);
+        recentGamesExpanded = expandRecentGames;
         activity.modalStack.push(this::build);
     }
 
@@ -266,7 +275,8 @@ final class PlayerStatsModal {
 
         LinearLayout content = new LinearLayout(activity);
         content.setOrientation(LinearLayout.VERTICAL);
-        content.setVisibility(View.GONE);
+        content.setVisibility(recentGamesExpanded ? View.VISIBLE : View.GONE);
+        chevron.setRotation(recentGamesExpanded ? 90f : 0f);
 
         List<JSONObject> games = RecentGamesStore.get(activity).games(
             selectedVariant, selectedDifficulty);
@@ -300,9 +310,9 @@ final class PlayerStatsModal {
         header.setClickable(true);
         header.setFocusable(true);
         header.setOnClickListener(v -> {
-            boolean expand = content.getVisibility() != View.VISIBLE;
-            content.setVisibility(expand ? View.VISIBLE : View.GONE);
-            chevron.setRotation(expand ? 90f : 0f);
+            recentGamesExpanded = content.getVisibility() != View.VISIBLE;
+            content.setVisibility(recentGamesExpanded ? View.VISIBLE : View.GONE);
+            chevron.setRotation(recentGamesExpanded ? 90f : 0f);
         });
     }
 

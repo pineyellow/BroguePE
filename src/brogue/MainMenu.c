@@ -206,6 +206,10 @@ static void initializeTitleFlames(boolean includeTitle,
 // NG_NOTHING means no selection yet; any other value is the user's choice.
 volatile enum NGCommands startMenuChoice = NG_NOTHING;
 
+// The recording to open when startMenuChoice is NG_VIEW_RECORDING. Written
+// before the choice is set.
+char androidPendingRecordingPath[BROGUE_FILENAME_MAX];
+
 // Set by Java when the user taps the start-menu backdrop. Phase 2 watches
 // this and unwinds to Phase 1 (title flames) when set.
 volatile boolean startMenuCancelled = false;
@@ -294,11 +298,11 @@ static void titleMenu() {
                 if (rogue.nextGame == NG_OPEN_GAME) {
                     snprintf(rogue.nextGamePath, sizeof(rogue.nextGamePath),
                              "%s%s", ANDROID_SAVE_NAME, GAME_SUFFIX);
+                } else if (rogue.nextGame == NG_VIEW_RECORDING) {
+                    snprintf(rogue.nextGamePath, sizeof(rogue.nextGamePath),
+                             "%s", androidPendingRecordingPath);
                 } else if (rogue.nextGame == NG_NEW_GAME && hasSave) {
-                    char savePath[BROGUE_FILENAME_MAX];
-                    snprintf(savePath, sizeof(savePath),
-                             "%s%s", ANDROID_SAVE_NAME, GAME_SUFFIX);
-                    remove(savePath);
+                    androidSetAsideSaveFile();
                 }
             }
         } else {
@@ -938,17 +942,32 @@ void mainBrogueJunction() {
                 }
 
                 if (openFile(path)) {
+                    // A Recent Games recording, in the variant it was played in.
+                    int recordingVariant = androidRecordingVariant(path);
+                    if (recordingVariant >= 0) {
+                        gameVariant = recordingVariant;
+                    }
+                    initializeGameVariant();
+                    androidWatchingRecording = true;
+                    androidPlaybackDelay = 0;
+
+                    setRenderMode(RENDER_LOADING);
+                    setLoadingProgress(0, 2);
                     randomNumbersGenerated = 0;
                     rogue.playbackMode = true;
                     initializeRogue(0); // Seed argument is ignored because we're in playback.
+                    setLoadingProgress(1, 2);
                     if (!rogue.gameHasEnded) {
                         startLevel(rogue.depthLevel, 1);
-                        if (nonInteractivePlayback) {
-                            rogue.playbackPaused = false;
-                        } else {
-                            rogue.playbackPaused = true;
-                        }
+                        // It starts playing straight away, like a video.
+                        rogue.playbackPaused = false;
                         displayAnnotation(); // in case there's an annotation for turn 0
+                    }
+                    setLoadingProgress(2, 2);
+                    androidCameraSnap = true;
+                    setRenderMode(RENDER_GAMEPLAY);
+                    if (!rogue.gameHasEnded) {
+                        androidSetPlaybackVisible(true);
                     }
 
                     while(!rogue.gameHasEnded && rogue.playbackMode) {
@@ -971,6 +990,8 @@ void mainBrogueJunction() {
                         executeEvent(&theEvent);
                     }
 
+                    androidSetPlaybackVisible(false);
+                    androidWatchingRecording = false;
                     freeEverything();
                 } else {
                     // announce file not found

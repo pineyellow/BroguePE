@@ -78,6 +78,10 @@ public class BrogueActivity extends SDLActivity {
     final NewGameSeedModal newGameSeedModal = new NewGameSeedModal(this);
     final DeathModal deathModal = new DeathModal(this);
     final RecentGameModal recentGameModal = new RecentGameModal(this);
+    private final PlaybackControls playbackControls = new PlaybackControls(this);
+    // The Recent Games entry whose recording is playing, to reopen afterwards.
+    // UI thread only.
+    private org.json.JSONObject watchedGame;
     private SettingsPanel settingsPanel;
     private ActionsToolbar actionsToolbar;
     private DPadOverlay dpadOverlay;
@@ -116,6 +120,12 @@ public class BrogueActivity extends SDLActivity {
         gameOverlay = new FrameLayout(this);
         gameOverlay.setVisibility(View.GONE);
         addContentView(gameOverlay, new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT));
+
+        // Takes the game controls' place while a recording plays. Added before
+        // the inventory overlay, so its drawers cover these controls.
+        addContentView(playbackControls.build(), new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT));
 
@@ -495,6 +505,44 @@ public class BrogueActivity extends SDLActivity {
                               final int saveVariant, final int saveDifficulty) {
         runOnUiThread(() -> runPlaytimeTracker.onRunEnded());
         startMenu.show(hasSave, saveCompatible, saveVariant, saveDifficulty);
+        // Posted after the start menu, so these open above it.
+        runOnUiThread(this::reopenWatchedGame);
+    }
+
+    /** Plays a Recent Games entry's recording. Afterwards the title menu
+     *  reopens the entry's panel. */
+    void watchRecording(org.json.JSONObject game, java.io.File recording) {
+        watchedGame = game;
+        modalStack.clear();
+        startMenu.dismiss();
+        nativeStartMenuViewRecording(recording.getAbsolutePath());
+    }
+
+    /** Back from a recording: its panel over Personal Stats, on its mode. */
+    private void reopenWatchedGame() {
+        org.json.JSONObject game = watchedGame;
+        if (game == null) return;
+        watchedGame = null;
+        playerStatsModal.show(RecentGames.variant(game), RecentGames.difficulty(game), true);
+        recentGameModal.show(game);
+    }
+
+    /** Called from C when a recording starts or stops playing. */
+    public void setPlaybackVisible(final boolean visible) {
+        runOnUiThread(() -> {
+            if (visible) {
+                playbackControls.show();
+                // The controls' keys go to whichever view has focus.
+                if (mSurface != null) mSurface.requestFocus();
+            } else {
+                playbackControls.hide();
+            }
+        });
+    }
+
+    /** Called from C when the recording pauses or plays on. */
+    public void onPlaybackPausedChanged(final boolean paused) {
+        runOnUiThread(() -> playbackControls.setPaused(paused));
     }
 
     public void showInventory(final String json) {
@@ -655,6 +703,7 @@ public class BrogueActivity extends SDLActivity {
                 // flame loop, so restoring here puts the modal back up
                 // immediately instead of making the user tap through flames.
                 dismissGameplayPanels();
+                playbackControls.hide();
                 modalStack.restore();
                 deathModal.fadeOutOverlay();
             }
@@ -807,7 +856,10 @@ public class BrogueActivity extends SDLActivity {
     native boolean nativeClaimDpadStep(boolean firstPress);
     native boolean nativeShouldStopDpadAutoMove();
     native void nativeEndDpadAutoMove();
-    native void nativeDeleteSaveFile();
+    native void nativeSetAsideSaveFile();
+    native void nativeStartMenuViewRecording(String path);
+    native void nativeSetPlaybackDelay(int delayMillis);
+    native boolean nativeRecordingIsPlayable(String path);
     native int[] nativeMonsterTileInfo(String monsterName);
     native int[] nativeRunOutcomeGlyph(String outcome);
 
@@ -849,6 +901,15 @@ public class BrogueActivity extends SDLActivity {
     private void handleBackNavigation() {
         if (deathModal.handleBackPressed()) {
             return;
+        } else if (playbackControls.isShowing()) {
+            // As in a game, Back first closes whatever is open. Then it leaves
+            // the recording.
+            if (playbackControls.handleBack() || inventoryRenderer.handleBack()
+                    || discoveriesRenderer.handleBack()) {
+                return;
+            }
+            if (inventoryOverlay.getVisibility() == View.VISIBLE) return;
+            playbackControls.exit();
         } else if (startMenu.isShowing()) {
             handleMainMenuBack();
         } else if (gameOverlay != null && gameOverlay.getVisibility() == View.VISIBLE) {

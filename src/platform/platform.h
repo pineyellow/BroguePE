@@ -111,6 +111,12 @@ void updateTitleScreenTile(int row, int column, enum displayGlyph glyph,
     short foreRed, short foreGreen, short foreBlue,
     short backRed, short backGreen, short backBlue);
 void androidSetOverlayVisible(boolean visible);
+// Shows or hides the playback controls while a recording plays.
+void androidSetPlaybackVisible(boolean visible);
+// Tells the playback controls whether the recording is paused.
+void androidPlaybackPausedChanged(boolean paused);
+// The per-turn delay chosen with the playback speed control, or 0 for the default.
+extern volatile int androidPlaybackDelay;
 void androidHideGameUI(void);
 void androidSetLoadingVisible(boolean visible);
 void androidSetRestoringVisible(boolean visible);

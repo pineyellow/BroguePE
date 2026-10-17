@@ -269,6 +269,26 @@ void androidSetOverlayVisible(boolean visible) {
     (*env)->DeleteLocalRef(env, activity);
 }
 
+void androidSetPlaybackVisible(boolean visible) {
+    JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();
+    jobject activity = (jobject)SDL_AndroidGetActivity();
+    jclass cls = (*env)->GetObjectClass(env, activity);
+    jmethodID mid = (*env)->GetMethodID(env, cls, "setPlaybackVisible", "(Z)V");
+    if (mid) (*env)->CallVoidMethod(env, activity, mid, (jboolean)visible);
+    (*env)->DeleteLocalRef(env, cls);
+    (*env)->DeleteLocalRef(env, activity);
+}
+
+void androidPlaybackPausedChanged(boolean paused) {
+    JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();
+    jobject activity = (jobject)SDL_AndroidGetActivity();
+    jclass cls = (*env)->GetObjectClass(env, activity);
+    jmethodID mid = (*env)->GetMethodID(env, cls, "onPlaybackPausedChanged", "(Z)V");
+    if (mid) (*env)->CallVoidMethod(env, activity, mid, (jboolean)paused);
+    (*env)->DeleteLocalRef(env, cls);
+    (*env)->DeleteLocalRef(env, activity);
+}
+
 void androidHideGameUI(void) {
     JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();
     jobject activity = (jobject)SDL_AndroidGetActivity();
@@ -614,15 +634,59 @@ Java_com_pineyellow_broguepe_BrogueActivity_nativeStartMenuResultWithSeedVariant
 }
 
 /*
- * Remove the fixed mobile save file. Called from the Play button of any
- * seed-details modal that starts a new run — a fresh run overwrites the
- * slot, so any lingering save would never be reachable again.
+ * Move the fixed mobile save file aside as the abandoned run's recording.
+ * Called from the Play button of any seed-details modal that starts a new
+ * run: a fresh run overwrites the slot, so the save could never be resumed.
  */
 JNIEXPORT void JNICALL
-Java_com_pineyellow_broguepe_BrogueActivity_nativeDeleteSaveFile(
+Java_com_pineyellow_broguepe_BrogueActivity_nativeSetAsideSaveFile(
         JNIEnv *env, jobject thiz) {
     (void)env; (void)thiz;
-    androidDeleteSaveFile();
+    androidSetAsideSaveFile();
+}
+
+/* ---- Recent Games recordings ---- */
+
+extern char androidPendingRecordingPath[]; // defined in MainMenu.c
+
+/*
+ * Watch a Recent Games recording. Like the other start menu results, the
+ * title menu picks the choice up on the game thread; the path is written
+ * first so it is in place when it does.
+ */
+JNIEXPORT void JNICALL
+Java_com_pineyellow_broguepe_BrogueActivity_nativeStartMenuViewRecording(
+        JNIEnv *env, jobject thiz, jstring path) {
+    (void)thiz;
+    const char *utf = (*env)->GetStringUTFChars(env, path, NULL);
+    if (!utf) return;
+    snprintf(androidPendingRecordingPath, BROGUE_FILENAME_MAX, "%s", utf);
+    (*env)->ReleaseStringUTFChars(env, path, utf);
+    startMenuChoice = NG_VIEW_RECORDING;
+}
+
+volatile int androidPlaybackDelay = 0;
+
+/* The playback speed control: the delay per turn, in milliseconds. The game
+ * thread applies it before the next turn it plays. */
+JNIEXPORT void JNICALL
+Java_com_pineyellow_broguepe_BrogueActivity_nativeSetPlaybackDelay(
+        JNIEnv *env, jobject thiz, jint delayMillis) {
+    (void)env; (void)thiz;
+    androidPlaybackDelay = delayMillis > 0 ? (int)delayMillis : 0;
+}
+
+/* Whether a Recent Games recording can be watched in this version. Only
+ * reads the file's header, so it is fine on the UI thread. */
+JNIEXPORT jboolean JNICALL
+Java_com_pineyellow_broguepe_BrogueActivity_nativeRecordingIsPlayable(
+        JNIEnv *env, jobject thiz, jstring path) {
+    (void)thiz;
+    const char *utf = (*env)->GetStringUTFChars(env, path, NULL);
+    if (!utf) return JNI_FALSE;
+    boolean playable = androidRecordingIsPlayable(utf);
+    (*env)->ReleaseStringUTFChars(env, path, utf);
+    return playable ? JNI_TRUE : JNI_FALSE;
 }
 
 /*

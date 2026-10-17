@@ -56,9 +56,10 @@ final class RunSummaryPanel {
     }
 
     /** playtimeMillis is the run's playtime, or -1 to leave it out. A non-null
-     *  onPlayAgain adds a Play Again button under the stats. */
+     *  onWatch or onPlayAgain adds a Watch or Play Again button under the
+     *  stats. */
     LinearLayout build(JSONObject summary, String title, long playtimeMillis,
-                       View.OnClickListener onPlayAgain) {
+                       View.OnClickListener onWatch, View.OnClickListener onPlayAgain) {
         LinearLayout panel = ModalChrome.makePanel(activity);
         // Tighter header than the other modals so the columns get more room.
         // 12dp above the title; the switch button reaches 6dp further up.
@@ -105,7 +106,7 @@ final class RunSummaryPanel {
         addSummary(addScrollingBody(summaryColumn), summary, playtimeMillis);
         LinearLayout.LayoutParams leftParams = new LinearLayout.LayoutParams(
             0, LinearLayout.LayoutParams.MATCH_PARENT, 0.8f);
-        if (onPlayAgain == null) {
+        if (onWatch == null && onPlayAgain == null) {
             columns.addView(summaryColumn, leftParams);
         } else {
             // Under the card, at the bottom right of the left column.
@@ -113,14 +114,26 @@ final class RunSummaryPanel {
             leftColumn.setOrientation(LinearLayout.VERTICAL);
             leftColumn.addView(summaryColumn, new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
-            LinearLayout.LayoutParams playAgainParams = new LinearLayout.LayoutParams(
+            LinearLayout buttons = new LinearLayout(activity);
+            buttons.setOrientation(LinearLayout.HORIZONTAL);
+            if (onWatch != null) {
+                buttons.addView(makeSmallButton("Watch", onWatch));
+            }
+            if (onPlayAgain != null) {
+                LinearLayout.LayoutParams playAgainParams = new LinearLayout.LayoutParams(
+                    LinearLayout.LayoutParams.WRAP_CONTENT,
+                    LinearLayout.LayoutParams.WRAP_CONTENT);
+                if (onWatch != null) playAgainParams.leftMargin = activity.dpToPx(8);
+                buttons.addView(makeSmallButton("Play Again", onPlayAgain), playAgainParams);
+            }
+            LinearLayout.LayoutParams buttonsParams = new LinearLayout.LayoutParams(
                 LinearLayout.LayoutParams.WRAP_CONTENT,
                 LinearLayout.LayoutParams.WRAP_CONTENT);
-            playAgainParams.gravity = Gravity.END;
-            playAgainParams.topMargin = activity.dpToPx(8);
-            leftColumn.addView(makePlayAgainButton(onPlayAgain), playAgainParams);
+            buttonsParams.gravity = Gravity.END;
+            buttonsParams.topMargin = activity.dpToPx(8);
+            leftColumn.addView(buttons, buttonsParams);
             columns.addView(leftColumn, leftParams);
-            // Less panel padding under the button, so it sits lower.
+            // Less panel padding under the buttons, so they sit lower.
             panel.setPadding(panel.getPaddingLeft(), panel.getPaddingTop(),
                              panel.getPaddingRight(), activity.dpToPx(8));
         }
@@ -298,9 +311,9 @@ final class RunSummaryPanel {
     }
 
     /** A small button, coloured like the menu buttons. */
-    private TextView makePlayAgainButton(View.OnClickListener onClick) {
+    private TextView makeSmallButton(String label, View.OnClickListener onClick) {
         TextView button = new TextView(activity);
-        button.setText("Play Again");
+        button.setText(label);
         button.setTextColor(Palette.GHOST_WHITE);
         button.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         button.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);

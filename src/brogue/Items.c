@@ -3258,20 +3258,23 @@ char displayInventory(unsigned short categoryMask,
             char descClean[COLS * 100];
             stripEscapes(descClean, descRaw, sizeof(descClean));
 
+            // Without buttons, as when watching a recording, the pack is only for looking at.
             char actions[32];
             int ai = 0;
-            if (theItem->category & (FOOD | SCROLL | POTION | WAND | STAFF | CHARM)) {
-                actions[ai++] = APPLY_KEY; actions[ai++] = ',';
+            if (includeButtons) {
+                if (theItem->category & (FOOD | SCROLL | POTION | WAND | STAFF | CHARM)) {
+                    actions[ai++] = APPLY_KEY; actions[ai++] = ',';
+                }
+                if (theItem->category & (ARMOR | WEAPON | RING)) {
+                    actions[ai++] = (theItem->flags & ITEM_EQUIPPED) ? UNEQUIP_KEY : EQUIP_KEY;
+                    actions[ai++] = ',';
+                }
+                if (itemCanBeCalled(theItem)) {
+                    actions[ai++] = CALL_KEY; actions[ai++] = ',';
+                }
+                actions[ai++] = DROP_KEY;  actions[ai++] = ',';
+                actions[ai++] = THROW_KEY; actions[ai++] = ',';
             }
-            if (theItem->category & (ARMOR | WEAPON | RING)) {
-                actions[ai++] = (theItem->flags & ITEM_EQUIPPED) ? UNEQUIP_KEY : EQUIP_KEY;
-                actions[ai++] = ',';
-            }
-            if (itemCanBeCalled(theItem)) {
-                actions[ai++] = CALL_KEY; actions[ai++] = ',';
-            }
-            actions[ai++] = DROP_KEY;  actions[ai++] = ',';
-            actions[ai++] = THROW_KEY; actions[ai++] = ',';
             if (ai > 0 && actions[ai-1] == ',') ai--;
             actions[ai] = '\0';
 
@@ -3373,6 +3376,12 @@ char displayInventory(unsigned short categoryMask,
             }
         } else {
             // Second keypress: action key.
+            if (!includeButtons) {
+                // Nothing may act on an item that is only being looked at.
+                waitingForAction = false;
+                theItem = NULL;
+                continue;
+            }
             if (!rogue.playbackMode) {
                 androidHideInventory();
             }

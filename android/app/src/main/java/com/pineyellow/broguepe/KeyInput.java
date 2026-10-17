@@ -42,6 +42,8 @@ final class KeyInput {
                 case '-':  sendKey(a, KeyEvent.KEYCODE_MINUS); break;
                 case '=':  sendKey(a, KeyEvent.KEYCODE_EQUALS); break;
                 case '.':  sendKey(a, KeyEvent.KEYCODE_PERIOD); break;
+                case '>':  sendKeyWithShift(a, KeyEvent.KEYCODE_PERIOD); break;
+                case '<':  sendKeyWithShift(a, KeyEvent.KEYCODE_COMMA); break;
                 case ' ':  sendKey(a, KeyEvent.KEYCODE_SPACE); break;
                 default:   sendKey(a, KeyEvent.KEYCODE_ESCAPE); break;
             }

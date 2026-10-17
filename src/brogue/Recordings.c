@@ -30,6 +30,7 @@
 #ifdef BROGUE_ANDROID
 #include <dirent.h>
 #include <unistd.h>
+#include <sys/stat.h>
 #include "android-stats.h"
 #endif
 
@@ -313,6 +314,7 @@ static void playbackPanic() {
     if (!rogue.playbackOOS) {
         rogue.playbackFastForward = false;
         rogue.playbackPaused = true;
+        androidPlaybackPausedChanged(true);
         rogue.playbackOOS = true;
         rogue.creaturesWillFlashThisTurn = false;
         blackOutScreen();
@@ -361,6 +363,11 @@ void recallEvent(rogueEvent *event) {
             case SAVED_GAME_LOADED:
                 tryAgain = true;
                 flashTemporaryAlert(" Saved game loaded ", 1000);
+                if (androidWatchingRecording && recordingLocation >= lengthOfPlaybackFile) {
+                    // Resumed, then abandoned before another input. The game ends here, so
+                    // the event is left as this marker, which nothing acts on.
+                    androidEndOfRecording();
+                }
                 break;
             case MOUSE_UP:
             case MOUSE_DOWN:
@@ -466,6 +473,17 @@ static boolean getPatchVersion(char *versionString, unsigned short *patchVersion
     return sscanf(versionString, gameConst->patchVersionPattern, patchVersion) == 1;
 }
 
+// Whether a save or recording with this version string can be opened by the variant these
+// constants belong to. The same test initRecording() makes.
+static boolean versionIsCompatible(const char *versionString, const gameConstants *constants) {
+    unsigned short recPatch;
+    if (sscanf(versionString, constants->patchVersionPattern, &recPatch) == 1
+        && recPatch <= constants->patchVersion) {
+        return true; // same major.minor, patch <= ours
+    }
+    return strcmp(versionString, constants->recordingVersionString) == 0;
+}
+
 // creates a game recording file, or if in playback mode,
 // initializes based on and starts reading from the recording file
 void initRecording() {
@@ -566,6 +584,11 @@ void OOSCheck(unsigned long x, short numberOfBytes) {
     unsigned long recordedNumber;
 
     if (rogue.playbackMode) {
+        if (androidWatchingRecording && recordingLocation >= lengthOfPlaybackFile) {
+            // An abandoned run's recording stops at a save, which may be partway through a
+            // turn. There is nothing left to check against; the next event read ends it.
+            return;
+        }
         eventType = recallChar();
         recordedNumber = recallNumber(numberOfBytes);
         if (eventType != RNG_CHECK || recordedNumber != x) {
@@ -814,6 +837,7 @@ void pausePlayback() {
     //short oldRNG;
     if (!rogue.playbackPaused) {
         rogue.playbackPaused = true;
+        androidPlaybackPausedChanged(true);
         messageWithColor(KEYBOARD_LABELS ? "recording paused. Press space to play." : "recording paused.",
                          &teal, 0);
         refreshSideBar(-1, -1, false);
@@ -823,6 +847,7 @@ void pausePlayback() {
         //rogue.RNG = oldRNG;
         messageWithColor("recording unpaused.", &teal, 0);
         rogue.playbackPaused = false;
+        androidPlaybackPausedChanged(false);
         refreshSideBar(-1, -1, false);
         rogue.playbackDelayThisTurn = DEFAULT_PLAYBACK_DELAY;
     }
@@ -1002,11 +1027,14 @@ boolean executePlaybackInput(rogueEvent *recordingInput) {
                 rogue.gameExitStatusCode = EXIT_STATUS_SUCCESS;
                 rogue.playbackOOS = false;
                 rogue.creaturesWillFlashThisTurn = false;
-                // Remove the Android save so the player isn't stuck in a load loop.
+                // When the save itself was being replayed, remove it so the player isn't stuck in
+                // a load loop. Leaving a Recent Games recording must keep the run in progress.
                 {
                     char savePath[BROGUE_FILENAME_MAX];
                     snprintf(savePath, sizeof(savePath), "%s%s", ANDROID_SAVE_NAME, GAME_SUFFIX);
-                    remove(savePath);
+                    if (strcmp(rogue.currentGamePath, savePath) == 0) {
+                        remove(savePath);
+                    }
                 }
                 notifyEvent(GAMEOVER_RECORDING, 0, 0, "recording ended", "none");
                 return true;
@@ -1286,6 +1314,70 @@ void androidDeleteSaveFile(void) {
     remove(filePath);
 }
 
+// Recent Games keeps each run's recording in this folder. The engine leaves a finished or
+// abandoned run's recording under one of the fixed names below, and Java renames it for the
+// run's entry. androidRemoveStaleRecordings() only clears the top folder, so it never sees these.
+#define ANDROID_RECORDINGS_DIR      "recordings"
+#define ANDROID_FINISHED_RECORDING  ANDROID_RECORDINGS_DIR "/finished" RECORDING_SUFFIX
+#define ANDROID_ABANDONED_RECORDING ANDROID_RECORDINGS_DIR "/abandoned" RECORDING_SUFFIX
+
+// Copies the recording of the run that just ended to ANDROID_FINISHED_RECORDING. Call it before
+// androidRecordRun(), whose Recent Games entry takes the file.
+void androidKeepFinishedRecording(void) {
+    if (rogue.playbackMode || currentFilePath[0] == '\0') {
+        return;
+    }
+
+    char tmpPath[BROGUE_FILENAME_MAX];
+    snprintf(tmpPath, sizeof(tmpPath), "%s.tmp", ANDROID_FINISHED_RECORDING);
+
+    mkdir(ANDROID_RECORDINGS_DIR, 0700);
+    flushBufferToFile();
+    if (!copyRecordingToSaveFile(currentFilePath, tmpPath, lengthOfPlaybackFile)
+        || rename(tmpPath, ANDROID_FINISHED_RECORDING) != 0) {
+
+        remove(tmpPath);
+    }
+}
+
+// A new run is replacing the saved one, so that run was abandoned. Its save is also its
+// recording: move it to ANDROID_ABANDONED_RECORDING for Recent Games instead of deleting it.
+void androidSetAsideSaveFile(void) {
+    char savePath[BROGUE_FILENAME_MAX];
+    snprintf(savePath, sizeof(savePath), "%s%s", ANDROID_SAVE_NAME, GAME_SUFFIX);
+    if (!fileExists(savePath)) {
+        return;
+    }
+
+    mkdir(ANDROID_RECORDINGS_DIR, 0700);
+    if (rename(savePath, ANDROID_ABANDONED_RECORDING) != 0) {
+        remove(savePath);
+    }
+}
+
+// True while a Recent Games recording is being watched, rather than a save being loaded.
+boolean androidWatchingRecording = false;
+
+// A watched recording has run out of input before the game ended, as an abandoned run's does
+// at its last save. CE would call this out of sync. Instead, say so, wait for a tap, and end
+// the playback.
+void androidEndOfRecording(void) {
+    if (rogue.playbackFastForward) {
+        rogue.playbackFastForward = false;
+        displayLevel();
+        refreshSideBar(-1, -1, false);
+    }
+    rogue.creaturesWillFlashThisTurn = false;
+    androidPlaybackPausedChanged(true);
+
+    rogue.playbackMode = false;
+    message("End of recording.", REQUIRE_ACKNOWLEDGMENT);
+    rogue.playbackMode = true;
+
+    rogue.gameHasEnded = true;
+    rogue.gameExitStatusCode = EXIT_STATUS_SUCCESS;
+}
+
 static boolean stringEndsWith(const char *string, const char *suffix) {
     size_t stringLength = strlen(string), suffixLength = strlen(suffix);
     return stringLength >= suffixLength
@@ -1331,14 +1423,19 @@ boolean androidSaveFileExists(void) {
     return fileExists(filePath);
 }
 
-// Return the game variant encoded by the recording version header. Android
-// saves created before variant-aware resume already contain these prefixes,
-// so no save migration or sidecar metadata is needed.
-int androidSaveVariant(void) {
-    char filePath[BROGUE_FILENAME_MAX];
-    snprintf(filePath, sizeof(filePath), "%s%s", ANDROID_SAVE_NAME, GAME_SUFFIX);
+// The game variant named by the prefix of a recording version string, or -1.
+static int variantOfVersion(const char *versionStr) {
+    if (strncmp(versionStr, "CE ", 3) == 0) return VARIANT_BROGUE;
+    if (strncmp(versionStr, "RB ", 3) == 0) return VARIANT_RAPID_BROGUE;
+    if (strncmp(versionStr, "BB ", 3) == 0) return VARIANT_BULLET_BROGUE;
+    return -1;
+}
 
-    FILE *f = fopen(filePath, "rb");
+// Return the game variant encoded by the version header of a save or
+// recording. Android saves created before variant-aware resume already contain
+// these prefixes, so no save migration or sidecar metadata is needed.
+int androidRecordingVariant(const char *path) {
+    FILE *f = fopen(path, "rb");
     if (!f) return -1;
 
     char versionStr[16];
@@ -1347,10 +1444,13 @@ int androidSaveVariant(void) {
     if (n < 15) return -1;
     versionStr[15] = '\0';
 
-    if (strncmp(versionStr, "CE ", 3) == 0) return VARIANT_BROGUE;
-    if (strncmp(versionStr, "RB ", 3) == 0) return VARIANT_RAPID_BROGUE;
-    if (strncmp(versionStr, "BB ", 3) == 0) return VARIANT_BULLET_BROGUE;
-    return -1;
+    return variantOfVersion(versionStr);
+}
+
+int androidSaveVariant(void) {
+    char filePath[BROGUE_FILENAME_MAX];
+    snprintf(filePath, sizeof(filePath), "%s%s", ANDROID_SAVE_NAME, GAME_SUFFIX);
+    return androidRecordingVariant(filePath);
 }
 
 // Return the user-facing difficulty stored immediately after the 15-byte
@@ -1390,11 +1490,33 @@ boolean androidSaveIsCompatible(void) {
     if (n < 15) return false;
     versionStr[15] = '\0';
 
-    unsigned short recPatch;
-    if (getPatchVersion(versionStr, &recPatch) && recPatch <= gameConst->patchVersion) {
-        return true; // same major.minor, patch <= ours
+    return versionIsCompatible(versionStr, gameConst);
+}
+
+extern const gameConstants brogueGameConst, rapidBrogueGameConst, bulletBrogueGameConst;
+
+// Whether the recording at `path` can be watched in this version of the game: it holds at least
+// its header, and its version passes the same test as a save's for the variant it was played in.
+// Safe to call from any thread.
+boolean androidRecordingIsPlayable(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return false;
+
+    char header[RECORDING_HEADER_LENGTH];
+    size_t n = fread(header, 1, RECORDING_HEADER_LENGTH, f);
+    fclose(f);
+    if (n < RECORDING_HEADER_LENGTH) return false;
+
+    char versionStr[16];
+    memcpy(versionStr, header, 15);
+    versionStr[15] = '\0';
+
+    switch (variantOfVersion(versionStr)) {
+        case VARIANT_BROGUE:        return versionIsCompatible(versionStr, &brogueGameConst);
+        case VARIANT_RAPID_BROGUE:  return versionIsCompatible(versionStr, &rapidBrogueGameConst);
+        case VARIANT_BULLET_BROGUE: return versionIsCompatible(versionStr, &bulletBrogueGameConst);
+        default:                    return false;
     }
-    return (strcmp(versionStr, gameConst->recordingVersionString) == 0);
 }
 
 #define MAX_TEXT_INPUT_FILENAME_LENGTH (COLS - 12) // max length including the suffix

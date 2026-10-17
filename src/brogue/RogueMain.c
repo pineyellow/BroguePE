@@ -1137,6 +1137,7 @@ void gameOver(char *killedBy, boolean useCustomPhrasing) {
                 saveRunHistory(rogue.quit ? "Quit" : "Died", rogue.quit ? "-" : killedBy, (int) theEntry.score, numGems);
             }
 
+            androidKeepFinishedRecording();
             if (summaryJson) {
                 androidRecordRun(summaryJson, true);
             }
@@ -1187,7 +1188,9 @@ void gameOver(char *killedBy, boolean useCustomPhrasing) {
         blackOutScreen();
     }
 
-    if (!rogue.quit) {
+    // A watched recording goes straight back to its Recent Games panel, which shows the
+    // same summary.
+    if (!rogue.quit && !rogue.playbackMode) {
         androidShowDeathScreen(summaryJson ? summaryJson : "{}");
         deathFlameLoop();
         blackOutScreen();
@@ -1278,6 +1281,7 @@ void victory(boolean superVictory) {
         // item names are what the player knew, as on the death screen.
         char *summaryJson = runSummaryJson(superVictory ? "mastered" : "escaped",
                                            theEntry.description, rogue.gold, theEntry.score);
+        androidKeepFinishedRecording();
         if (summaryJson) {
             androidRecordRun(summaryJson, true);
             free(summaryJson);
@@ -1285,6 +1289,10 @@ void victory(boolean superVictory) {
 
         androidDeleteSaveFile();
     }
+
+    // While a recording is watched, the screens below wait for taps, as in a live game.
+    isPlayback = rogue.playbackMode;
+    rogue.playbackMode = false;
 
     //
     // First screen - Congratulations...
@@ -1371,11 +1379,8 @@ void victory(boolean superVictory) {
         }
     }
 
-    isPlayback = rogue.playbackMode;
-    rogue.playbackMode = false;
-    rogue.playbackMode = isPlayback;
-
     displayMoreSign();
+    rogue.playbackMode = isPlayback;
 
     if (rogue.playbackMode && nonInteractivePlayback) {
         printf("Recording: %s ended after %li turns (victory).\n", rogue.currentGamePath, rogue.playerTurnNumber);

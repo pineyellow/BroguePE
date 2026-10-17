@@ -76,7 +76,7 @@ class SeedDetailsModal {
         if (seed == 0) return;
         activity.modalStack.clear();
         activity.startMenu.dismiss();
-        activity.nativeDeleteSaveFile();
+        activity.nativeSetAsideSaveFile();
         int variant = getLaunchVariant();
         if (variant >= 0) {
             activity.nativeStartMenuResultWithSeedVariantAndDifficulty(

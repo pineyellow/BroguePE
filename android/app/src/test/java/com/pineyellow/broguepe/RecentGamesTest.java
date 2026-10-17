@@ -91,6 +91,34 @@ public class RecentGamesTest {
     }
 
     @Test
+    public void recordingNamesMustBePlainRecordingFiles() throws Exception {
+        JSONObject game = game("died", 0, 0, 1);
+        assertNull(RecentGames.recordingName(game));
+        game.put("recording", "1760000000000.broguerec");
+        assertEquals("1760000000000.broguerec", RecentGames.recordingName(game));
+        game.put("recording", "../BroguePE.broguerec");
+        assertNull(RecentGames.recordingName(game));
+        game.put("recording", "BroguePE.broguesave");
+        assertNull(RecentGames.recordingName(game));
+    }
+
+    @Test
+    public void onlyUnusedRecordingsAreDeleted() throws Exception {
+        List<JSONObject> games = new ArrayList<>();
+        JSONObject kept = game("died", 0, 0, 5);
+        kept.put("recording", "1.broguerec");
+        games.add(kept);
+        games.add(game("quit", 0, 0, 5));
+
+        List<String> unused = RecentGames.recordingsToDelete(games, new String[] {
+            "1.broguerec", "2.broguerec", "finished.broguerec", "abandoned.broguerec",
+            "finished.broguerec.tmp", "notes.txt" });
+        assertEquals(1, unused.size());
+        assertEquals("2.broguerec", unused.get(0));
+        assertTrue(RecentGames.recordingsToDelete(games, null).isEmpty());
+    }
+
+    @Test
     public void storedListRoundTripsAndSkipsBadEntries() throws Exception {
         List<JSONObject> games = new ArrayList<>();
         games = RecentGames.withGame(games, game("died", 1, 0, 5));
