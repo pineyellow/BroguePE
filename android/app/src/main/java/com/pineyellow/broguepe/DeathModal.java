@@ -1,8 +1,10 @@
 package com.pineyellow.broguepe;
 
+import android.content.res.ColorStateList;
 import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
+import android.graphics.drawable.RippleDrawable;
 import android.os.Build;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
@@ -15,6 +17,7 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -23,7 +26,12 @@ import org.json.JSONArray;
 import org.json.JSONException;
 import org.json.JSONObject;
 
+import java.util.ArrayList;
+import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 import java.util.Locale;
+import java.util.Random;
 
 final class DeathModal {
 
@@ -38,7 +46,19 @@ final class DeathModal {
         DESTROYING
     }
 
-    private static final String NOT_TRACKED = "TBD";
+    // MOCK: names match the monster catalog so the pill icons resolve.
+    private static final String[] MOCK_MONSTERS = {
+        "rat", "kobold", "jackal", "eel", "monkey", "bloat", "pit bloat",
+        "goblin", "goblin conjurer", "goblin mystic", "goblin totem", "pink jelly",
+        "toad", "vampire bat", "arrow turret", "acid mound", "centipede", "ogre",
+        "bog monster", "ogre totem", "spider", "spark turret", "wisp", "wraith",
+        "zombie", "troll", "ogre shaman", "naga", "salamander", "explosive bloat",
+        "dar blademaster", "dar priestess", "dar battlemage", "acidic jelly",
+        "centaur", "underworm", "sentinel", "dart turret", "kraken", "lich",
+        "phylactery", "pixie", "phantom"
+    };
+    private static final String SHOW_CREATURES = "Show monsters and allies";
+    private static final String SHOW_PACK = "Show inventory";
     private static final String MISSING = "—";
 
     private final BrogueActivity activity;
@@ -261,9 +281,9 @@ final class DeathModal {
         }
     }
 
-    /** One panel: the run summary on the left, the pack at death on the
-     *  right. Each column scrolls on its own. A tap outside the panel, or
-     *  Back, dismisses it. */
+    /** One panel: the run summary on the left; on the right, the pack at
+     *  death or the monsters and allies met, switched by a title-row button.
+     *  Each list scrolls on its own. A tap outside the panel, or Back, dismisses it. */
     private void buildModal(String json) {
         if (root == null) return;
 
@@ -277,14 +297,33 @@ final class DeathModal {
 
         LinearLayout panel = ModalChrome.makePanel(activity);
         // Tighter header than the other modals so the columns get more room.
-        panel.setPadding(panel.getPaddingLeft(), activity.dpToPx(12),
+        // 12dp above the title; the switch button reaches 6dp further up.
+        panel.setPadding(panel.getPaddingLeft(), activity.dpToPx(6),
                          panel.getPaddingRight(), panel.getPaddingBottom());
         // Taps inside the panel must not reach fadeView, which dismisses.
         panel.setClickable(true);
+        // Title row: "YOU DIED" centred, and on the right a button that
+        // switches the right column between the pack and the monsters.
+        FrameLayout header = new FrameLayout(activity);
         TextView title = ModalChrome.makeTitle(
             activity, activity.getString(R.string.death_title));
-        title.setPadding(0, 0, 0, activity.dpToPx(8));
-        panel.addView(title);
+        title.setPadding(0, 0, 0, 0);
+        // The title stays centred in the lower 30dp of the row, where it was
+        // before the button grew upward.
+        FrameLayout.LayoutParams titleParams = new FrameLayout.LayoutParams(
+            FrameLayout.LayoutParams.MATCH_PARENT,
+            FrameLayout.LayoutParams.MATCH_PARENT);
+        titleParams.topMargin = activity.dpToPx(6);
+        header.addView(title, titleParams);
+        ImageView switchButton = makeSwitchButton();
+        int switchSize = activity.dpToPx(36);
+        header.addView(switchButton, new FrameLayout.LayoutParams(
+            switchSize, switchSize, Gravity.END | Gravity.TOP));
+        LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT);
+        headerParams.bottomMargin = activity.dpToPx(8);
+        panel.addView(header, headerParams);
 
         LinearLayout columns = new LinearLayout(activity);
         columns.setOrientation(LinearLayout.HORIZONTAL);
@@ -292,23 +331,45 @@ final class DeathModal {
         panel.addView(columns, new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT, 0, 1f));
 
+        // The summary sits on a rounded card, like the Personal Stats cards.
         LinearLayout summaryColumn = new LinearLayout(activity);
         summaryColumn.setOrientation(LinearLayout.VERTICAL);
+        int cardPad = activity.dpToPx(10);
+        summaryColumn.setPadding(cardPad, cardPad, cardPad, cardPad);
+        GradientDrawable summaryBg = new GradientDrawable();
+        summaryBg.setShape(GradientDrawable.RECTANGLE);
+        summaryBg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
+        summaryBg.setColor(Palette.ITEM_BG);
+        summaryColumn.setBackground(summaryBg);
         addSummary(addScrollingBody(summaryColumn), summary);
         columns.addView(summaryColumn, new LinearLayout.LayoutParams(
             0, LinearLayout.LayoutParams.MATCH_PARENT, 0.8f));
 
-        View divider = ModalChrome.makeDimSeparator(activity);
-        LinearLayout.LayoutParams dividerParams = new LinearLayout.LayoutParams(
-            1, LinearLayout.LayoutParams.MATCH_PARENT);
-        dividerParams.setMargins(activity.dpToPx(12), 0, activity.dpToPx(12), 0);
-        columns.addView(divider, dividerParams);
-
         LinearLayout inventoryColumn = new LinearLayout(activity);
         inventoryColumn.setOrientation(LinearLayout.VERTICAL);
-        addInventory(addScrollingBody(inventoryColumn), summary.optJSONArray("items"));
-        columns.addView(inventoryColumn, new LinearLayout.LayoutParams(
-            0, LinearLayout.LayoutParams.MATCH_PARENT, 1.2f));
+        // The right column shows either the pack or the monsters slain and
+        // allies met this run; the title-row button switches between them.
+        LinearLayout packContent = addScrollingBody(inventoryColumn);
+        addInventory(packContent, summary.optJSONArray("items"));
+        LinearLayout creaturesContent = addScrollingBody(inventoryColumn);
+        View packBody = (View) packContent.getParent();
+        View creaturesBody = (View) creaturesContent.getParent();
+        creaturesBody.setVisibility(View.GONE);
+        switchButton.setContentDescription(SHOW_CREATURES);
+        switchButton.setOnClickListener(v -> {
+            boolean showCreatures = creaturesBody.getVisibility() != View.VISIBLE;
+            // Built on first open, since a long run means a lot of pills.
+            if (showCreatures && creaturesContent.getChildCount() == 0) {
+                addCreatures(creaturesContent);
+            }
+            creaturesBody.setVisibility(showCreatures ? View.VISIBLE : View.GONE);
+            packBody.setVisibility(showCreatures ? View.GONE : View.VISIBLE);
+            v.setContentDescription(showCreatures ? SHOW_PACK : SHOW_CREATURES);
+        });
+        LinearLayout.LayoutParams inventoryParams = new LinearLayout.LayoutParams(
+            0, LinearLayout.LayoutParams.MATCH_PARENT, 1.2f);
+        inventoryParams.leftMargin = activity.dpToPx(12);
+        columns.addView(inventoryColumn, inventoryParams);
 
         DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
         int width = Math.min(activity.dpToPx(600), (int)(metrics.widthPixels * 0.9f));
@@ -378,11 +439,6 @@ final class DeathModal {
             addStat(stats, "Run playtime", PlayerStatsModal.formatPlaytime(playtime));
         }
 
-        // Not tracked per run yet.
-        addPlaceholderStat(stats, "Monsters slain");
-        addPlaceholderStat(stats, "Allies freed");
-        addPlaceholderStat(stats, "Allies lost");
-
         TextView statsView = new TextView(activity);
         statsView.setText(stats);
         statsView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
@@ -392,19 +448,9 @@ final class DeathModal {
         content.addView(statsView);
     }
 
+    /** Appends "Key: Value", coloured like ModalChrome.addKeyValueRow. */
     private static void addStat(SpannableStringBuilder stats, String key,
                                 String value) {
-        appendStat(stats, key, value, Palette.GHOST_WHITE);
-    }
-
-    private static void addPlaceholderStat(SpannableStringBuilder stats,
-                                           String key) {
-        appendStat(stats, key, NOT_TRACKED, Palette.DISABLED_TEXT);
-    }
-
-    /** Appends "Key: Value", coloured like ModalChrome.addKeyValueRow. */
-    private static void appendStat(SpannableStringBuilder stats, String key,
-                                   String value, int valueColor) {
         if (stats.length() > 0) {
             stats.append("  ");
         }
@@ -413,7 +459,7 @@ final class DeathModal {
                      Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         int valueStart = stats.length();
         stats.append(nonBreaking(value));
-        stats.setSpan(new ForegroundColorSpan(valueColor), valueStart,
+        stats.setSpan(new ForegroundColorSpan(Palette.GHOST_WHITE), valueStart,
                       stats.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         stats.setSpan(new StyleSpan(Typeface.BOLD), valueStart,
                       stats.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -433,6 +479,52 @@ final class DeathModal {
             label += " / " + PlayerStatsModal.DIFFICULTY_LABELS[StartMenu.DIFFICULTY_EASY];
         }
         return label;
+    }
+
+    /** Small square icon button, styled like the menu buttons. Not
+     *  focusable, so root keeps focus and Enter still dismisses. */
+    private ImageView makeSwitchButton() {
+        ImageView button = new ImageView(activity);
+        button.setImageResource(R.drawable.ic_swap);
+        button.setColorFilter(Palette.PALE_BLUE);
+        button.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        int pad = activity.dpToPx(7);
+        button.setPadding(pad, pad, pad, pad);
+
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.RECTANGLE);
+        bg.setCornerRadius(activity.dpToPx(5));
+        bg.setColor(Palette.ITEM_BG);
+        bg.setStroke(1, Palette.BORDER_DIM);
+        button.setBackground(new RippleDrawable(
+            ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
+        button.setClickable(true);
+        return button;
+    }
+
+    /** MOCK: random monsters and allies until per-run tracking exists. Uses
+     *  the same pill sections as Personal Stats. */
+    private void addCreatures(LinearLayout content) {
+        Random random = new Random();
+        PlayerStatsModal.addTallySection(activity, content, "Monsters Slain",
+            mockTallies(random, 30, 40), 0);
+        PlayerStatsModal.addTallySection(activity, content, "Allies Freed",
+            mockTallies(random, 4, 2), 16);
+        PlayerStatsModal.addTallySection(activity, content, "Allies you let die",
+            mockTallies(random, 3, 1), 16);
+    }
+
+    private static List<PlayerStats.Tally> mockTallies(Random random,
+                                                       int maxKinds, int maxCount) {
+        List<String> names = new ArrayList<>(Arrays.asList(MOCK_MONSTERS));
+        Collections.shuffle(names, random);
+        int kinds = random.nextInt(maxKinds + 1);
+        List<PlayerStats.Tally> tallies = new ArrayList<>();
+        for (int i = 0; i < kinds; i++) {
+            tallies.add(new PlayerStats.Tally(names.get(i), 1 + random.nextInt(maxCount)));
+        }
+        Collections.sort(tallies, (a, b) -> Integer.compare(b.count, a.count));
+        return tallies;
     }
 
     /** The pack at death, equipped items first and a divider after them.

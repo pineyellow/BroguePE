@@ -160,24 +160,32 @@ final class PlayerStatsModal {
 
     private void addTallySection(LinearLayout panel, String title,
                                   java.util.List<PlayerStats.Tally> tallies) {
+        addTallySection(activity, panel, title, tallies, 20);
+    }
+
+    /** Subheading plus a wrapping row of monster pills, or a placeholder when
+     *  the list is empty. Also used by the death screen. */
+    static void addTallySection(BrogueActivity activity, LinearLayout panel,
+                                String title, java.util.List<PlayerStats.Tally> tallies,
+                                int topPaddingDp) {
         TextView subhead = new TextView(activity);
         subhead.setText(title);
         subhead.setTextColor(Palette.DIM_WHITE_BLUE);
         subhead.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         subhead.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         subhead.setLetterSpacing(0.1f);
-        subhead.setPadding(activity.dpToPx(4), activity.dpToPx(20),
+        subhead.setPadding(activity.dpToPx(4), activity.dpToPx(topPaddingDp),
                            activity.dpToPx(4), activity.dpToPx(6));
         panel.addView(subhead);
 
         if (tallies == null || tallies.isEmpty()) {
-            panel.addView(makeEmptyPlaceholder());
+            panel.addView(makeEmptyPlaceholder(activity));
             return;
         }
 
         TagFlowLayout flow = new TagFlowLayout(activity, activity.dpToPx(6));
         for (PlayerStats.Tally t : tallies) {
-            flow.addView(makeTagPill(t));
+            flow.addView(makeTagPill(activity, t));
         }
         LinearLayout.LayoutParams fp = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
@@ -188,7 +196,7 @@ final class PlayerStatsModal {
 
     /** Shown inside a section whose content list is empty, so every section's
      *  header is always visible regardless of player progress. */
-    private TextView makeEmptyPlaceholder() {
+    private static TextView makeEmptyPlaceholder(BrogueActivity activity) {
         TextView empty = new TextView(activity);
         empty.setText(R.string.stats_none_yet);
         empty.setTextColor(Palette.DISABLED_TEXT);
@@ -247,7 +255,7 @@ final class PlayerStatsModal {
         content.setVisibility(View.GONE);
 
         if (stats.recentSeeds.isEmpty()) {
-            content.addView(makeEmptyPlaceholder());
+            content.addView(makeEmptyPlaceholder(activity));
         } else {
             for (PlayerStats.RecentSeed recent : stats.recentSeeds) {
                 content.addView(makeRecentSeedRow(recent));
@@ -311,7 +319,7 @@ final class PlayerStatsModal {
         }
     }
 
-    private View makeTagPill(PlayerStats.Tally t) {
+    private static View makeTagPill(BrogueActivity activity, PlayerStats.Tally t) {
         LinearLayout container = new LinearLayout(activity);
         container.setOrientation(LinearLayout.HORIZONTAL);
         container.setGravity(Gravity.CENTER_VERTICAL);
