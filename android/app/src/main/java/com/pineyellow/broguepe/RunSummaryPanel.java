@@ -120,6 +120,9 @@ final class RunSummaryPanel {
             playAgainParams.topMargin = activity.dpToPx(8);
             leftColumn.addView(makePlayAgainButton(onPlayAgain), playAgainParams);
             columns.addView(leftColumn, leftParams);
+            // Less panel padding under the button, so it sits lower.
+            panel.setPadding(panel.getPaddingLeft(), panel.getPaddingTop(),
+                             panel.getPaddingRight(), activity.dpToPx(8));
         }
 
         LinearLayout inventoryColumn = new LinearLayout(activity);
