@@ -1028,7 +1028,10 @@ boolean executePlaybackInput(rogueEvent *recordingInput) {
                 return true;
             case DISCOVERIES_KEY:
                 rogue.playbackMode = false;
-                displayDiscoveries();
+                // Its inventory icon goes back to the inventory, as when it is opened from there.
+                if (displayDiscoveries() == INVENTORY_KEY) {
+                    displayInventory(ALL_ITEMS, 0, 0, true, false);
+                }
                 rogue.playbackMode = true;
                 return true;
             case MESSAGE_ARCHIVE_KEY:
