@@ -536,6 +536,10 @@ void freeCaptive(creature *monst) {
     sprintf(buf, "you free the grateful %s and gain a faithful ally.", monstName);
     message(buf, 0);
 
+    // This run's tally for the death screen. Unlike the lifetime stats below,
+    // it also counts during replay, which is how loading a save rebuilds it.
+    rogue.runAlliesFreed[monst->info.monsterID]++;
+
     // Catalog name (not monsterName()'s display variant — that returns
     // "something" in the dark and randomizes under hallucination, which is
     // wrong for a tally). Guarded by !rogue.playbackMode so recording

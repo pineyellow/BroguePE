@@ -8,6 +8,7 @@
     <string name="discoveries_section">-- %1$s --</string>
     <string name="discovery_chance">(%1$d%%)</string>
     <string name="inventory_empty">Your pack is empty.</string>
+    <string name="stats_none">None</string>
     <string name="stats_none_yet">None yet</string>
     <string name="stats_recent_seeds">Recently Played Seeds</string>
     <string name="settings_title">SETTINGS</string>

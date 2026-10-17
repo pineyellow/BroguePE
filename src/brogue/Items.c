@@ -3040,6 +3040,29 @@ static boolean appendItemDescriptionRuns(jsonBuffer *json, const char *descripti
     return appendJsonFormat(json, "]");
 }
 
+// Appends ,"key":[{"name":...,"count":N},...] with one of this run's monster
+// tallies, leaving out kinds that never came up.
+static boolean appendRunTally(jsonBuffer *json, const char *key, const int *tally) {
+    char nameEsc[COLS * 2];
+    boolean first = true;
+
+    if (!appendJsonFormat(json, ",\"%s\":[", key)) {
+        return false;
+    }
+    for (int kind = 0; kind < NUMBER_MONSTER_KINDS; kind++) {
+        if (tally[kind] <= 0) {
+            continue;
+        }
+        jsonEscape(nameEsc, monsterCatalog[kind].monsterName, sizeof(nameEsc));
+        if (!appendJsonFormat(json, "%s{\"name\":\"%s\",\"count\":%d}",
+                              first ? "" : ",", nameEsc, tally[kind])) {
+            return false;
+        }
+        first = false;
+    }
+    return appendJsonFormat(json, "]");
+}
+
 // Summary of the run and the pack at death, for the native death screen.
 // Item names are what the player knew; nothing is identified. Returns a
 // malloc'd string the caller frees, or NULL on failure.
@@ -3103,7 +3126,11 @@ char *deathScreenJson(const char *cause, unsigned long collectedGold, long score
             magicPol, tileGlyph, textGlyph, iconRed, iconGreen, iconBlue);
     }
     if (jsonOK) {
-        jsonOK = appendJsonFormat(&json, "]}");
+        jsonOK = appendJsonFormat(&json, "]")
+            && appendRunTally(&json, "kills", rogue.runKills)
+            && appendRunTally(&json, "alliesFreed", rogue.runAlliesFreed)
+            && appendRunTally(&json, "alliesLost", rogue.runAlliesLost)
+            && appendJsonFormat(&json, "}");
     }
 
     restoreRNG;

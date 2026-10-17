@@ -27,11 +27,11 @@ import org.json.JSONException;
 import org.json.JSONObject;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.Collections;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
-import java.util.Random;
+import java.util.Map;
 
 final class DeathModal {
 
@@ -46,17 +46,6 @@ final class DeathModal {
         DESTROYING
     }
 
-    // MOCK: names match the monster catalog so the pill icons resolve.
-    private static final String[] MOCK_MONSTERS = {
-        "rat", "kobold", "jackal", "eel", "monkey", "bloat", "pit bloat",
-        "goblin", "goblin conjurer", "goblin mystic", "goblin totem", "pink jelly",
-        "toad", "vampire bat", "arrow turret", "acid mound", "centipede", "ogre",
-        "bog monster", "ogre totem", "spider", "spark turret", "wisp", "wraith",
-        "zombie", "troll", "ogre shaman", "naga", "salamander", "explosive bloat",
-        "dar blademaster", "dar priestess", "dar battlemage", "acidic jelly",
-        "centaur", "underworm", "sentinel", "dart turret", "kraken", "lich",
-        "phylactery", "pixie", "phantom"
-    };
     private static final String SHOW_CREATURES = "Show monsters and allies";
     private static final String SHOW_PACK = "Show inventory";
     private static final String MISSING = "-";
@@ -287,13 +276,7 @@ final class DeathModal {
     private void buildModal(String json) {
         if (root == null) return;
 
-        JSONObject summary;
-        try {
-            summary = new JSONObject(json);
-        } catch (JSONException e) {
-            // Still show the panel so the player can always dismiss it.
-            summary = new JSONObject();
-        }
+        JSONObject summary = parseSummary(json);
 
         LinearLayout panel = ModalChrome.makePanel(activity);
         // Tighter header than the other modals so the columns get more room.
@@ -360,7 +343,7 @@ final class DeathModal {
             boolean showCreatures = creaturesBody.getVisibility() != View.VISIBLE;
             // Built on first open, since a long run means a lot of pills.
             if (showCreatures && creaturesContent.getChildCount() == 0) {
-                addCreatures(creaturesContent);
+                addCreatures(creaturesContent, summary);
             }
             creaturesBody.setVisibility(showCreatures ? View.VISIBLE : View.GONE);
             packBody.setVisibility(showCreatures ? View.GONE : View.VISIBLE);
@@ -492,26 +475,44 @@ final class DeathModal {
         return button;
     }
 
-    /** MOCK: random monsters and allies until per-run tracking exists. Uses
-     *  the same pill sections as Personal Stats. */
-    private void addCreatures(LinearLayout content) {
-        Random random = new Random();
-        PlayerStatsModal.addTallySection(activity, content, "Monsters Slain",
-            mockTallies(random, 30, 40), 0);
-        PlayerStatsModal.addTallySection(activity, content, "Allies Freed",
-            mockTallies(random, 4, 2), 16);
-        PlayerStatsModal.addTallySection(activity, content, "Allies you let die",
-            mockTallies(random, 3, 1), 16);
+    private static JSONObject parseSummary(String json) {
+        try {
+            return new JSONObject(json);
+        } catch (JSONException e) {
+            // Still show the panel so the player can always dismiss it.
+            return new JSONObject();
+        }
     }
 
-    private static List<PlayerStats.Tally> mockTallies(Random random,
-                                                       int maxKinds, int maxCount) {
-        List<String> names = new ArrayList<>(Arrays.asList(MOCK_MONSTERS));
-        Collections.shuffle(names, random);
-        int kinds = random.nextInt(maxKinds + 1);
-        List<PlayerStats.Tally> tallies = new ArrayList<>();
-        for (int i = 0; i < kinds; i++) {
-            tallies.add(new PlayerStats.Tally(names.get(i), 1 + random.nextInt(maxCount)));
+    /** This run's monsters slain and allies freed or lost, in the same pill
+     *  sections as Personal Stats. */
+    private void addCreatures(LinearLayout content, JSONObject summary) {
+        PlayerStatsModal.addTallySection(activity, content, "Monsters Slain",
+            runTallies(summary.optJSONArray("kills")), 0, R.string.stats_none);
+        PlayerStatsModal.addTallySection(activity, content, "Allies Freed",
+            runTallies(summary.optJSONArray("alliesFreed")), 16, R.string.stats_none);
+        PlayerStatsModal.addTallySection(activity, content, "Allies you let die",
+            runTallies(summary.optJSONArray("alliesLost")), 16, R.string.stats_none);
+    }
+
+    /** Reads one of the engine's [{"name": ..., "count": N}, ...] tallies,
+     *  merging any repeated name, highest count first. */
+    static List<PlayerStats.Tally> runTallies(JSONArray entries) {
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        if (entries != null) {
+            for (int i = 0; i < entries.length(); i++) {
+                JSONObject entry = entries.optJSONObject(i);
+                if (entry == null) continue;
+                String name = entry.optString("name", "");
+                int count = entry.optInt("count", 0);
+                if (name.isEmpty() || count <= 0) continue;
+                Integer previous = counts.get(name);
+                counts.put(name, (previous == null ? 0 : previous) + count);
+            }
+        }
+        List<PlayerStats.Tally> tallies = new ArrayList<>(counts.size());
+        for (Map.Entry<String, Integer> e : counts.entrySet()) {
+            tallies.add(new PlayerStats.Tally(e.getKey(), e.getValue()));
         }
         Collections.sort(tallies, (a, b) -> Integer.compare(b.count, a.count));
         return tallies;

@@ -160,14 +160,14 @@ final class PlayerStatsModal {
 
     private void addTallySection(LinearLayout panel, String title,
                                   java.util.List<PlayerStats.Tally> tallies) {
-        addTallySection(activity, panel, title, tallies, 20);
+        addTallySection(activity, panel, title, tallies, 20, R.string.stats_none_yet);
     }
 
-    /** Subheading plus a wrapping row of monster pills, or a placeholder when
-     *  the list is empty. Also used by the death screen. */
+    /** Subheading plus a wrapping row of monster pills, or the emptyText
+     *  placeholder when the list is empty. Also used by the death screen. */
     static void addTallySection(BrogueActivity activity, LinearLayout panel,
                                 String title, java.util.List<PlayerStats.Tally> tallies,
-                                int topPaddingDp) {
+                                int topPaddingDp, int emptyText) {
         TextView subhead = new TextView(activity);
         subhead.setText(title);
         subhead.setTextColor(Palette.DIM_WHITE_BLUE);
@@ -179,7 +179,7 @@ final class PlayerStatsModal {
         panel.addView(subhead);
 
         if (tallies == null || tallies.isEmpty()) {
-            panel.addView(makeEmptyPlaceholder(activity));
+            panel.addView(makeEmptyPlaceholder(activity, emptyText));
             return;
         }
 
@@ -196,9 +196,9 @@ final class PlayerStatsModal {
 
     /** Shown inside a section whose content list is empty, so every section's
      *  header is always visible regardless of player progress. */
-    private static TextView makeEmptyPlaceholder(BrogueActivity activity) {
+    private static TextView makeEmptyPlaceholder(BrogueActivity activity, int text) {
         TextView empty = new TextView(activity);
-        empty.setText(R.string.stats_none_yet);
+        empty.setText(text);
         empty.setTextColor(Palette.DISABLED_TEXT);
         empty.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         empty.setTypeface(Typeface.MONOSPACE);
@@ -254,7 +254,7 @@ final class PlayerStatsModal {
         content.setVisibility(View.GONE);
 
         if (stats.recentSeeds.isEmpty()) {
-            content.addView(makeEmptyPlaceholder(activity));
+            content.addView(makeEmptyPlaceholder(activity, R.string.stats_none_yet));
         } else {
             for (PlayerStats.RecentSeed recent : stats.recentSeeds) {
                 content.addView(makeRecentSeedRow(recent));

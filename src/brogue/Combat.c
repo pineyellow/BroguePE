@@ -1758,30 +1758,39 @@ void killCreature(creature *decedent, boolean administrativeDeath) {
         checkForContinuedLeadership(decedent->leader);
     }
 
-    // Android stats: fire-and-forget lifecycle event. Skip administrative
-    // deaths (unspawning, phoenix-prevention, etc. — not "real" kills), the
-    // player itself (handled by gameOver), and anything during playback/save
-    // replay (rogue.playbackMode covers both). Route ally deaths to a
-    // separate hook so the Android UI can show "Allies Lost" distinctly
-    // from player kills — otherwise a fallen companion would pollute the
-    // Monsters Slain tally.
-    if (!administrativeDeath && decedent != &player && !rogue.playbackMode) {
-        const char *name = monsterCatalog[decedent->info.monsterID].monsterName;
+    // Android stats. Skip administrative deaths (unspawning, phoenix-prevention,
+    // etc., not "real" kills) and the player itself (handled by gameOver).
+    // Ally deaths are tallied separately, so a fallen companion doesn't count
+    // as a monster slain.
+    //
+    // This run's tallies (rogue.runKills etc., for the death screen) also count
+    // during playback, because loading a saved game replays it and that is how
+    // they are rebuilt. The lifetime stats skip playback: those deaths were
+    // already reported when they first happened.
+    if (!administrativeDeath && decedent != &player) {
+        const enum monsterTypes kind = decedent->info.monsterID;
+        const char *name = monsterCatalog[kind].monsterName;
         if (decedent->creatureState == MONSTER_ALLY) {
             // Same test as "you feel a sense of loss" above: timed summons
             // (spectral blades, images, guardian spirits) and a phoenix that
             // is reborn from its egg aren't lost companions.
             if ((!(decedent->info.flags & MONST_INANIMATE)
-                 || (monsterCatalog[decedent->info.monsterID].abilityFlags & MA_ENTER_SUMMONS))
+                 || (monsterCatalog[kind].abilityFlags & MA_ENTER_SUMMONS))
                 && !(decedent->bookkeepingFlags & MB_BOUND_TO_LEADER)
                 && !carriedMonsterAtDeath) {
 
-                androidNotifyAllyDied(name);
+                rogue.runAlliesLost[kind]++;
+                if (!rogue.playbackMode) {
+                    androidNotifyAllyDied(name);
+                }
             }
         } else if (!(decedent->bookkeepingFlags & MB_BOUND_TO_LEADER)) {
             // Summons that vanish with their summoner, such as a goblin
             // conjurer's spectral blades, aren't counted as kills.
-            androidNotifyMonsterKilled(name);
+            rogue.runKills[kind]++;
+            if (!rogue.playbackMode) {
+                androidNotifyMonsterKilled(name);
+            }
         }
     }
 }

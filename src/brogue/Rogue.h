@@ -2556,6 +2556,12 @@ typedef struct playerCharacter {
     // feats:
     boolean *featRecord;
 
+    // Android death screen: this run's tallies by monster kind. Like the
+    // feats, replaying a saved game rebuilds them, so they are never saved.
+    int runKills[NUMBER_MONSTER_KINDS];
+    int runAlliesFreed[NUMBER_MONSTER_KINDS];
+    int runAlliesLost[NUMBER_MONSTER_KINDS];
+
     // waypoints:
     short **wpDistance[MAX_WAYPOINT_COUNT];
     short wpCount;
