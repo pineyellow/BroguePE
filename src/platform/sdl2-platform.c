@@ -442,7 +442,9 @@ static boolean pauseWasInterrupted(PauseBehavior behavior) {
 static boolean _pauseForMilliseconds(short ms, PauseBehavior behavior) {
     if (shutdownRequested) return true;
 
-    if (rogue.automationActive && !androidAppInBackground && ms > 0) {
+    // A recording also moves the player every pause, so it keeps drawing at the
+    // display's rate like travel and explore do.
+    if ((rogue.automationActive || rogue.playbackMode) && !androidAppInBackground && ms > 0) {
         Uint64 now = SDL_GetTicks64();
 
         if (!automationPauseDeadline) {
