@@ -362,7 +362,10 @@ void recallEvent(rogueEvent *event) {
                 break;
             case SAVED_GAME_LOADED:
                 tryAgain = true;
-                flashTemporaryAlert(" Saved game loaded ", 1000);
+                if (!androidWatchingRecording) {
+                    // Every Resume adds one, and on Android that happens after each restart.
+                    flashTemporaryAlert(" Saved game loaded ", 1000);
+                }
                 if (androidWatchingRecording && recordingLocation >= lengthOfPlaybackFile) {
                     // Resumed, then abandoned before another input. The game ends here, so
                     // the event is left as this marker, which nothing acts on.
