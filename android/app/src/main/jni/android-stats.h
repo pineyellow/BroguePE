@@ -27,5 +27,8 @@ void androidNotifyPlayerWon(boolean superVictory, int currentDepth,
                             unsigned long gold);
 void androidNotifyPlayerQuit(int currentDepth, int deepestDepthReached,
                              int turns, unsigned long gold);
+/* A runSummaryJson() for the Recent Games list: finished at death, quit or
+ * victory, or an unfinished snapshot at each save. */
+void androidRecordRun(const char *summaryJson, boolean finished);
 
 #endif

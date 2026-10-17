@@ -2,6 +2,7 @@ package com.pineyellow.broguepe;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
@@ -13,6 +14,13 @@ import android.widget.FrameLayout;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.TextView;
+
+import org.json.JSONObject;
+
+import java.text.SimpleDateFormat;
+import java.util.Date;
+import java.util.List;
+import java.util.Locale;
 
 /** Detailed local player-stats view opened from the title menu. */
 final class PlayerStatsModal {
@@ -146,7 +154,7 @@ final class PlayerStatsModal {
         addKeyValueRow(panel, "Fastest win",
             stats.fastestWinTurns > 0 ? formatTurns(stats.fastestWinTurns) : "-");
 
-        addRecentSeedsSection(panel, stats);
+        addRecentGamesSection(panel);
 
         addTallySection(panel, "Primary Causes of Death", stats.deathCauses);
         addTallySection(panel, "Monsters Slain",          stats.kills);
@@ -207,9 +215,9 @@ final class PlayerStatsModal {
         return empty;
     }
 
-    /** Last ten distinct seeds this install version has played, newest first. Each
-     *  row is clickable and can be replayed offline. */
-    private void addRecentSeedsSection(LinearLayout panel, PlayerStats stats) {
+    /** This mode's last ten games, newest first. Each row opens the run's
+     *  summary, where its seed can be played again. */
+    private void addRecentGamesSection(LinearLayout panel) {
         LinearLayout header = new LinearLayout(activity);
         header.setOrientation(LinearLayout.HORIZONTAL);
         header.setGravity(Gravity.CENTER_VERTICAL);
@@ -227,7 +235,7 @@ final class PlayerStatsModal {
             ColorStateList.valueOf(Palette.RIPPLE_GLOW), headerBg, null));
 
         TextView subhead = new TextView(activity);
-        subhead.setText(R.string.stats_recent_seeds);
+        subhead.setText(R.string.stats_recent_games);
         subhead.setTextColor(Palette.DIM_WHITE_BLUE);
         subhead.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         subhead.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
@@ -253,11 +261,18 @@ final class PlayerStatsModal {
         content.setOrientation(LinearLayout.VERTICAL);
         content.setVisibility(View.GONE);
 
-        if (stats.recentSeeds.isEmpty()) {
+        List<JSONObject> games = RecentGamesStore.get(activity).games(
+            selectedVariant, selectedDifficulty);
+        if (games.isEmpty()) {
             content.addView(makeEmptyPlaceholder(activity, R.string.stats_none_yet));
         } else {
-            for (PlayerStats.RecentSeed recent : stats.recentSeeds) {
-                content.addView(makeRecentSeedRow(recent));
+            // Month and day in the order the locale uses, e.g. "Oct 17".
+            Locale locale = Locale.getDefault();
+            SimpleDateFormat dateFormat = new SimpleDateFormat(
+                android.text.format.DateFormat.getBestDateTimePattern(locale, "MMMd"),
+                locale);
+            for (JSONObject game : games) {
+                content.addView(makeRecentGameRow(game, dateFormat));
             }
         }
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
@@ -276,18 +291,53 @@ final class PlayerStatsModal {
         });
     }
 
-    private View makeRecentSeedRow(PlayerStats.RecentSeed recent) {
-        TextView row = new TextView(activity);
-        String mode = variantName(recent.variant);
-        if (recent.difficulty == StartMenu.DIFFICULTY_EASY) {
-            mode += "/easy";
+    /** One line: an icon for how the run ended, its depth, and on the right
+     *  the day it ended. */
+    private View makeRecentGameRow(JSONObject game, SimpleDateFormat dateFormat) {
+        LinearLayout row = new LinearLayout(activity);
+        row.setOrientation(LinearLayout.HORIZONTAL);
+        row.setGravity(Gravity.CENTER_VERTICAL);
+        row.setPadding(activity.dpToPx(12), activity.dpToPx(8),
+                       activity.dpToPx(12), activity.dpToPx(8));
+
+        ImageView icon = new ImageView(activity);
+        icon.setImageResource(outcomeIcon(game));
+        icon.setColorFilter(outcomeColor(game));
+        icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        int iconSize = activity.dpToPx(18);
+        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(iconSize, iconSize);
+        iconParams.rightMargin = activity.dpToPx(10);
+        row.addView(icon, iconParams);
+
+        // A win ends at the surface or the bottom, so show how deep it went.
+        int depth = RecentGames.isVictory(game)
+            ? game.optInt("deepestDepth") : game.optInt("depth");
+        TextView depthView = new TextView(activity);
+        String outcome = RecentGames.outcome(game);
+        String prefix = RecentGames.OUTCOME_QUIT.equals(outcome) ? "Abandoned at "
+            : RecentGames.isVictory(game) ? "" : "Died at ";
+        depthView.setText(prefix + "Depth " + depth);
+        depthView.setTextColor(Palette.GHOST_WHITE);
+        depthView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        depthView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        row.addView(depthView, new LinearLayout.LayoutParams(
+            0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+        String date = "";
+        long endedAt = game.optLong("endedAt", 0L);
+        if (endedAt > 0) {
+            date = dateFormat.format(new Date(endedAt));
+            TextView dateView = new TextView(activity);
+            dateView.setText(date);
+            dateView.setTextColor(Palette.PALE_BLUE);
+            dateView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            dateView.setTypeface(Typeface.MONOSPACE);
+            row.addView(dateView);
         }
-        row.setText(Long.toUnsignedString(recent.seed) + " (" + mode + ")");
-        row.setTextColor(Palette.GHOST_WHITE);
-        row.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-        row.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-        row.setPadding(activity.dpToPx(12), activity.dpToPx(10),
-                       activity.dpToPx(12), activity.dpToPx(10));
+        // The icon is hidden from screen readers, so say how the run ended.
+        row.setContentDescription(activity.getString(RecentGames.titleRes(game))
+            + ", depth " + depth + (date.isEmpty() ? "" : ", " + date));
 
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
@@ -296,11 +346,7 @@ final class PlayerStatsModal {
         row.setBackground(new RippleDrawable(
             ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
 
-        row.setOnClickListener(v -> {
-            activity.modalStack.pop();
-            activity.newGameSeedModal.show(
-                recent.seed, recent.variant, recent.difficulty);
-        });
+        row.setOnClickListener(v -> activity.recentGameModal.show(game));
 
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
@@ -310,11 +356,25 @@ final class PlayerStatsModal {
         return row;
     }
 
-    private static String variantName(int variant) {
-        switch (variant) {
-            case StartMenu.VARIANT_RAPID:  return "rapid";
-            case StartMenu.VARIANT_BULLET: return "bullet";
-            default:                       return "classic";
+    /** A skull for a death, a trophy for either win and a door for an
+     *  abandoned run. */
+    private static int outcomeIcon(JSONObject game) {
+        switch (RecentGames.outcome(game)) {
+            case RecentGames.OUTCOME_ESCAPED:
+            case RecentGames.OUTCOME_MASTERED: return R.drawable.ic_trophy;
+            case RecentGames.OUTCOME_QUIT:     return R.drawable.ic_exit_to_app;
+            default:                           return R.drawable.ic_skull;
+        }
+    }
+
+    /** Soft red for a death, gold for a victory, purple for a mastery win and
+     *  grey for an abandoned run. */
+    private static int outcomeColor(JSONObject game) {
+        switch (RecentGames.outcome(game)) {
+            case RecentGames.OUTCOME_ESCAPED:  return Color.rgb(230, 190, 80);
+            case RecentGames.OUTCOME_MASTERED: return Palette.GOOD_MAGIC;
+            case RecentGames.OUTCOME_QUIT:     return Palette.DIM_BLUE_GRAY;
+            default:                           return Palette.BAD_MAGIC;
         }
     }
 

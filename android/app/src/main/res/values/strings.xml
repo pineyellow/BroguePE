@@ -4,12 +4,15 @@
     <string name="actions_title">ACTIONS</string>
     <string name="credits_title">CREDITS</string>
     <string name="death_title">YOU DIED</string>
+    <string name="victory_title">VICTORY</string>
+    <string name="mastery_title">MASTERY</string>
+    <string name="abandoned_title">ABANDONED</string>
     <string name="discoveries_title">DISCOVERED ITEMS</string>
     <string name="discoveries_section">-- %1$s --</string>
     <string name="discovery_chance">(%1$d%%)</string>
     <string name="inventory_empty">Your pack is empty.</string>
     <string name="stats_none">None</string>
     <string name="stats_none_yet">None yet</string>
-    <string name="stats_recent_seeds">Recently Played Seeds</string>
+    <string name="stats_recent_games">Recent Games</string>
     <string name="settings_title">SETTINGS</string>
 </resources>

@@ -1254,6 +1254,15 @@ boolean androidWriteSaveFile(void) {
     // the run or counting a death, win or additional game.
     androidNotifyPlayerQuit(rogue.depthLevel, rogue.deepestLevel,
                             (int)rogue.playerTurnNumber, rogue.gold);
+
+    // Snapshot the run as it stands in this save. If a new run starts before this one ends,
+    // the Recent Games list shows it as abandoned, as of here. Gems count as in gameOver().
+    long score = rogue.gold + 500 * numberOfMatchingPackItems(GEM, 0, 0, false);
+    char *summaryJson = runSummaryJson("quit", "", rogue.gold, score);
+    if (summaryJson) {
+        androidRecordRun(summaryJson, false);
+        free(summaryJson);
+    }
     return true;
 }
 

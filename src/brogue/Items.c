@@ -3063,10 +3063,11 @@ static boolean appendRunTally(jsonBuffer *json, const char *key, const int *tall
     return appendJsonFormat(json, "]");
 }
 
-// Summary of the run and the pack at death, for the native death screen.
+// Summary of the run and the pack at its end, for the native death screen and
+// the Recent Games list. outcome is "died", "quit", "escaped" or "mastered".
 // Item names are what the player knew; nothing is identified. Returns a
 // malloc'd string the caller frees, or NULL on failure.
-char *deathScreenJson(const char *cause, unsigned long collectedGold, long score) {
+char *runSummaryJson(const char *outcome, const char *cause, unsigned long collectedGold, long score) {
     item *theItem;
     item *itemList[DROWS];
     short i, itemNumber = 0;
@@ -3090,10 +3091,10 @@ char *deathScreenJson(const char *cause, unsigned long collectedGold, long score
     jsonEscape(causeEsc, cause ? cause : "", sizeof(causeEsc));
     if (jsonOK) {
         jsonOK = appendJsonFormat(&json,
-            "{\"cause\":\"%s\",\"depth\":%d,\"deepestDepth\":%d,\"turns\":%lu,"
+            "{\"outcome\":\"%s\",\"cause\":\"%s\",\"depth\":%d,\"deepestDepth\":%d,\"turns\":%lu,"
             "\"gold\":%lu,\"score\":%ld,\"amulet\":%s,\"seed\":\"%llu\","
             "\"variant\":%d,\"difficulty\":%d,\"items\":[",
-            causeEsc, rogue.depthLevel, rogue.deepestLevel, (unsigned long) rogue.playerTurnNumber,
+            outcome, causeEsc, rogue.depthLevel, rogue.deepestLevel, (unsigned long) rogue.playerTurnNumber,
             collectedGold, score,
             numberOfMatchingPackItems(AMULET, 0, 0, false) > 0 ? "true" : "false",
             (unsigned long long) rogue.seed,

@@ -77,6 +77,7 @@ public class BrogueActivity extends SDLActivity {
     // Offline seed modals share one visual frame.
     final NewGameSeedModal newGameSeedModal = new NewGameSeedModal(this);
     final DeathModal deathModal = new DeathModal(this);
+    final RecentGameModal recentGameModal = new RecentGameModal(this);
     private SettingsPanel settingsPanel;
     private ActionsToolbar actionsToolbar;
     private DPadOverlay dpadOverlay;
@@ -96,6 +97,8 @@ public class BrogueActivity extends SDLActivity {
         super.onCreate(savedInstanceState);
         playtimeTracker = new PlaytimeTracker(this);
         runPlaytimeTracker = new RunPlaytimeTracker(this);
+        // Starts loading the Recent Games list in the background.
+        RecentGamesStore.get(this);
         requestHighestRefreshRate();
         configureRoundedCornerInsets();
 
@@ -545,6 +548,9 @@ public class BrogueActivity extends SDLActivity {
         nextGameIsResume = false;
         if (!isResume) {
             runOnUiThread(() -> inventoryRenderer.resetScrollMemory());
+            // Any run still in progress was abandoned for this one. Through the
+            // UI thread, like onRunSummary, so the store sees both in order.
+            runOnUiThread(() -> RecentGamesStore.get(this).onNewRunStarted());
         }
         runOnUiThread(() -> runPlaytimeTracker.onRunStarted(seed, isResume));
         // Resuming selects the original bucket without counting another game.
@@ -597,6 +603,14 @@ public class BrogueActivity extends SDLActivity {
                              final int turns, final long gold) {
         StatsStore.get(this).recordPlayerQuit(
             currentDepth, deepestDepthReached, turns, gold);
+    }
+
+    /** A run summary for the Recent Games list: finished, or a snapshot of
+     *  the run in progress at a save. The run's playtime is read on the UI
+     *  thread, after the onRunEnded() a death or victory has already posted. */
+    public void onRunSummary(final String summaryJson, final boolean finished) {
+        runOnUiThread(() -> RecentGamesStore.get(this).record(
+            summaryJson, finished, runPlaytimeMillis(), System.currentTimeMillis()));
     }
 
     public void hideGameUI() {

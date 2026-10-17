@@ -3328,7 +3328,7 @@ extern "C" {
                           unsigned long forbiddenFlags,
                           boolean waitForAcknowledge,
                           boolean includeButtons);
-    char *deathScreenJson(const char *cause, unsigned long collectedGold, long score);
+    char *runSummaryJson(const char *outcome, const char *cause, unsigned long collectedGold, long score);
     short numberOfMatchingPackItems(unsigned short categoryMask,
                                     unsigned long requiredFlags, unsigned long forbiddenFlags,
                                     boolean displayErrors);

@@ -165,3 +165,18 @@ void androidNotifyPlayerQuit(int currentDepth, int deepestDepthReached,
     (*env)->DeleteLocalRef(env, cls);
     (*env)->DeleteLocalRef(env, activity);
 }
+
+void androidRecordRun(const char *summaryJson, boolean finished) {
+    JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();
+    jobject activity = (jobject)SDL_AndroidGetActivity();
+    jclass cls = (*env)->GetObjectClass(env, activity);
+    jmethodID mid = (*env)->GetMethodID(env, cls, "onRunSummary",
+                                        "(Ljava/lang/String;Z)V");
+    if (mid) {
+        jstring jjson = (*env)->NewStringUTF(env, summaryJson ? summaryJson : "{}");
+        (*env)->CallVoidMethod(env, activity, mid, jjson, (jboolean)finished);
+        (*env)->DeleteLocalRef(env, jjson);
+    }
+    (*env)->DeleteLocalRef(env, cls);
+    (*env)->DeleteLocalRef(env, activity);
+}

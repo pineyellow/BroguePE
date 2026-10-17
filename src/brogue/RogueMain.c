@@ -1068,6 +1068,7 @@ void gameOver(char *killedBy, boolean useCustomPhrasing) {
     rogueHighScoresEntry theEntry;
     boolean playback;
     char recordingFilename[BROGUE_FILENAME_MAX] = {0};
+    char *summaryJson = NULL;
 
     if (player.bookkeepingFlags & MB_IS_DYING) {
         // we've already been through this once; let's avoid overkill.
@@ -1113,6 +1114,11 @@ void gameOver(char *killedBy, boolean useCustomPhrasing) {
 
         strcpy(theEntry.description, highScoreText);
 
+        // For the Recent Games list, and reused below for the death screen. A quit
+        // has no cause line; the history modal's title says it.
+        summaryJson = runSummaryJson(rogue.quit ? "quit" : "died", rogue.quit ? "" : cause,
+                                     collectedGold, theEntry.score);
+
         if (!rogue.playbackMode) {
             saveHighScore(theEntry);
 
@@ -1131,6 +1137,9 @@ void gameOver(char *killedBy, boolean useCustomPhrasing) {
                 saveRunHistory(rogue.quit ? "Quit" : "Died", rogue.quit ? "-" : killedBy, (int) theEntry.score, numGems);
             }
 
+            if (summaryJson) {
+                androidRecordRun(summaryJson, true);
+            }
             androidDeleteSaveFile();
         }
 
@@ -1179,12 +1188,11 @@ void gameOver(char *killedBy, boolean useCustomPhrasing) {
     }
 
     if (!rogue.quit) {
-        char *deathJson = deathScreenJson(cause, collectedGold, theEntry.score);
-        androidShowDeathScreen(deathJson ? deathJson : "{}");
-        free(deathJson);
+        androidShowDeathScreen(summaryJson ? summaryJson : "{}");
         deathFlameLoop();
         blackOutScreen();
     }
+    free(summaryJson);
 
     if (rogue.playbackMode && nonInteractivePlayback) {
         printf("Recording: %s ended after %li turns (game over).\n", rogue.currentGamePath, rogue.playerTurnNumber);
@@ -1264,6 +1272,15 @@ void victory(boolean superVictory) {
 
         if (rogue.mode == GAME_MODE_NORMAL) {
             saveRunHistory(victoryVerb, "-", (int) theEntry.score, gemCount);
+        }
+
+        // For the Recent Games list. Built before the screens below identify the pack, so
+        // item names are what the player knew, as on the death screen.
+        char *summaryJson = runSummaryJson(superVictory ? "mastered" : "escaped",
+                                           theEntry.description, rogue.gold, theEntry.score);
+        if (summaryJson) {
+            androidRecordRun(summaryJson, true);
+            free(summaryJson);
         }
 
         androidDeleteSaveFile();
