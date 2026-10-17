@@ -284,7 +284,10 @@ final class DeathModal {
         panel.setPadding(panel.getPaddingLeft(), activity.dpToPx(6),
                          panel.getPaddingRight(), panel.getPaddingBottom());
         // Taps inside the panel must not reach fadeView, which dismisses.
+        // Clickable views are keyboard-focusable by default since Android 8;
+        // keep focus on root so Enter always dismisses.
         panel.setClickable(true);
+        panel.setFocusable(false);
         // Title row: "YOU DIED" centred, and on the right a button that
         // switches the right column between the pack and the monsters.
         FrameLayout header = new FrameLayout(activity);
@@ -370,6 +373,8 @@ final class DeathModal {
         ScrollView scroll = new ScrollView(activity);
         scroll.setOverScrollMode(View.OVER_SCROLL_NEVER);
         scroll.setVerticalFadingEdgeEnabled(false);
+        // ScrollView makes itself focusable; keep focus on root instead.
+        scroll.setFocusable(false);
 
         LinearLayout content = new LinearLayout(activity);
         content.setOrientation(LinearLayout.VERTICAL);
@@ -472,6 +477,7 @@ final class DeathModal {
         button.setBackground(new RippleDrawable(
             ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
         button.setClickable(true);
+        button.setFocusable(false);
         return button;
     }
 

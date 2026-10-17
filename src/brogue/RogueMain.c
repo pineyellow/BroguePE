@@ -320,9 +320,6 @@ void initializeRogue(uint64_t seed) {
     for (i = 0; i < gameConst->numberFeats; i++) {
         rogue.featRecord[i] = featTable[i].initialValue;
     }
-    memset(rogue.runKills, 0, sizeof(rogue.runKills));
-    memset(rogue.runAlliesFreed, 0, sizeof(rogue.runAlliesFreed));
-    memset(rogue.runAlliesLost, 0, sizeof(rogue.runAlliesLost));
 
     deleteMessages();
     for (i = 0; i < MESSAGE_ARCHIVE_ENTRIES; i++) { // Clear the message archive.

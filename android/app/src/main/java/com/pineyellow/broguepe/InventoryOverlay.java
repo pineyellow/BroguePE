@@ -4,6 +4,7 @@ import android.annotation.SuppressLint;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.PorterDuff;
 import android.graphics.Typeface;
 import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.GradientDrawable;
@@ -450,7 +451,9 @@ final class InventoryOverlay {
         // Points right when collapsed and is turned down when expanded.
         ImageView chevron = new ImageView(activity);
         chevron.setImageResource(R.drawable.ic_chevron);
-        chevron.setColorFilter(Color.argb(120, 144, 148, 190));
+        // SRC_IN keeps the colour's transparency; the default mode would
+        // blend it over the white icon and draw it opaque and too bright.
+        chevron.setColorFilter(Color.argb(120, 144, 148, 190), PorterDuff.Mode.SRC_IN);
         int chevronSize = activity.dpToPx(12);
         LinearLayout.LayoutParams chevronParams =
             new LinearLayout.LayoutParams(chevronSize, chevronSize);
