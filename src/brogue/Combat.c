@@ -1666,6 +1666,10 @@ void killCreature(creature *decedent, boolean administrativeDeath) {
         decedent->bookkeepingFlags |= MB_IS_DYING;
     }
 
+    // Android stats: read now, because the death code below lets out any
+    // monster this one carries (a phoenix carries its egg).
+    const boolean carriedMonsterAtDeath = (decedent->carriedMonster != NULL);
+
     if (rogue.lastTarget == decedent) {
         rogue.lastTarget = NULL;
     }
@@ -1764,8 +1768,19 @@ void killCreature(creature *decedent, boolean administrativeDeath) {
     if (!administrativeDeath && decedent != &player && !rogue.playbackMode) {
         const char *name = monsterCatalog[decedent->info.monsterID].monsterName;
         if (decedent->creatureState == MONSTER_ALLY) {
-            androidNotifyAllyDied(name);
-        } else {
+            // Same test as "you feel a sense of loss" above: timed summons
+            // (spectral blades, images, guardian spirits) and a phoenix that
+            // is reborn from its egg aren't lost companions.
+            if ((!(decedent->info.flags & MONST_INANIMATE)
+                 || (monsterCatalog[decedent->info.monsterID].abilityFlags & MA_ENTER_SUMMONS))
+                && !(decedent->bookkeepingFlags & MB_BOUND_TO_LEADER)
+                && !carriedMonsterAtDeath) {
+
+                androidNotifyAllyDied(name);
+            }
+        } else if (!(decedent->bookkeepingFlags & MB_BOUND_TO_LEADER)) {
+            // Summons that vanish with their summoner, such as a goblin
+            // conjurer's spectral blades, aren't counted as kills.
             androidNotifyMonsterKilled(name);
         }
     }
