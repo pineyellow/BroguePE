@@ -169,14 +169,7 @@ final class SettingsPanel {
         // so larger ones come back from native code as negative longs.
         final String seed = Long.toUnsignedString(activity.nativeGetSeed());
         addAction(activity, panel, "Seed: " + seed, v -> {
-            ClipboardManager clipboard =
-                (ClipboardManager) activity.getSystemService(android.content.Context.CLIPBOARD_SERVICE);
-            clipboard.setPrimaryClip(ClipData.newPlainText("Brogue Seed", seed));
-            // Android 13 and newer show their own confirmation when something is copied.
-            if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) {
-                Toast.makeText(activity,
-                    "Seed " + seed + " copied", Toast.LENGTH_SHORT).show();
-            }
+            copySeed(activity, seed);
             hide();
         });
 
@@ -281,6 +274,18 @@ final class SettingsPanel {
         panel.addView(row, p);
 
         return row;
+    }
+
+    /** Copies a seed to the clipboard. Also used by the run summary panel. */
+    static void copySeed(BrogueActivity activity, String seed) {
+        ClipboardManager clipboard =
+            (ClipboardManager) activity.getSystemService(android.content.Context.CLIPBOARD_SERVICE);
+        clipboard.setPrimaryClip(ClipData.newPlainText("Brogue Seed", seed));
+        // Android 13 and newer show their own confirmation when something is copied.
+        if (android.os.Build.VERSION.SDK_INT < android.os.Build.VERSION_CODES.TIRAMISU) {
+            Toast.makeText(activity,
+                "Seed " + seed + " copied", Toast.LENGTH_SHORT).show();
+        }
     }
 
     /** Shared action-row builder. */

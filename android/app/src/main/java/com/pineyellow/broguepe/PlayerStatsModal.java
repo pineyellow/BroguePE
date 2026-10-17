@@ -2,8 +2,11 @@ package com.pineyellow.broguepe;
 
 import android.content.Context;
 import android.content.res.ColorStateList;
+import android.graphics.Bitmap;
 import android.graphics.Color;
+import android.graphics.PorterDuff;
 import android.graphics.Typeface;
+import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
 import android.util.TypedValue;
@@ -24,6 +27,10 @@ import java.util.Locale;
 
 /** Detailed local player-stats view opened from the title menu. */
 final class PlayerStatsModal {
+
+    /** Largest size of the Recent Games outcome glyph, in both graphics
+     *  modes. Its box is as wide as the glyph. */
+    private static final int OUTCOME_ICON_SIZE_DP = 16;
 
     static final String[] VARIANT_LABELS = {
         "Classic",
@@ -271,8 +278,16 @@ final class PlayerStatsModal {
             SimpleDateFormat dateFormat = new SimpleDateFormat(
                 android.text.format.DateFormat.getBestDateTimePattern(locale, "MMMd"),
                 locale);
+            // Every glyph gets the width of the widest outcome glyph in this
+            // graphics mode, so the text after them always starts at the
+            // same spot while the gap stays as small as it can be.
+            int iconWidth = 0;
+            for (String outcome : new String[] { RecentGames.OUTCOME_DIED,
+                    RecentGames.OUTCOME_QUIT, RecentGames.OUTCOME_ESCAPED }) {
+                iconWidth = Math.max(iconWidth, outcomeIconWidth(makeOutcomeIcon(outcome)));
+            }
             for (JSONObject game : games) {
-                content.addView(makeRecentGameRow(game, dateFormat));
+                content.addView(makeRecentGameRow(game, iconWidth, dateFormat));
             }
         }
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
@@ -291,23 +306,26 @@ final class PlayerStatsModal {
         });
     }
 
-    /** One line: an icon for how the run ended, its depth, and on the right
-     *  the day it ended. */
-    private View makeRecentGameRow(JSONObject game, SimpleDateFormat dateFormat) {
+    /** One line: a glyph for how the run ended, centred in a box iconWidth
+     *  wide, its depth, and on the right the day it ended. */
+    private View makeRecentGameRow(JSONObject game, int iconWidth,
+                                   SimpleDateFormat dateFormat) {
         LinearLayout row = new LinearLayout(activity);
         row.setOrientation(LinearLayout.HORIZONTAL);
         row.setGravity(Gravity.CENTER_VERTICAL);
-        row.setPadding(activity.dpToPx(12), activity.dpToPx(8),
+        // The same space on both sides of the glyph's box.
+        int glyphGap = activity.dpToPx(6);
+        row.setPadding(glyphGap, activity.dpToPx(8),
                        activity.dpToPx(12), activity.dpToPx(8));
 
-        ImageView icon = new ImageView(activity);
-        icon.setImageResource(outcomeIcon(game));
-        icon.setColorFilter(outcomeColor(game));
-        icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-        int iconSize = activity.dpToPx(18);
-        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(iconSize, iconSize);
-        iconParams.rightMargin = activity.dpToPx(10);
+        // A missing glyph still takes its box, so the text stays in line.
+        View icon = makeOutcomeIcon(RecentGames.outcome(game));
+        if (icon == null) icon = new View(activity);
+        LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(
+            iconWidth, icon instanceof TextView
+                ? LinearLayout.LayoutParams.WRAP_CONTENT
+                : activity.dpToPx(OUTCOME_ICON_SIZE_DP));
+        iconParams.rightMargin = glyphGap;
         row.addView(icon, iconParams);
 
         // A win ends at the surface or the bottom, so show how deep it went.
@@ -319,7 +337,7 @@ final class PlayerStatsModal {
             : RecentGames.isVictory(game) ? "" : "Died at ";
         depthView.setText(prefix + "Depth " + depth);
         depthView.setTextColor(Palette.GHOST_WHITE);
-        depthView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        depthView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         depthView.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         row.addView(depthView, new LinearLayout.LayoutParams(
             0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
@@ -343,6 +361,8 @@ final class PlayerStatsModal {
         bg.setShape(GradientDrawable.RECTANGLE);
         bg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         bg.setColor(Palette.ITEM_BG);
+        // Bordered like the other tappable rows here.
+        bg.setStroke(1, Palette.BORDER_DIM);
         row.setBackground(new RippleDrawable(
             ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
 
@@ -356,25 +376,64 @@ final class PlayerStatsModal {
         return row;
     }
 
-    /** A skull for a death, a trophy for either win and a door for an
-     *  abandoned run. */
-    private static int outcomeIcon(JSONObject game) {
-        switch (RecentGames.outcome(game)) {
-            case RecentGames.OUTCOME_ESCAPED:
-            case RecentGames.OUTCOME_MASTERED: return R.drawable.ic_trophy;
-            case RecentGames.OUTCOME_QUIT:     return R.drawable.ic_exit_to_app;
-            default:                           return R.drawable.ic_skull;
+    /** The game's own glyph for how the run ended, drawn from the atlas like
+     *  the monster pills: the amulet for a win, the doorway for an abandoned
+     *  run and bones for a death. The text font has only a comma for bones,
+     *  so in text mode a death is a dagger instead. Glyphs are cropped to
+     *  their artwork, since a text-font cell is mostly empty space. */
+    private View makeOutcomeIcon(String outcome) {
+        boolean useTileGlyph = GameSettings.useTileCreatureAndItemGlyphs(activity);
+        int color = outcomeColor(outcome);
+        if (!useTileGlyph && RecentGames.OUTCOME_DIED.equals(outcome)) {
+            TextView dagger = new TextView(activity);
+            dagger.setText(String.valueOf((char) 0x2020));
+            dagger.setTextColor(color);
+            dagger.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+            dagger.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+            dagger.setGravity(Gravity.CENTER);
+            dagger.setIncludeFontPadding(false);
+            dagger.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            return dagger;
         }
+
+        int[] info = activity.nativeRunOutcomeGlyph(outcome);
+        if (info == null || info.length < 2) return null;
+        int iconSize = activity.dpToPx(OUTCOME_ICON_SIZE_DP);
+        Bitmap mask = TileAtlasMask.get(activity, useTileGlyph ? info[0] : info[1],
+                                        iconSize, iconSize, true);
+        if (mask == null) return null;
+
+        ImageView icon = new ImageView(activity);
+        BitmapDrawable drawable = new BitmapDrawable(activity.getResources(), mask);
+        // The mask is already at its final pixel size; see MonsterTileIcon.
+        drawable.setFilterBitmap(false);
+        icon.setImageDrawable(drawable);
+        icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        icon.setColorFilter(color, PorterDuff.Mode.SRC_IN);
+        icon.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        return icon;
     }
 
-    /** Soft red for a death, gold for a victory, purple for a mastery win and
+    /** The width an outcome glyph needs, in pixels. */
+    private static int outcomeIconWidth(View icon) {
+        if (icon instanceof ImageView) {
+            return ((BitmapDrawable) ((ImageView) icon).getDrawable()).getBitmap().getWidth();
+        }
+        if (icon instanceof TextView) {
+            TextView text = (TextView) icon;
+            return (int) Math.ceil(text.getPaint().measureText(text.getText().toString()));
+        }
+        return 0;
+    }
+
+    /** White for a death, gold for a victory, purple for a mastery win and
      *  grey for an abandoned run. */
-    private static int outcomeColor(JSONObject game) {
-        switch (RecentGames.outcome(game)) {
+    private static int outcomeColor(String outcome) {
+        switch (outcome) {
             case RecentGames.OUTCOME_ESCAPED:  return Color.rgb(230, 190, 80);
             case RecentGames.OUTCOME_MASTERED: return Palette.GOOD_MAGIC;
             case RecentGames.OUTCOME_QUIT:     return Palette.DIM_BLUE_GRAY;
-            default:                           return Palette.BAD_MAGIC;
+            default:                           return Palette.GHOST_WHITE;
         }
     }
 

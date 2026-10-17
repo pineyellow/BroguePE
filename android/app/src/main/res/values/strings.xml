@@ -4,6 +4,7 @@
     <string name="actions_title">ACTIONS</string>
     <string name="credits_title">CREDITS</string>
     <string name="death_title">YOU DIED</string>
+    <string name="died_title">DIED</string>
     <string name="victory_title">VICTORY</string>
     <string name="mastery_title">MASTERY</string>
     <string name="abandoned_title">ABANDONED</string>

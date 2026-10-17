@@ -59,11 +59,11 @@ public class RecentGamesTest {
 
     @Test
     public void titlesFollowTheOutcome() throws Exception {
-        assertEquals(R.string.death_title, RecentGames.titleRes(game("died", 0, 0, 50)));
+        assertEquals(R.string.died_title, RecentGames.titleRes(game("died", 0, 0, 50)));
         assertEquals(R.string.abandoned_title, RecentGames.titleRes(game("quit", 0, 0, 50)));
         assertEquals(R.string.victory_title, RecentGames.titleRes(game("escaped", 0, 0, 50)));
         assertEquals(R.string.mastery_title, RecentGames.titleRes(game("mastered", 0, 0, 50)));
-        assertEquals(R.string.death_title, RecentGames.titleRes(new JSONObject()));
+        assertEquals(R.string.died_title, RecentGames.titleRes(new JSONObject()));
     }
 
     @Test

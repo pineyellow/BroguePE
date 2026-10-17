@@ -220,7 +220,19 @@ final class RunSummaryPanel {
         if (!victory && s.optBoolean("amulet", false)) {
             addStat(content,"Amulet", "In hand");
         }
-        addStat(content,"Seed", s.optString("seed", MISSING));
+        String seed = s.optString("seed", "");
+        TextView seedRow = addStat(content,"Seed", seed.isEmpty() ? MISSING : seed);
+        if (!seed.isEmpty()) {
+            // Tapping the seed copies it. The ripple only shows while pressed.
+            GradientDrawable pressMask = new GradientDrawable();
+            pressMask.setCornerRadius(activity.dpToPx(5));
+            pressMask.setColor(Color.WHITE);
+            seedRow.setBackground(new RippleDrawable(
+                ColorStateList.valueOf(Palette.RIPPLE_GLOW), null, pressMask));
+            seedRow.setOnClickListener(v -> SettingsPanel.copySeed(activity, seed));
+            // As with the switch button, so the death screen's root keeps focus.
+            seedRow.setFocusable(false);
+        }
         addStat(content,"Mode", modeLabel(s));
         // Left out for a run that isn't timed, e.g. resumed from an older save.
         if (playtimeMillis >= 0) {
@@ -229,7 +241,7 @@ final class RunSummaryPanel {
     }
 
     /** Adds a "Key: Value" row, coloured like ModalChrome.addKeyValueRow. */
-    private void addStat(LinearLayout content, String key, String value) {
+    private TextView addStat(LinearLayout content, String key, String value) {
         SpannableStringBuilder text = new SpannableStringBuilder();
         text.append(key + ": ", new ForegroundColorSpan(Palette.PALE_BLUE),
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
@@ -247,6 +259,7 @@ final class RunSummaryPanel {
         row.setPadding(activity.dpToPx(4), activity.dpToPx(4),
                        activity.dpToPx(4), activity.dpToPx(4));
         content.addView(row);
+        return row;
     }
 
     private static String modeLabel(JSONObject s) {
@@ -284,8 +297,7 @@ final class RunSummaryPanel {
         return button;
     }
 
-    /** A small button, lighter than the cards and with a brighter border so
-     *  it stands out. */
+    /** A small button, coloured like the menu buttons. */
     private TextView makePlayAgainButton(View.OnClickListener onClick) {
         TextView button = new TextView(activity);
         button.setText("Play Again");
@@ -298,8 +310,8 @@ final class RunSummaryPanel {
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
         bg.setCornerRadius(activity.dpToPx(5));
-        bg.setColor(Palette.ACTION_BG);
-        bg.setStroke(1, Palette.BORDER_ACTIVE);
+        bg.setColor(Palette.ITEM_BG);
+        bg.setStroke(1, Palette.BORDER_DIM);
         button.setBackground(new RippleDrawable(
             ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
         button.setOnClickListener(onClick);

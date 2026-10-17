@@ -75,13 +75,14 @@ final class RecentGames {
         return !(OUTCOME_QUIT.equals(outcome(game)) && game.optLong("turns", 0) <= 0);
     }
 
-    /** The details modal's title. */
+    /** The details modal's title. A death says "DIED" rather than the death
+     *  screen's "YOU DIED", to match the others. */
     static int titleRes(JSONObject game) {
         switch (outcome(game)) {
             case OUTCOME_QUIT:     return R.string.abandoned_title;
             case OUTCOME_ESCAPED:  return R.string.victory_title;
             case OUTCOME_MASTERED: return R.string.mastery_title;
-            default:               return R.string.death_title;
+            default:               return R.string.died_title;
         }
     }
 

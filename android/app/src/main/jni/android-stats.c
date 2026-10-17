@@ -63,6 +63,35 @@ Java_com_pineyellow_broguepe_BrogueActivity_nativeMonsterTileInfo(
     return result;
 }
 
+/*
+ * Returns the graphical and text-font atlas indices of the glyph the Recent
+ * Games list shows for how a run ended: the amulet for a win, the doorway for
+ * an abandoned run and bones for a death.
+ */
+JNIEXPORT jintArray JNICALL
+Java_com_pineyellow_broguepe_BrogueActivity_nativeRunOutcomeGlyph(
+        JNIEnv *env, jobject thiz, jstring outcome) {
+    (void)thiz;
+    enum displayGlyph glyph = G_BONES;
+    const char *name = outcome ? (*env)->GetStringUTFChars(env, outcome, NULL) : NULL;
+    if (name) {
+        if (strcmp(name, "escaped") == 0 || strcmp(name, "mastered") == 0) {
+            glyph = G_AMULET;
+        } else if (strcmp(name, "quit") == 0) {
+            glyph = G_DOORWAY;
+        }
+        (*env)->ReleaseStringUTFChars(env, outcome, name);
+    }
+
+    // Tile sprites follow the two font-only arrows, as in fontIndex().
+    jint values[2] = { (jint)glyph + 126, textFontIndex(glyph) };
+    jintArray result = (*env)->NewIntArray(env, 2);
+    if (result) {
+        (*env)->SetIntArrayRegion(env, result, 0, 2, values);
+    }
+    return result;
+}
+
 void androidNotifyGameStart(unsigned long long seed, int variant, int difficulty) {
     JNIEnv *env = (JNIEnv *)SDL_AndroidGetJNIEnv();
     jobject activity = (jobject)SDL_AndroidGetActivity();

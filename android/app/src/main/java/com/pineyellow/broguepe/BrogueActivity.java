@@ -809,6 +809,7 @@ public class BrogueActivity extends SDLActivity {
     native void nativeEndDpadAutoMove();
     native void nativeDeleteSaveFile();
     native int[] nativeMonsterTileInfo(String monsterName);
+    native int[] nativeRunOutcomeGlyph(String outcome);
 
     // ---- Navigation ------------------------------------------------------
 
