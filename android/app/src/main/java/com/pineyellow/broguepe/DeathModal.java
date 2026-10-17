@@ -59,7 +59,7 @@ final class DeathModal {
     };
     private static final String SHOW_CREATURES = "Show monsters and allies";
     private static final String SHOW_PACK = "Show inventory";
-    private static final String MISSING = "—";
+    private static final String MISSING = "-";
 
     private final BrogueActivity activity;
     private FrameLayout root;
@@ -411,62 +411,52 @@ final class DeathModal {
             content.addView(causeView);
         }
 
-        // All stats in one wrapping text block. Spaces inside a stat are
-        // non-breaking, so a line only ever breaks between two stats.
-        SpannableStringBuilder stats = new SpannableStringBuilder();
-        addStat(stats, "Depth",
+        // One stat per row; a value too long for the column wraps in its row.
+        addStat(content,"Depth",
             s.has("depth") ? String.valueOf(s.optInt("depth")) : MISSING);
-        addStat(stats, "Turns",
+        addStat(content,"Turns",
             s.has("turns")
                 ? String.format(Locale.US, "%,d", s.optLong("turns")) : MISSING);
-        addStat(stats, "Gold",
+        addStat(content,"Gold",
             s.has("gold") ? Long.toString(s.optLong("gold")) : MISSING);
-        addStat(stats, "Deepest depth",
+        addStat(content,"Deepest depth",
             s.has("deepestDepth") ? "Depth " + s.optInt("deepestDepth") : MISSING);
         // On a death the score is the gold, except with gems in the pack or
         // after switching to easy mode mid-run, so only show it then.
         if (s.has("score") && s.optLong("score") != s.optLong("gold", -1)) {
-            addStat(stats, "Score", Long.toString(s.optLong("score")));
+            addStat(content,"Score", Long.toString(s.optLong("score")));
         }
         if (s.optBoolean("amulet", false)) {
-            addStat(stats, "Amulet", "In hand");
+            addStat(content,"Amulet", "In hand");
         }
-        addStat(stats, "Seed", s.optString("seed", MISSING));
-        addStat(stats, "Mode", modeLabel(s));
+        addStat(content,"Seed", s.optString("seed", MISSING));
+        addStat(content,"Mode", modeLabel(s));
         // Left out for a run that isn't timed, e.g. resumed from an older save.
         long playtime = activity.runPlaytimeMillis();
         if (playtime >= 0) {
-            addStat(stats, "Run playtime", PlayerStatsModal.formatPlaytime(playtime));
+            addStat(content,"Run playtime", PlayerStatsModal.formatPlaytime(playtime));
         }
-
-        TextView statsView = new TextView(activity);
-        statsView.setText(stats);
-        statsView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        statsView.setTypeface(Typeface.MONOSPACE);
-        statsView.setLineSpacing(activity.dpToPx(10), 1f);
-        statsView.setPadding(activity.dpToPx(4), 0, activity.dpToPx(4), 0);
-        content.addView(statsView);
     }
 
-    /** Appends "Key: Value", coloured like ModalChrome.addKeyValueRow. */
-    private static void addStat(SpannableStringBuilder stats, String key,
-                                String value) {
-        if (stats.length() > 0) {
-            stats.append("  ");
-        }
-        stats.append(nonBreaking(key + ": "),
-                     new ForegroundColorSpan(Palette.PALE_BLUE),
-                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        int valueStart = stats.length();
-        stats.append(nonBreaking(value));
-        stats.setSpan(new ForegroundColorSpan(Palette.GHOST_WHITE), valueStart,
-                      stats.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-        stats.setSpan(new StyleSpan(Typeface.BOLD), valueStart,
-                      stats.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
-    }
+    /** Adds a "Key: Value" row, coloured like ModalChrome.addKeyValueRow. */
+    private void addStat(LinearLayout content, String key, String value) {
+        SpannableStringBuilder text = new SpannableStringBuilder();
+        text.append(key + ": ", new ForegroundColorSpan(Palette.PALE_BLUE),
+                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        int valueStart = text.length();
+        text.append(value);
+        text.setSpan(new ForegroundColorSpan(Palette.GHOST_WHITE), valueStart,
+                     text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        text.setSpan(new StyleSpan(Typeface.BOLD), valueStart,
+                     text.length(), Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
 
-    private static String nonBreaking(String text) {
-        return text.replace(' ', (char) 0xA0); // no-break space
+        TextView row = new TextView(activity);
+        row.setText(text);
+        row.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        row.setTypeface(Typeface.MONOSPACE);
+        row.setPadding(activity.dpToPx(4), activity.dpToPx(4),
+                       activity.dpToPx(4), activity.dpToPx(4));
+        content.addView(row);
     }
 
     private static String modeLabel(JSONObject s) {

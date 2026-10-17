@@ -39,7 +39,7 @@ final class InventoryOverlay {
     private final BrogueActivity activity;
     private final FrameLayout host;
     private View currentlyExpandedDetail;
-    private TextView currentlyExpandedChevron;
+    private ImageView currentlyExpandedChevron;
     private final List<View> browseDetailSections = new ArrayList<>();
     private ScrollView browseScrollView;
     private View browseContent;
@@ -447,12 +447,15 @@ final class InventoryOverlay {
         LinearLayout row = new LinearLayout(activity);
         row.setOrientation(LinearLayout.VERTICAL);
 
-        TextView chevron = new TextView(activity);
-        chevron.setText("\u25B8"); // ▸
-        chevron.setTextColor(Color.argb(120, 144, 148, 190));
-        chevron.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        chevron.setPadding(activity.dpToPx(4), 0, 0, 0);
-        headerRow.addView(chevron);
+        // Points right when collapsed and is turned down when expanded.
+        ImageView chevron = new ImageView(activity);
+        chevron.setImageResource(R.drawable.ic_chevron);
+        chevron.setColorFilter(Color.argb(120, 144, 148, 190));
+        int chevronSize = activity.dpToPx(12);
+        LinearLayout.LayoutParams chevronParams =
+            new LinearLayout.LayoutParams(chevronSize, chevronSize);
+        chevronParams.leftMargin = activity.dpToPx(4);
+        headerRow.addView(chevron, chevronParams);
 
         row.addView(headerRow);
 
@@ -563,7 +566,7 @@ final class InventoryOverlay {
                     prev.setVisibility(View.GONE);
                     prev.setAlpha(1f);
                     if (currentlyExpandedChevron != null) {
-                        currentlyExpandedChevron.setText("\u25B8"); // ▸
+                        currentlyExpandedChevron.setRotation(0f);
                     }
                 }
                 currentlyExpandedDetail = detailSection;
@@ -572,7 +575,7 @@ final class InventoryOverlay {
                 detailSection.setVisibility(View.VISIBLE);
                 detailSection.setAlpha(0f);
                 detailSection.animate().alpha(1f).setDuration(150).start();
-                chevron.setText("\u25BE"); // ▾
+                chevron.setRotation(90f);
                 row.post(() -> {
                     int rowBottom = row.getTop() + row.getHeight();
                     int visibleBottom = scrollView.getScrollY() + scrollView.getHeight();
@@ -589,7 +592,7 @@ final class InventoryOverlay {
                     currentlyExpandedDetail = null;
                     currentlyExpandedChevron = null;
                 }
-                chevron.setText("\u25B8"); // ▸
+                chevron.setRotation(0f);
             }
         });
 

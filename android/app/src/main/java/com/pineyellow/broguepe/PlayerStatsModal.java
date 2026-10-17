@@ -132,19 +132,19 @@ final class PlayerStatsModal {
 
         // Highest-watermark stats.
         addKeyValueRow(panel, "Deepest depth",
-            stats.deepestDepth > 0 ? "Depth " + stats.deepestDepth : "—");
+            stats.deepestDepth > 0 ? "Depth " + stats.deepestDepth : "-");
         int deadliest = stats.deadliestDepth();
         addKeyValueRow(panel, "Deadliest depth",
-            deadliest > 0 ? "Depth " + deadliest : "—");
+            deadliest > 0 ? "Depth " + deadliest : "-");
         addKeyValueRow(panel, "Most gold collected",
             stats.mostGoldCollected > 0
-                ? Long.toString(stats.mostGoldCollected) : "—");
+                ? Long.toString(stats.mostGoldCollected) : "-");
         addKeyValueRow(panel, "Longest game",
-            stats.longestRunTurns > 0 ? formatTurns(stats.longestRunTurns) : "—");
+            stats.longestRunTurns > 0 ? formatTurns(stats.longestRunTurns) : "-");
         addKeyValueRow(panel, "Mastery wins",
-            stats.masteryWins > 0 ? String.valueOf(stats.masteryWins) : "—");
+            stats.masteryWins > 0 ? String.valueOf(stats.masteryWins) : "-");
         addKeyValueRow(panel, "Fastest win",
-            stats.fastestWinTurns > 0 ? formatTurns(stats.fastestWinTurns) : "—");
+            stats.fastestWinTurns > 0 ? formatTurns(stats.fastestWinTurns) : "-");
 
         addRecentSeedsSection(panel, stats);
 
@@ -235,14 +235,13 @@ final class PlayerStatsModal {
         header.addView(subhead, new LinearLayout.LayoutParams(
             0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
-        TextView chevron = new TextView(activity);
-        chevron.setText("\u25B8");
-        chevron.setTextColor(Palette.PALE_BLUE);
-        chevron.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
-        chevron.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-        chevron.setGravity(Gravity.CENTER);
+        // Points right when collapsed and is turned down when expanded.
+        ImageView chevron = new ImageView(activity);
+        chevron.setImageResource(R.drawable.ic_chevron);
+        chevron.setColorFilter(Palette.PALE_BLUE);
+        chevron.setScaleType(ImageView.ScaleType.FIT_CENTER);
         header.addView(chevron, new LinearLayout.LayoutParams(
-            activity.dpToPx(32), LinearLayout.LayoutParams.WRAP_CONTENT));
+            activity.dpToPx(32), activity.dpToPx(14)));
         LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -273,7 +272,7 @@ final class PlayerStatsModal {
         header.setOnClickListener(v -> {
             boolean expand = content.getVisibility() != View.VISIBLE;
             content.setVisibility(expand ? View.VISIBLE : View.GONE);
-            chevron.setText(expand ? "\u25BE" : "\u25B8");
+            chevron.setRotation(expand ? 90f : 0f);
         });
     }
 
