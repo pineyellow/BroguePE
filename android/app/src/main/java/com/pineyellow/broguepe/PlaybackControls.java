@@ -21,10 +21,11 @@ import android.widget.TextView;
 /** The controls shown instead of the game's own while a Recent Games
  *  recording plays. A bar at the bottom right pauses, moves between depths,
  *  steps one turn and changes the speed, and opens a menu for the pack, the
- *  discoveries, the message log and the whole map. Exit sits at the top
- *  right, where the game menu button is. Each control sends a key the
- *  engine's playback already handles (executePlaybackInput in Recordings.c),
- *  except the speed, which is set directly. */
+ *  discoveries, the message log, the whole map and the display settings.
+ *  Exit sits at the top right, where the game menu button is. Each control
+ *  sends a key the engine's playback already handles (executePlaybackInput in
+ *  Recordings.c), except the speed, which is set directly, and the settings,
+ *  which apply the way they do in a game. */
 final class PlaybackControls {
 
     private static final char TIMES = (char) 0x00D7;
@@ -182,6 +183,10 @@ final class PlaybackControls {
         menu.addView(makeMenuItem("Message Log", v -> sendChar('M')), menuItemParams());
         wholeMapItem = makeMenuItem(wholeMapLabel(), v -> toggleWholeMap());
         menu.addView(wholeMapItem, menuItemParams());
+        menu.addView(makeMenuItem("Settings", v -> {
+            collapseMenu();
+            activity.showReplaySettings();
+        }), menuItemParams());
         // Just above the bar, lined up with its right end.
         FrameLayout.LayoutParams menuParams = new FrameLayout.LayoutParams(
             dp(170), FrameLayout.LayoutParams.WRAP_CONTENT, Gravity.BOTTOM | Gravity.END);

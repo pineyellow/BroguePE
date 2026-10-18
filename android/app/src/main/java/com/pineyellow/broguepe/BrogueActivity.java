@@ -566,6 +566,8 @@ public class BrogueActivity extends SDLActivity {
             new java.util.concurrent.CountDownLatch(1);
         runOnUiThread(() -> {
             playbackControls.hide();
+            // Settings opened from the replay's menu closes with it.
+            settingsPanel.handleBack();
             if (watchedGame == null) {
                 covered.countDown();
                 return;
@@ -797,6 +799,11 @@ public class BrogueActivity extends SDLActivity {
         }
     }
 
+    /** Opens Settings from a replay's menu, with only what a replay can use. */
+    void showReplaySettings() {
+        settingsPanel.show(true);
+    }
+
     void applyActionButtonSettings() {
         if (actionsToolbar != null) {
             actionsToolbar.applyButtonSizeSetting();
@@ -953,8 +960,8 @@ public class BrogueActivity extends SDLActivity {
         } else if (playbackControls.isShowing()) {
             // As in a game, Back first closes whatever is open. Then it leaves
             // the recording.
-            if (playbackControls.handleBack() || inventoryRenderer.handleBack()
-                    || discoveriesRenderer.handleBack()) {
+            if (playbackControls.handleBack() || settingsPanel.handleBack()
+                    || inventoryRenderer.handleBack() || discoveriesRenderer.handleBack()) {
                 return;
             }
             if (inventoryOverlay.getVisibility() == View.VISIBLE) return;

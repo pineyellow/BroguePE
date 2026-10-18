@@ -22,7 +22,8 @@ import java.text.DecimalFormat;
 
 /** In-game Settings panel — bottom-right card launched from the hamburger
  *  submenu. Gameplay settings are persisted here, then applied on Brogue's
- *  game thread through a dedicated event. Also exposes seed copy. */
+ *  game thread through a dedicated event. Also exposes seed copy. A replay
+ *  opens a shorter version from its own menu; see show(boolean). */
 final class SettingsPanel {
 
     private static final String[] GRAPHICS_MODE_LABELS = {
@@ -51,6 +52,14 @@ final class SettingsPanel {
     }
 
     void show() {
+        show(false);
+    }
+
+    /** In a replay only the Display section and the seed show: the rest set up
+     *  the player's controls, which a replay hides. The display settings only
+     *  change how the game is drawn, so Brogue CE lets them change in a replay
+     *  too, and the recording plays on underneath. */
+    void show(boolean replay) {
         host.removeAllViews();
 
         View backdrop = new View(activity);
@@ -109,6 +118,43 @@ final class SettingsPanel {
         addGameToggle(panel, "Hide Color Effects", "hide_color_effects");
         addGameToggle(panel, "Display Stealth Range", "display_stealth_range");
 
+        if (!replay) addPlayerSections(panel);
+
+        addSeparator(panel, false);
+
+        // Shows the seed itself; tapping copies it. Seeds are unsigned 64-bit,
+        // so larger ones come back from native code as negative longs.
+        final String seed = Long.toUnsignedString(activity.nativeGetSeed());
+        addAction(activity, panel, "Seed: " + seed, v -> {
+            copySeed(activity, seed);
+            hide();
+        });
+
+        int panelWidth = Math.min(activity.dpToPx(280),
+            (int)(activity.getResources().getDisplayMetrics().widthPixels * 0.6f));
+
+        FrameLayout.LayoutParams scrollParams = new FrameLayout.LayoutParams(
+            panelWidth, FrameLayout.LayoutParams.WRAP_CONTENT,
+            Gravity.BOTTOM | Gravity.END);
+        scrollParams.setMargins(0, activity.dpToPx(8),
+            activity.dpToPx(BrogueActivity.EDGE_SAFE_DP),
+            activity.dpToPx(BrogueActivity.EDGE_SAFE_DP));
+
+        host.addView(scrollView, scrollParams);
+        host.setVisibility(View.VISIBLE);
+        openPanel = scrollView;
+
+        scrollView.setTranslationX(panelWidth);
+        scrollView.animate()
+            .translationX(0)
+            .setDuration(280)
+            .setInterpolator(new DecelerateInterpolator(1.5f))
+            .start();
+    }
+
+    /** The action bar, controls and inventory sections, which only a game
+     *  being played uses. */
+    private void addPlayerSections(LinearLayout panel) {
         addSeparator(panel, true);
         addSectionHeader(panel, "ACTION BAR");
         addActionBarLayoutSetting(panel);
@@ -162,37 +208,6 @@ final class SettingsPanel {
         addSectionHeader(panel, "INVENTORY");
         addAppToggle(panel, "Show Call Button", GameSettings.PREF_SHOW_CALL_BUTTON,
             false, null);
-
-        addSeparator(panel, false);
-
-        // Shows the seed itself; tapping copies it. Seeds are unsigned 64-bit,
-        // so larger ones come back from native code as negative longs.
-        final String seed = Long.toUnsignedString(activity.nativeGetSeed());
-        addAction(activity, panel, "Seed: " + seed, v -> {
-            copySeed(activity, seed);
-            hide();
-        });
-
-        int panelWidth = Math.min(activity.dpToPx(280),
-            (int)(activity.getResources().getDisplayMetrics().widthPixels * 0.6f));
-
-        FrameLayout.LayoutParams scrollParams = new FrameLayout.LayoutParams(
-            panelWidth, FrameLayout.LayoutParams.WRAP_CONTENT,
-            Gravity.BOTTOM | Gravity.END);
-        scrollParams.setMargins(0, activity.dpToPx(8),
-            activity.dpToPx(BrogueActivity.EDGE_SAFE_DP),
-            activity.dpToPx(BrogueActivity.EDGE_SAFE_DP));
-
-        host.addView(scrollView, scrollParams);
-        host.setVisibility(View.VISIBLE);
-        openPanel = scrollView;
-
-        scrollView.setTranslationX(panelWidth);
-        scrollView.animate()
-            .translationX(0)
-            .setDuration(280)
-            .setInterpolator(new DecelerateInterpolator(1.5f))
-            .start();
     }
 
     /** Android Back closes Settings, the same as a tap outside it. Returns
