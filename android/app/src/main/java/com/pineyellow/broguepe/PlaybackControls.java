@@ -119,11 +119,14 @@ final class PlaybackControls {
         step.setAlpha(paused ? buttonOpacity() : DISABLED_BUTTON_ALPHA * buttonOpacity());
     }
 
-    /** Leaves the recording. Escape first answers a waiting "tap to
-     *  continue", or pauses; Q then asks, and ends the playback on Yes. */
+    /** Leaves the recording. Q asks, and ends the playback on Yes. While it
+     *  plays, the question holds it still and No lets it go on, so it isn't
+     *  paused first. Paused, Escape first answers a waiting "tap to continue". */
     void exit() {
         collapseMenu();
-        KeyInput.sendKey(activity, KeyEvent.KEYCODE_ESCAPE);
+        if (paused) {
+            KeyInput.sendKey(activity, KeyEvent.KEYCODE_ESCAPE);
+        }
         KeyInput.sendChar(activity, 'Q');
     }
 

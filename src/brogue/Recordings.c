@@ -1083,8 +1083,8 @@ boolean executePlaybackInput(rogueEvent *recordingInput) {
                 rogue.playbackMode = true;
                 return true;
             case QUIT_KEY:
-                // Asked like leaving a game. Exit pauses the recording first, so it waits behind
-                // the question.
+                // Asked like leaving a game. The recording waits behind the question, and on No
+                // goes on playing or stays paused, as it was.
                 if (androidWatchingRecording && !confirm("Stop watching this replay?", true)) {
                     return true;
                 }
