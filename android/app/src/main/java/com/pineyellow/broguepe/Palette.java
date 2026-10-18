@@ -19,6 +19,7 @@ final class Palette {
     static final int GHOST_WHITE    = Color.argb(255, 210, 205, 220);
     static final int STAT_IMPROVEMENT = Color.rgb(66, 231, 122); // Saturated green
     static final int STAT_PENALTY     = Color.rgb(255, 82, 99);  // Saturated red
+    static final int PACK_FULL        = Color.rgb(220, 120, 125); // Faint red
     static final int VOID_BLACK     = Color.argb(240, 10, 6, 18);
     static final int SUBMENU_BG     = Color.argb(255, 16, 10, 30);
     static final int RIPPLE_GLOW    = Color.argb(80, 154, 143, 191);

@@ -147,17 +147,26 @@ final class InventoryOverlay {
                 TextView header = new TextView(activity);
                 int packCount = root.optInt("packCount", items.length());
                 int packCapacity = root.optInt("packCapacity", 26);
-                String inventoryHeader = "INVENTORY ( " + packCount + " / "
-                    + packCapacity + " )";
                 header.setText(selectMode && !prompt.isEmpty() ? prompt
-                    : selectMode ? "SELECT ITEM" : inventoryHeader);
+                    : selectMode ? "SELECT ITEM" : "INVENTORY");
                 header.setTextColor(selectMode ? Palette.PALE_BLUE : Palette.DIM_WHITE_BLUE);
-                header.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
-                header.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
-                header.setLetterSpacing(0.15f);
+                styleHeaderText(header);
                 header.setPadding(activity.dpToPx(4), activity.dpToPx(2), 0, activity.dpToPx(4));
                 headerBar.addView(header, new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
+
+                // The pack count sits on the right, brighter than the title so
+                // it reads as a status, and red once the pack is full.
+                if (!selectMode) {
+                    TextView packCountView = new TextView(activity);
+                    packCountView.setText("(" + packCount + "/" + packCapacity + ")");
+                    packCountView.setTextColor(packCount >= packCapacity
+                        ? Palette.PACK_FULL : Palette.GHOST_WHITE);
+                    styleHeaderText(packCountView);
+                    packCountView.setPadding(0, activity.dpToPx(2),
+                        activity.dpToPx(8), activity.dpToPx(4));
+                    headerBar.addView(packCountView);
+                }
 
                 // Eye icon → read-only Discovered Items (engine maps 'D' to it
                 // while the inventory loop is active).
@@ -606,6 +615,12 @@ final class InventoryOverlay {
         row.setLayoutParams(rowP);
 
         return row;
+    }
+
+    private static void styleHeaderText(TextView view) {
+        view.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        view.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        view.setLetterSpacing(0.15f);
     }
 
     @SuppressLint("ClickableViewAccessibility")
