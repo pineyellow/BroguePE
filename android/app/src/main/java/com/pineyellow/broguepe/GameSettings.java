@@ -78,10 +78,16 @@ final class GameSettings {
 
     /** Hybrid uses text glyphs for items and creatures, just like ASCII. */
     static boolean useTileCreatureAndItemGlyphs(Context c) {
+        return useTileGlyph(c, false);
+    }
+
+    /** Whether a glyph is drawn as a tile, as the game draws it: Tiles uses
+     *  tiles for everything, and Hybrid only for the environment. */
+    static boolean useTileGlyph(Context c, boolean environmentGlyph) {
         int mode = getInt(c, PREF_GRAPHICS_MODE, DEFAULT_GRAPHICS_MODE);
         if (mode < GRAPHICS_ASCII || mode > GRAPHICS_HYBRID) {
             mode = DEFAULT_GRAPHICS_MODE;
         }
-        return mode == GRAPHICS_TILES;
+        return mode == GRAPHICS_TILES || (mode == GRAPHICS_HYBRID && environmentGlyph);
     }
 }

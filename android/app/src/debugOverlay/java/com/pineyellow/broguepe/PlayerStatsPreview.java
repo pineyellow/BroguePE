@@ -16,6 +16,17 @@ final class PlayerStatsPreview {
         "centaur", "underworm", "sentinel", "dart turret", "kraken", "lich",
         "phylactery", "pixie", "phantom"
     };
+    // Deaths the game words as a sentence, exactly as gameOver() gets them. Both lava and both
+    // reflected bolts are here to show their pills merging. The last one isn't in the table in
+    // android-stats.c, to show a sentence from a newer version.
+    private static final String[] DEATH_SENTENCES = {
+        "Killed by a cloud of caustic gas", "Killed by a cloud of scalding steam",
+        "Killed by lava", "Killed by cooling lava", "Killed by a sacrificial pit",
+        "Killed by a violent explosion", "Killed by thorned vines", "Burned to death",
+        "Died from poison", "Starved to death", "Drained by a cursed ring",
+        "Killed by a reflected lightning", "Killed by a reflected flame", "Killed by a fall",
+        "Killed by a falling boulder"
+    };
     private static final String[] SECTIONS = {
         "deathCauses", "kills", "alliesFreed", "alliesLost"
     };
@@ -34,6 +45,11 @@ final class PlayerStatsPreview {
                     int count = i == 0 ? 1 : i == MONSTERS.length - 1 ? 500
                         : 1 + (i * 73 + section * 131) % 500;
                     tallies.put(MONSTERS[i], count);
+                }
+                if (SECTIONS[section].equals("deathCauses")) {
+                    for (int i = 0; i < DEATH_SENTENCES.length; i++) {
+                        tallies.put(DEATH_SENTENCES[i], 1 + (i * 97 + 41) % 500);
+                    }
                 }
             }
             return PlayerStats.fromJson(preview);

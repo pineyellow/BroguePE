@@ -21,9 +21,12 @@ import android.widget.TextView;
 import org.json.JSONObject;
 
 import java.text.SimpleDateFormat;
+import java.util.ArrayList;
 import java.util.Date;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 
 /** Detailed local player-stats view opened from the title menu. */
 final class PlayerStatsModal {
@@ -172,7 +175,7 @@ final class PlayerStatsModal {
 
         addRecentGamesSection(panel);
 
-        addTallySection(panel, "Primary Causes of Death", stats.deathCauses);
+        addTallySection(panel, "Primary Causes of Death", deathCauseTallies(stats.deathCauses));
         addTallySection(panel, "Monsters Slain",          stats.kills);
         addTallySection(panel, "Allies Freed",            stats.alliesFreed);
         addTallySection(panel, "Allies you let die",      stats.alliesLost);
@@ -185,6 +188,24 @@ final class PlayerStatsModal {
     private void addTallySection(LinearLayout panel, String title,
                                   java.util.List<PlayerStats.Tally> tallies) {
         addTallySection(activity, panel, title, tallies, 20, R.string.stats_none_yet);
+    }
+
+    /** Death causes under their short labels. Causes that share a label, like
+     *  lava and cooling lava, count together. */
+    private List<PlayerStats.Tally> deathCauseTallies(List<PlayerStats.Tally> causes) {
+        if (causes == null) return null;
+        Map<String, Integer> counts = new LinkedHashMap<>();
+        for (PlayerStats.Tally t : causes) {
+            String label = DeathCauseIcon.label(activity, t.label);
+            Integer previous = counts.get(label);
+            counts.put(label, (previous == null ? 0 : previous) + t.count);
+        }
+        List<PlayerStats.Tally> merged = new ArrayList<>(counts.size());
+        for (Map.Entry<String, Integer> e : counts.entrySet()) {
+            merged.add(new PlayerStats.Tally(e.getKey(), e.getValue()));
+        }
+        PlayerStats.sortByCountDesc(merged);
+        return merged;
     }
 
     /** Subheading plus a wrapping row of monster pills, or the emptyText
@@ -389,10 +410,13 @@ final class PlayerStatsModal {
     /** The game's own glyph for how the run ended, drawn from the atlas like
      *  the monster pills: the amulet for a win, the doorway for an abandoned
      *  run and bones for a death. The text font has only a comma for bones,
-     *  so in text mode a death is a dagger instead. Glyphs are cropped to
+     *  so in text mode a death is a dagger instead. Hybrid draws the bones
+     *  and the doorway as tiles, as the game does. Glyphs are cropped to
      *  their artwork, since a text-font cell is mostly empty space. */
     private View makeOutcomeIcon(String outcome) {
-        boolean useTileGlyph = GameSettings.useTileCreatureAndItemGlyphs(activity);
+        int[] info = activity.nativeRunOutcomeGlyph(outcome);
+        if (info == null || info.length < 3) return null;
+        boolean useTileGlyph = GameSettings.useTileGlyph(activity, info[2] != 0);
         int color = outcomeColor(outcome);
         if (!useTileGlyph && RecentGames.OUTCOME_DIED.equals(outcome)) {
             TextView dagger = new TextView(activity);
@@ -406,8 +430,6 @@ final class PlayerStatsModal {
             return dagger;
         }
 
-        int[] info = activity.nativeRunOutcomeGlyph(outcome);
-        if (info == null || info.length < 2) return null;
         int iconSize = activity.dpToPx(OUTCOME_ICON_SIZE_DP);
         Bitmap mask = TileAtlasMask.get(activity, useTileGlyph ? info[0] : info[1],
                                         iconSize, iconSize, true);
@@ -464,14 +486,34 @@ final class PlayerStatsModal {
         container.addView(count, countParams);
 
         ImageView icon = MonsterTileIcon.makeView(activity, t.label);
+        boolean useTileGlyph = GameSettings.useTileCreatureAndItemGlyphs(activity);
+        boolean cell = false;
+        if (icon == null) {
+            // Not a monster, but a death the game worded as a sentence. In Hybrid its
+            // glyph can be a tile among text monsters, so the padding follows the icon.
+            DeathCauseIcon cause = DeathCauseIcon.find(activity, t.label);
+            if (cause != null) {
+                icon = cause.makeView(activity);
+                useTileGlyph = cause.tileSized;
+                cell = cause.cell;
+            }
+        }
         if (icon != null) {
-            int iconSize = activity.dpToPx(MonsterTileIcon.sizeDp(activity));
+            int iconSize = activity.dpToPx(MonsterTileIcon.sizeDp(useTileGlyph));
+            int iconWidth = iconSize;
+            int iconHeight = iconSize;
+            int verticalPadding = useTileGlyph ? activity.dpToPx(4) : 0;
+            if (cell) {
+                // A whole cell is taller than a sprite trimmed to its artwork. It takes
+                // the pill's padding too, so its pill is as tall as the others.
+                iconWidth = icon.getDrawable().getIntrinsicWidth();
+                iconHeight = iconSize + verticalPadding * 2;
+                verticalPadding = 0;
+            }
             LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(
-                iconSize, iconSize);
+                iconWidth, iconHeight);
             iconParams.rightMargin = activity.dpToPx(4);
             container.addView(icon, iconParams);
-            int verticalPadding = GameSettings.useTileCreatureAndItemGlyphs(activity)
-                ? activity.dpToPx(4) : 0;
             container.setPadding(activity.dpToPx(6), verticalPadding,
                                  activity.dpToPx(10), verticalPadding);
         } else {

@@ -19,9 +19,14 @@ final class MonsterTileIcon {
         if (info == null || info.length < 5) return null;
 
         boolean useTileGlyph = GameSettings.useTileCreatureAndItemGlyphs(activity);
-        int iconSize = activity.dpToPx(useTileGlyph
-            ? TILE_ICON_SIZE_DP : TEXT_ICON_SIZE_DP);
-        int atlasIndex = useTileGlyph ? info[0] : info[4];
+        return makeGlyphView(activity, useTileGlyph ? info[0] : info[4], useTileGlyph,
+            Color.rgb(percentToByte(info[1]), percentToByte(info[2]), percentToByte(info[3])));
+    }
+
+    /** One glyph from the atlas in one color, sized like a monster icon. */
+    static ImageView makeGlyphView(BrogueActivity activity, int atlasIndex,
+                                   boolean useTileGlyph, int color) {
+        int iconSize = activity.dpToPx(sizeDp(useTileGlyph));
         Bitmap mask = TileAtlasMask.get(
             activity, atlasIndex, iconSize, iconSize, useTileGlyph);
         if (mask == null) return null;
@@ -33,20 +38,20 @@ final class MonsterTileIcon {
         drawable.setFilterBitmap(false);
         icon.setImageDrawable(drawable);
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
-        icon.setColorFilter(Color.rgb(
-            percentToByte(info[1]), percentToByte(info[2]), percentToByte(info[3])),
-            PorterDuff.Mode.SRC_IN);
+        icon.setColorFilter(color, PorterDuff.Mode.SRC_IN);
         if (!useTileGlyph) icon.setTranslationY(-activity.dpToPx(2));
         icon.setImportantForAccessibility(ImageView.IMPORTANT_FOR_ACCESSIBILITY_NO);
         return icon;
     }
 
-    static int sizeDp(BrogueActivity activity) {
-        return GameSettings.useTileCreatureAndItemGlyphs(activity)
-            ? TILE_ICON_SIZE_DP : TEXT_ICON_SIZE_DP;
+    /** Tile artwork is trimmed to its outline, and a text glyph keeps its
+     *  whole cell, so a text icon needs the bigger box. */
+    static int sizeDp(boolean useTileGlyph) {
+        return useTileGlyph ? TILE_ICON_SIZE_DP : TEXT_ICON_SIZE_DP;
     }
 
-    private static int percentToByte(int percent) {
+    /** A color component from the game's 0 to 100 scale. */
+    static int percentToByte(int percent) {
         return Math.max(0, Math.min(100, percent)) * 255 / 100;
     }
 

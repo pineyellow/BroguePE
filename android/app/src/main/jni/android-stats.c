@@ -66,7 +66,8 @@ Java_com_pineyellow_broguepe_BrogueActivity_nativeMonsterTileInfo(
 /*
  * Returns the graphical and text-font atlas indices of the glyph the Recent
  * Games list shows for how a run ended: the amulet for a win, the doorway for
- * an abandoned run and bones for a death.
+ * an abandoned run and bones for a death. The third value is 1 for a part of
+ * the environment, which hybrid graphics draws as a tile.
  */
 JNIEXPORT jintArray JNICALL
 Java_com_pineyellow_broguepe_BrogueActivity_nativeRunOutcomeGlyph(
@@ -84,10 +85,156 @@ Java_com_pineyellow_broguepe_BrogueActivity_nativeRunOutcomeGlyph(
     }
 
     // Tile sprites follow the two font-only arrows, as in fontIndex().
-    jint values[2] = { (jint)glyph + 126, textFontIndex(glyph) };
-    jintArray result = (*env)->NewIntArray(env, 2);
+    jint values[3] = { (jint)glyph + 126, textFontIndex(glyph), isEnvironmentGlyph(glyph) ? 1 : 0 };
+    jintArray result = (*env)->NewIntArray(env, 3);
     if (result) {
-        (*env)->SetIntArrayRegion(env, result, 0, 2, values);
+        (*env)->SetIntArrayRegion(env, result, 0, 3, values);
+    }
+    return result;
+}
+
+/*
+ * The deaths the game words as a sentence of its own instead of a monster's
+ * name, with the short label and the icon the stats screen shows for each.
+ * A terrain death reads "Killed by " and the terrain's description, as in
+ * Time.c, and takes that terrain's glyph and color. A cell icon is drawn
+ * as the game draws that terrain's cell: its background color, with its
+ * glyph on top if it has one. A gas has none, so it is just the color.
+ */
+typedef struct {
+    const char *cause;          // NULL for "Killed by " and the terrain's description
+    boolean causeIsPrefix;
+    enum tileType terrain;      // NOTHING when it has none
+    const char *label;
+    enum displayGlyph glyph;    // used without a terrain; 0 for none
+    const color *glyphColor;    // NULL for the terrain's
+    const color *cellColor;     // NULL for the terrain's
+    boolean cell;
+} androidDeathCause;
+
+// These game colors are too dark or too bright on a stats pill.
+static const color steamIconColor =  {80, 80, 80, 0, 0, 0, 0, false};
+static const color poisonIconColor = {20, 75, 20, 0, 0, 0, 0, false};
+static const color fallIconColor =   {40, 40, 65, 0, 0, 0, 0, false};
+// Lava as it looks in play, lit by its own glow: a gold cell with a darker orange
+// glyph. Its colors before lighting are a dull orange-red.
+static const color lavaIconCellColor =  {100, 75, 10, 0, 0, 0, 0, false};
+static const color lavaIconGlyphColor = {90,  45,  0, 0, 0, 0, 0, false};
+
+static const androidDeathCause androidDeathCauses[] = {
+    {NULL, false, POISON_GAS,           "caustic gas",     0, NULL, NULL,            true},
+    {NULL, false, STEAM,                "scalding steam",  0, NULL, &steamIconColor, true},
+    {NULL, false, LAVA,                 "lava",            0, &lavaIconGlyphColor, &lavaIconCellColor, true},
+    {NULL, false, LAVA_RETRACTING,      "lava",            0, &lavaIconGlyphColor, &lavaIconCellColor, true},
+    // What the sacrifice altar turns into: the same lava, under its own name.
+    {NULL, false, SACRIFICE_LAVA,       "sacrificial pit", 0, &lavaIconGlyphColor, &lavaIconCellColor, true},
+    {NULL, false, GAS_EXPLOSION,        "explosion",       0, NULL, NULL,            false},
+    {NULL, false, ANCIENT_SPIRIT_VINES, "thorned vines",   0, NULL, NULL,            false},
+    {"Burned to death",          false, PLAIN_FIRE, "fire",           0,       NULL,           NULL, false},
+    {"Died from poison",         false, NOTHING,    "poison",         0,       NULL, &poisonIconColor, true},
+    {"Starved to death",         false, NOTHING,    "starvation",     G_FOOD,  &itemColor,     NULL, false},
+    {"Drained by a cursed ring", false, NOTHING,    "cursed ring",    G_RING,  &itemColor,     NULL, false},
+    // Followed by the bolt's name: lightning or flame.
+    {"Killed by a reflected ",   true,  NOTHING,    "reflected bolt", G_STAFF, &itemColor,     NULL, false},
+    // The chasm's black cell. Its glyph is lifted, since the game's is barely lighter than black.
+    {"Killed by a fall",         false, CHASM,      "fall",           0,       &fallIconColor, NULL, true},
+};
+
+/* The same representative color as nativeMonsterTileInfo(). */
+static void colorComponents(const color *c, jint out[3]) {
+    int sharedRand = c->rand / 2;
+    out[0] = clampColorComponent(c->red + c->redRand / 2 + sharedRand);
+    out[1] = clampColorComponent(c->green + c->greenRand / 2 + sharedRand);
+    out[2] = clampColorComponent(c->blue + c->blueRand / 2 + sharedRand);
+}
+
+#define ANDROID_DEATH_CAUSE_COUNT (sizeof(androidDeathCauses) / sizeof(androidDeathCauses[0]))
+
+static boolean deathCauseMatches(const androidDeathCause *entry, const char *cause) {
+    if (!entry->cause) {
+        static const char prefix[] = "Killed by ";
+        return strncmp(cause, prefix, sizeof(prefix) - 1) == 0
+            && strcmp(cause + sizeof(prefix) - 1, tileCatalog[entry->terrain].description) == 0;
+    }
+    return entry->causeIsPrefix
+        ? strncmp(cause, entry->cause, strlen(entry->cause)) == 0
+        : strcmp(cause, entry->cause) == 0;
+}
+
+/*
+ * Returns the short label for a death the game worded as a sentence, or null
+ * for a monster's name or a sentence this table doesn't know.
+ */
+JNIEXPORT jstring JNICALL
+Java_com_pineyellow_broguepe_BrogueActivity_nativeDeathCauseLabel(
+        JNIEnv *env, jobject thiz, jstring cause) {
+    (void)thiz;
+    if (!cause) return NULL;
+    const char *text = (*env)->GetStringUTFChars(env, cause, NULL);
+    if (!text) return NULL;
+
+    const char *label = NULL;
+    for (size_t i = 0; i < ANDROID_DEATH_CAUSE_COUNT && !label; i++) {
+        if (deathCauseMatches(&androidDeathCauses[i], text)) {
+            label = androidDeathCauses[i].label;
+        }
+    }
+    (*env)->ReleaseStringUTFChars(env, cause, text);
+    return label ? (*env)->NewStringUTF(env, label) : NULL;
+}
+
+/*
+ * Returns the icon for a short label from nativeDeathCauseLabel: the
+ * graphical and text-font atlas indices of its glyph (-1 for none), 1 if the
+ * glyph is part of the environment, the glyph's color, 1 for a cell icon,
+ * and the cell's color. Null for any other label.
+ */
+JNIEXPORT jintArray JNICALL
+Java_com_pineyellow_broguepe_BrogueActivity_nativeDeathCauseIcon(
+        JNIEnv *env, jobject thiz, jstring label) {
+    (void)thiz;
+    if (!label) return NULL;
+    const char *text = (*env)->GetStringUTFChars(env, label, NULL);
+    if (!text) return NULL;
+
+    const androidDeathCause *entry = NULL;
+    for (size_t i = 0; i < ANDROID_DEATH_CAUSE_COUNT && !entry; i++) {
+        if (strcmp(androidDeathCauses[i].label, text) == 0) {
+            entry = &androidDeathCauses[i];
+        }
+    }
+    (*env)->ReleaseStringUTFChars(env, label, text);
+    if (!entry) return NULL;
+
+    enum displayGlyph glyph = entry->glyph;
+    const color *fore = NULL;
+    const color *back = NULL;
+    if (entry->terrain != NOTHING) {
+        const floorTileType *tile = &tileCatalog[entry->terrain];
+        if (tile->displayChar >= 128 && tile->foreColor) {
+            glyph = tile->displayChar;
+            fore = tile->foreColor;
+        }
+        back = tile->backColor;
+    }
+    if (entry->glyphColor) fore = entry->glyphColor;
+    if (entry->cellColor) back = entry->cellColor;
+    if (!entry->cell) back = NULL;
+    if (glyph ? !fore : !back) return NULL;
+
+    jint values[10] = {
+        glyph ? (jint)glyph + 126 : -1,
+        glyph ? textFontIndex(glyph) : -1,
+        glyph && isEnvironmentGlyph(glyph) ? 1 : 0,
+        0, 0, 0,
+        back ? 1 : 0,
+        0, 0, 0
+    };
+    if (fore) colorComponents(fore, &values[3]);
+    if (back) colorComponents(back, &values[7]);
+    jintArray result = (*env)->NewIntArray(env, 10);
+    if (result) {
+        (*env)->SetIntArrayRegion(env, result, 0, 10, values);
     }
     return result;
 }

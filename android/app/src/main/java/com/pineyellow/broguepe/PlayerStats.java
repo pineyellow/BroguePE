@@ -425,7 +425,7 @@ final class PlayerStats {
         return out;
     }
 
-    private static void sortByCountDesc(List<Tally> tallies) {
+    static void sortByCountDesc(List<Tally> tallies) {
         Collections.sort(tallies, new Comparator<Tally>() {
             @Override
             public int compare(Tally a, Tally b) {

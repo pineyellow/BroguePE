@@ -909,6 +909,8 @@ public class BrogueActivity extends SDLActivity {
     native boolean nativeRecordingIsPlayable(String path);
     native int[] nativeMonsterTileInfo(String monsterName);
     native int[] nativeRunOutcomeGlyph(String outcome);
+    native String nativeDeathCauseLabel(String cause);
+    native int[] nativeDeathCauseIcon(String label);
 
     // ---- Navigation ------------------------------------------------------
 
