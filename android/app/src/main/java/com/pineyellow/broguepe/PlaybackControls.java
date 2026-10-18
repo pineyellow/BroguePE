@@ -282,7 +282,9 @@ final class PlaybackControls {
         chip.setContentDescription("Speed " + SPEED_LABELS[speedIndex]);
         chip.setTextColor(iconColor());
         chip.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14 * scale);
-        chip.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        // Sans-serif, not monospace: Android's monospace has no bold face and
+        // only fakes one, which barely shows on a label this short.
+        chip.setTypeface(Typeface.DEFAULT_BOLD);
         chip.setGravity(Gravity.CENTER);
         chip.setBackground(makeButtonBackground());
         chip.setAlpha(buttonOpacity());
