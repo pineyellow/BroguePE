@@ -3442,19 +3442,22 @@ char displayInventory(unsigned short categoryMask,
 // inventory header. Mirrors the data the old printDiscoveriesScreen() drew:
 // every item kind per category, flagged identified or not, with the good/bad
 // magic suffix and the spawn-probability among the still-unidentified kinds.
+// Each section also carries its category's item glyph, which identified kinds
+// show in place of the magic suffix.
 // Returns INVENTORY_KEY if the player tapped the inventory icon to go back, or
 // ESCAPE_KEY if they dismissed the screen.
 char displayDiscoveries(void) {
     const struct {
         const char *label;
         enum itemCategory category;
+        enum displayGlyph glyph;
         short count;
     } sections[] = {
-        {"SCROLLS", SCROLL, gameConst->numberScrollKinds},
-        {"POTIONS", POTION, gameConst->numberPotionKinds},
-        {"WANDS",   WAND,   gameConst->numberWandKinds},
-        {"STAFFS",  STAFF,  NUMBER_STAFF_KINDS},
-        {"RINGS",   RING,   NUMBER_RING_KINDS},
+        {"SCROLLS", SCROLL, G_SCROLL, gameConst->numberScrollKinds},
+        {"POTIONS", POTION, G_POTION, gameConst->numberPotionKinds},
+        {"WANDS",   WAND,   G_WAND,   gameConst->numberWandKinds},
+        {"STAFFS",  STAFF,  G_STAFF,  NUMBER_STAFF_KINDS},
+        {"RINGS",   RING,   G_RING,   NUMBER_RING_KINDS},
     };
     const int sectionCount = sizeof(sections) / sizeof(sections[0]);
 
@@ -3476,8 +3479,15 @@ char displayDiscoveries(void) {
             }
         }
 
+        // The glyph as the inventory sends it, in the color the old screen drew it.
         jsonOK = appendJsonFormat(&json,
-            "%s{\"label\":\"%s\",\"items\":[", (s > 0 ? "," : ""), sections[s].label);
+            "%s{\"label\":\"%s\",\"tileGlyph\":%d,\"textGlyph\":%d,"
+            "\"iconRed\":%d,\"iconGreen\":%d,\"iconBlue\":%d,\"items\":[",
+            (s > 0 ? "," : ""), sections[s].label,
+            sections[s].glyph + 128 - 2, textFontIndex(sections[s].glyph),
+            clamp(itemColor.red, 0, 100) * 255 / 100,
+            clamp(itemColor.green, 0, 100) * 255 / 100,
+            clamp(itemColor.blue, 0, 100) * 255 / 100);
 
         for (short i = 0; i < count && jsonOK; i++) {
             char nameUpper[COLS];

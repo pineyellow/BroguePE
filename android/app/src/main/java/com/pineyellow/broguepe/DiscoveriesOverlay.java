@@ -15,6 +15,7 @@ import android.view.View;
 import android.view.animation.DecelerateInterpolator;
 import android.widget.FrameLayout;
 import android.widget.ImageButton;
+import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.ScrollView;
 import android.widget.TextView;
@@ -24,11 +25,17 @@ import org.json.JSONObject;
 
 /** Read-only "Discovered Items" screen, opened from the eye icon in the
  *  inventory header. Lists every item kind per category in a single column:
- *  identified kinds in white, undiscovered kinds dimmed with their good/bad
+ *  identified kinds in white beside their category's item glyph, as Brogue CE
+ *  draws them, and undiscovered kinds dimmed with their good/bad
  *  magic indicator and their spawn-probability among the still-unknown kinds.
  *  The inventory icon in the header sends the player back to the inventory;
  *  tapping the backdrop closes the screen like any other menu. */
 final class DiscoveriesOverlay {
+
+    /** The height of a tile item's whole cell. Item sprites fill less of their
+     *  cell than a text glyph does, so their cell is drawn taller than a text
+     *  glyph's to bring them up near the text's size. */
+    private static final int TILE_CELL_DP = 28;
 
     private final BrogueActivity activity;
     private final FrameLayout host;
@@ -120,7 +127,7 @@ final class DiscoveriesOverlay {
                     panel.addView(makeSectionLabel(section.optString("label", "")));
                     JSONArray items = section.getJSONArray("items");
                     for (int i = 0; i < items.length(); i++) {
-                        panel.addView(makeItemRow(items.getJSONObject(i)));
+                        panel.addView(makeItemRow(items.getJSONObject(i), section));
                     }
                 }
 
@@ -246,7 +253,26 @@ final class DiscoveriesOverlay {
         return divider;
     }
 
-    private View makeItemRow(JSONObject item) {
+    /** The section's item glyph from the tile or the text sheet, as the
+     *  inventory picks it, or null if the atlas has none. Both are drawn as a
+     *  whole cell, so the five sprites keep their sizes relative to each other;
+     *  trimming would stretch every one of them to fill the box. */
+    private ImageView makeCategoryIcon(JSONObject section, boolean useTileGlyph,
+                                       int cellDp) {
+        ImageView icon = MonsterTileIcon.makeGlyphView(activity,
+            section.optInt(useTileGlyph ? "tileGlyph" : "textGlyph", -1), false, cellDp,
+            Color.rgb(section.optInt("iconRed", 255), section.optInt("iconGreen", 242),
+                      section.optInt("iconBlue", 0)));
+        if (icon == null) return null;
+        // The mask is already at its final size, so the wider slot must not scale it.
+        icon.setScaleType(ImageView.ScaleType.CENTER);
+        // The lift lines a text glyph up with the name beside it. A sprite already
+        // sits in the middle of its cell, and lifted it sat high.
+        if (useTileGlyph) icon.setTranslationY(0);
+        return icon;
+    }
+
+    private View makeItemRow(JSONObject item, JSONObject section) {
         boolean identified = item.optBoolean("identified", false);
         int polarity = item.optInt("polarity", 0);
         int pct = item.optInt("pct", 0);
@@ -258,17 +284,35 @@ final class DiscoveriesOverlay {
         row.setPadding(activity.dpToPx(6), activity.dpToPx(4),
                        activity.dpToPx(6), activity.dpToPx(4));
 
-        // Fixed-width magic indicator slot so names align across rows.
-        TextView glyph = new TextView(activity);
-        glyph.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
-        glyph.setTypeface(Typeface.MONOSPACE);
-        glyph.setGravity(Gravity.CENTER);
-        if (!identified && polarity != 0) {
-            glyph.setText(polarity > 0 ? Palette.GOOD_MAGIC_GLYPH : Palette.BAD_MAGIC_GLYPH);
-            glyph.setTextColor(polarity > 0 ? Palette.GOOD_MAGIC : Palette.BAD_MAGIC);
+        // Fixed-width slot so names align across rows: the good/bad magic
+        // indicator while a kind is unknown, its category's item glyph once known.
+        int slotWidth = activity.dpToPx(18);
+        boolean useTileGlyph = GameSettings.useTileCreatureAndItemGlyphs(activity);
+        int cellDp = useTileGlyph ? TILE_CELL_DP : MonsterTileIcon.sizeDp(false);
+        ImageView icon = identified ? makeCategoryIcon(section, useTileGlyph, cellDp) : null;
+        if (icon != null) {
+            // Centered on the row without adding to its height, so identified rows
+            // stay as tall as the rest. The glyph's cell is taller than the row,
+            // but the glyph inside it fits.
+            int iconHeight = activity.dpToPx(cellDp);
+            LinearLayout.LayoutParams iconParams =
+                new LinearLayout.LayoutParams(slotWidth, iconHeight);
+            iconParams.topMargin = -iconHeight / 2;
+            iconParams.bottomMargin = -iconHeight / 2;
+            row.setClipToPadding(false);
+            row.addView(icon, iconParams);
+        } else {
+            TextView glyph = new TextView(activity);
+            glyph.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+            glyph.setTypeface(Typeface.MONOSPACE);
+            glyph.setGravity(Gravity.CENTER);
+            if (!identified && polarity != 0) {
+                glyph.setText(polarity > 0 ? Palette.GOOD_MAGIC_GLYPH : Palette.BAD_MAGIC_GLYPH);
+                glyph.setTextColor(polarity > 0 ? Palette.GOOD_MAGIC : Palette.BAD_MAGIC);
+            }
+            row.addView(glyph, new LinearLayout.LayoutParams(
+                slotWidth, LinearLayout.LayoutParams.WRAP_CONTENT));
         }
-        row.addView(glyph, new LinearLayout.LayoutParams(
-            activity.dpToPx(18), LinearLayout.LayoutParams.WRAP_CONTENT));
 
         TextView nameView = new TextView(activity);
         nameView.setText(name);

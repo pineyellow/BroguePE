@@ -26,9 +26,16 @@ final class MonsterTileIcon {
     /** One glyph from the atlas in one color, sized like a monster icon. */
     static ImageView makeGlyphView(BrogueActivity activity, int atlasIndex,
                                    boolean useTileGlyph, int color) {
-        int iconSize = activity.dpToPx(sizeDp(useTileGlyph));
+        return makeGlyphView(activity, atlasIndex, useTileGlyph, sizeDp(useTileGlyph), color);
+    }
+
+    /** The same in a box of the given size. A trimmed glyph fills the box, and an
+     *  untrimmed one keeps its whole cell, lifted a little to sit with text. */
+    static ImageView makeGlyphView(BrogueActivity activity, int atlasIndex,
+                                   boolean trimArtwork, int sizeDp, int color) {
+        int iconSize = activity.dpToPx(sizeDp);
         Bitmap mask = TileAtlasMask.get(
-            activity, atlasIndex, iconSize, iconSize, useTileGlyph);
+            activity, atlasIndex, iconSize, iconSize, trimArtwork);
         if (mask == null) return null;
 
         ImageView icon = new ImageView(activity);
@@ -39,7 +46,7 @@ final class MonsterTileIcon {
         icon.setImageDrawable(drawable);
         icon.setScaleType(ImageView.ScaleType.FIT_CENTER);
         icon.setColorFilter(color, PorterDuff.Mode.SRC_IN);
-        if (!useTileGlyph) icon.setTranslationY(-activity.dpToPx(2));
+        if (!trimArtwork) icon.setTranslationY(-activity.dpToPx(2));
         icon.setImportantForAccessibility(ImageView.IMPORTANT_FOR_ACCESSIBILITY_NO);
         return icon;
     }
