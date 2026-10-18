@@ -1145,13 +1145,12 @@ void androidMouseWheel(int notches) {
     float oldZoom = androidZoomLevel;
     androidZoomLevel = fminf(MAX_ZOOM_LEVEL,
         fmaxf(MIN_ZOOM_LEVEL, oldZoom * powf(WHEEL_ZOOM_STEP, (float)notches)));
+    /* Free-look: keep the point at the centre of the screen in place. An
+       attached camera keeps following the player; updateCamera() in tiles.c
+       moves its pan with the zoom. */
     if (androidCameraDetached) {
-        /* Free-look: keep the point at the centre of the screen in place. */
         androidPanX *= androidZoomLevel / oldZoom;
         androidPanY *= androidZoomLevel / oldZoom;
-    } else {
-        /* Same as pinch: keep an attached camera locked to the player. */
-        androidCameraSnap = true;
     }
 }
 
@@ -1261,11 +1260,9 @@ boolean androidTouchEvent(SDL_Event *event, rogueEvent *out) {
             androidZoomLevel = fminf(MAX_ZOOM_LEVEL,
                 fmaxf(MIN_ZOOM_LEVEL,
                     androidZoomLevel * pinchDistance / lastPinchDistance));
-            // Keep an attached camera locked to the player as the viewport
-            // scale changes. Free-look remains detached and zooms in place.
-            if (!androidCameraDetached) {
-                androidCameraSnap = true;
-            }
+            // An attached camera keeps following the player at its own speed;
+            // updateCamera() in tiles.c moves its pan with the zoom. Free-look
+            // remains detached and zooms in place.
             lastPinchDistance = pinchDistance;
             return false;
         }

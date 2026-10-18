@@ -50,6 +50,11 @@ static float androidMessageTextXOffsetCells = 0.0f;
 static float androidSidebarXOffsetCells = 2.0f;
 
 static Uint64 cameraLastUpdateCounter = 0;
+// Whether the camera followed the player on the last frame, and the sizes of the map layer and
+// the screen then. updateCamera() compares them to see the zoom change.
+static boolean cameraFollowedLastFrame = false;
+static int cameraLastZoomW = 0, cameraLastZoomH = 0;
+static int cameraLastScreenW = 0, cameraLastScreenH = 0;
 // When the last frame, drawn or skipped, was finished with.
 static Uint64 frameSlotEndCounter = 0;
 
@@ -1071,6 +1076,15 @@ static void renderTiles(SDL_Renderer *renderer, ScreenTile tiles[ROWS][COLS],
     renderTilesEx(renderer, &tiles[0][0], COLS, ROWS, ofsX, ofsY, width, height, false);
 }
 
+// The pan that puts a cell at the centre of the screen, along one axis, for a map layer `content`
+// pixels across. Near the map's edges the cell can't be centred, so it stops at the nearest pan
+// the map allows.
+static float cameraTargetPan(int cell, int cells, int content, int screen) {
+    float target = screen / 2.0f - (cell + 0.5f) * content / cells - (screen - content) / 2.0f;
+    float limit = fmaxf(0.0f, (content - screen) / 2.0f);
+    return fmaxf(-limit, fminf(limit, target));
+}
+
 // Moves the gameplay camera towards the player and works out where the dungeon
 // layer lands on screen.
 static void updateCamera(int screenW, int screenH, int fitW, int fitH,
@@ -1089,7 +1103,8 @@ static void updateCamera(int screenW, int screenH, int fitW, int fitH,
     // Auto-center view unless Android free-look has detached the camera.
     // At full-map zoom, the legal pan naturally converges to zero instead of
     // switching to a separate camera mode.
-    if (inGame && !androidCameraDetached) {
+    boolean following = inGame && !androidCameraDetached;
+    if (following) {
         int centerX, centerY;
         if (inGame) {
             centerX = player.loc.x + STAT_BAR_WIDTH + 1;
@@ -1098,15 +1113,20 @@ static void updateCamera(int screenW, int screenH, int fitW, int fitH,
             centerX = COLS / 2;
             centerY = ROWS / 2;
         }
-        float targetPanX = screenW / 2.0f - (centerX + 0.5f) * zoomW / COLS - (screenW - zoomW) / 2.0f;
-        float targetPanY = screenH / 2.0f - (centerY + 0.5f) * zoomH / ROWS - (screenH - zoomH) / 2.0f;
-
         // Near map edges the player cannot physically be screen-centered.
         // Compare against the nearest reachable pan so fast recenter can end.
-        float maxPanX = fmaxf(0.0f, (zoomW - screenW) / 2.0f);
-        float maxPanY = fmaxf(0.0f, (zoomH - screenH) / 2.0f);
-        targetPanX = fmaxf(-maxPanX, fminf(maxPanX, targetPanX));
-        targetPanY = fmaxf(-maxPanY, fminf(maxPanY, targetPanY));
+        float targetPanX = cameraTargetPan(centerX, COLS, zoomW, screenW);
+        float targetPanY = cameraTargetPan(centerY, ROWS, zoomH, screenH);
+
+        // The pan is in screen pixels, so a zoom moves the pan the player needs. Move the pan
+        // with it, keeping the camera as far behind the player as it was: the player stays put on
+        // screen through the zoom, and the camera goes on following at its own speed.
+        if (!androidCameraSnap && cameraFollowedLastFrame
+                && screenW == cameraLastScreenW && screenH == cameraLastScreenH
+                && (zoomW != cameraLastZoomW || zoomH != cameraLastZoomH)) {
+            androidPanX += targetPanX - cameraTargetPan(centerX, COLS, cameraLastZoomW, screenW);
+            androidPanY += targetPanY - cameraTargetPan(centerY, ROWS, cameraLastZoomH, screenH);
+        }
 
         if (androidCameraSnap) {
             androidPanX = targetPanX;
@@ -1128,6 +1148,11 @@ static void updateCamera(int screenW, int screenH, int fitW, int fitH,
             }
         }
     }
+    cameraFollowedLastFrame = following;
+    cameraLastZoomW = zoomW;
+    cameraLastZoomH = zoomH;
+    cameraLastScreenW = screenW;
+    cameraLastScreenH = screenH;
 
     calculateDungeonViewport(screenW, screenH, effectiveZoom,
                              &androidPanX, &androidPanY, dungeonViewport);
