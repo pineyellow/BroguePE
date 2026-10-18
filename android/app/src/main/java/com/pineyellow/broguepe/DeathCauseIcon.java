@@ -13,9 +13,10 @@ import android.widget.ImageView;
 
 /** Short labels and icons for the deaths the game words as a sentence of its
  *  own, like "Killed by a cloud of caustic gas", instead of a monster's name.
- *  The table is in android-stats.c. Gas and lava are cell icons: a cell as
- *  the game draws one, its background color with its glyph on top, and gas
- *  has no glyph. Gas looks the same in every graphics mode. */
+ *  The table is in android-stats.c. Gas, poison, lava and the fall's chasm
+ *  are cell icons: a cell as the game draws one, its background color with
+ *  its glyph on top. Gas and poison have no glyph, so they look the same in
+ *  every graphics mode. */
 final class DeathCauseIcon {
 
     /** The game's grid, COLS by ROWS in Rogue.h. It stretches its tiles to the
