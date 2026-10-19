@@ -2155,7 +2155,7 @@ void flashForeground(short *x, short *y, const color **flashColor, short *flashS
             percent = flashStrength[i] * j / frames;
             newColor = fColor[i];
             applyColorAverage(&newColor, flashColor[i], percent);
-            plotCharWithColor(displayChar[i], mapToWindow((pos){ x[i], y[i] }), &newColor, &(bColor[i]));
+            plotDungeonCharWithColor(displayChar[i], mapToWindow((pos){ x[i], y[i] }), &newColor, &(bColor[i]));
         }
         if (j) {
             if (pauseAnimation(16, PAUSE_BEHAVIOR_DEFAULT)) {
