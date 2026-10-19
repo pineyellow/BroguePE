@@ -1326,7 +1326,10 @@ static boolean copyRecordingToSaveFile(const char *fromFilePath, const char *toF
 // The new save is completed under a temporary name and then renamed over the old one, so the
 // previous save stays intact if the app is killed or the write fails partway.
 boolean androidWriteSaveFile(void) {
-    if (rogue.playbackMode || !rogue.gameInProgress || rogue.gameHasEnded || currentFilePath[0] == '\0') {
+    // Only a game being recorded has a save to write. rogue.playbackMode alone isn't enough:
+    // screens opened during a replay, or while a save loads, turn it off while they wait for taps.
+    if (!rogue.recording || rogue.playbackMode || !rogue.gameInProgress || rogue.gameHasEnded
+        || currentFilePath[0] == '\0') {
         return false;
     }
 
