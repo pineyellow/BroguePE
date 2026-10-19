@@ -2,15 +2,15 @@
 
 ![Brogue PE gameplay on Android](docs/images/screenshot.png)
 
-Brogue: Phone Edition is an Android-focused version of the classic dungeon-crawling roguelike Brogue. It keeps the original tactical gameplay while rebuilding the mobile experience around touch controls.
+Brogue: Phone Edition is an Android port of [Brogue: Community Edition](https://github.com/tmewett/BrogueCE), the community-maintained continuation of the classic dungeon-crawling roguelike Brogue. The port aims to keep the original gameplay while building the controls and menus around touchscreens.
 
-This is an unofficial derivative project. It is not an official release of Brogue, Brogue: Community Edition, or Brogue CE Android.
+If you run into a bug while playing this port, please report it [here](https://github.com/pineyellow/BroguePE/issues) rather than upstream.
 
 ## Highlights
 
-- Configurable 8-way d-pad with held movement
-- Gesture-based free look camera with smooth tracking
-- Camera zoom controls using pinch gestures
+- Configurable D-pad, and swipe controls
+- Free-look camera with zoom and pan support
+- Personal stats: kills, allies, playtime and more
 - Many small UI, layout, interaction, and mobile usability refinements
 
 ## Downloads
