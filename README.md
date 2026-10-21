@@ -8,7 +8,7 @@ If you run into a bug while playing this port, please report it [here](https://g
 
 ## Highlights
 
-- Configurable D-pad, and swipe controls
+- Configurable D-pad and swipe controls
 - Free-look camera with zoom and pan support
 - Personal stats: kills, allies, playtime and more
 - Many small UI, layout, interaction, and mobile usability refinements
