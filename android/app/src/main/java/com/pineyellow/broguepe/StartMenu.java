@@ -96,10 +96,9 @@ final class StartMenu {
         });
     }
 
-    /** A modal has no size until the next layout, and taps are handled
-     *  before layout, so a quick second tap can pass through a modal that
-     *  is just opening and reach the menu again. The menu ignores taps
-     *  while any modal is open. */
+    /** A quick second tap can pass through a modal that is just opening and
+     *  reach the menu again (see ModalStack.isOnTop). The menu is below every
+     *  modal, so it ignores taps while any modal is open. */
     private View.OnClickListener whenNoModal(View.OnClickListener listener) {
         return v -> {
             if (activity.modalStack.isEmpty()) listener.onClick(v);

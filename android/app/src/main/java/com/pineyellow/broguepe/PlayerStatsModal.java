@@ -397,7 +397,10 @@ final class PlayerStatsModal {
         row.setBackground(new RippleDrawable(
             ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
 
-        row.setOnClickListener(v -> activity.recentGameModal.show(game));
+        // Ignored once the run's panel is opening above, so a double tap opens it once.
+        row.setOnClickListener(v -> {
+            if (activity.modalStack.isOnTop(v)) activity.recentGameModal.show(game);
+        });
 
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,

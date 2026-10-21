@@ -28,6 +28,19 @@ final class ModalStack {
 
     boolean isEmpty() { return frames.isEmpty(); }
 
+    /** Whether v is inside the top overlay. An overlay has no size until the
+     *  next layout, and taps are handled before layout, so a quick second tap
+     *  can pass through one that is just opening and reach the overlay below. */
+    boolean isOnTop(View v) {
+        Frame top = frames.peekFirst();
+        if (top == null || top.overlay == null) return false;
+        for (View view = v; view != null;
+                view = view.getParent() instanceof View ? (View) view.getParent() : null) {
+            if (view == top.overlay) return true;
+        }
+        return false;
+    }
+
     void push(java.util.function.Supplier<View> builder) {
         Frame f = new Frame(builder);
         f.overlay = builder.get();
