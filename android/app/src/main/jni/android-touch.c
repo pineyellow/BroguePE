@@ -19,7 +19,7 @@
  *   Two fingers         → zoom or free-look pan, whichever they do first
  *
  * While the message log is open, a single-finger drag in either mode scrolls
- * it instead, the touched line following the finger.
+ * it instead, a little faster than the finger moves.
  *
  * A physical mouse hovers and right-clicks as on desktop, and additionally:
  *   Left click       → MOUSE_DOWN + MOUSE_UP  (on release)
@@ -57,6 +57,8 @@
 #define SWIPE_REPEAT_MS          70    /* between held steps, as on the D-pad */
 #define PINCH_DECIDE_DP       24.0f    /* two-finger spread or travel that picks
                                           zoom or pan, in Swipe mode */
+#define LOG_DRAG_LINES_PER_ROW 1.5f    /* message log lines a drag scrolls per
+                                          row of the screen the finger moves */
 
 /* ---- Internal state ---- */
 
@@ -107,9 +109,10 @@ static Uint32 swipeLastStepTime;
 static boolean swipeHolding = false; /* held past the delay; repeating */
 static boolean swipeHalted = false;  /* walk stopped; nothing more until lift */
 
-/* Dragging the open message log: the UI row the finger was last on, and the
- * lines still to scroll, positive toward older messages. */
-static int logScrollRow;
+/* Dragging the open message log: where the finger was last, in lines (see
+ * logLineFromPixel()), and the lines still to scroll, positive toward older
+ * messages. */
+static int logScrollLine;
 static int logScrollPending = 0;
 
 /* Clockwise from right, matching atan2 with screen y pointing down. */
@@ -1086,21 +1089,23 @@ boolean androidSwipeRepeatEvent(rogueEvent *out) {
 
 /* ---- Drag to scroll the message log ---- */
 
-/* The 1x UI row under a pixel, as cellFromPixel() finds it for a modal, but
- * not clamped to the grid, so a drag that leaves it keeps its rows. */
-static int uiRowFromPixel(float py) {
+/* A pixel's height in log lines: the 1x UI rows above it, as cellFromPixel()
+ * finds them for a modal, times LOG_DRAG_LINES_PER_ROW. Not clamped to the
+ * grid, so a drag that leaves it keeps scrolling. */
+static int logLineFromPixel(float py) {
     extern int windowWidth, windowHeight;
     int fitH = windowHeight;
     if (windowHeight * 16 / 10 > windowWidth) fitH = windowWidth * 10 / 16;
-    return (int)floorf((py - (windowHeight - fitH) / 2) * ROWS / fitH);
+    return (int)floorf((py - (windowHeight - fitH) / 2)
+                       * ROWS * LOG_DRAG_LINES_PER_ROW / fitH);
 }
 
-/* Queues a line for each row the finger has crossed, so the touched line
- * stays under it: dragging down shows older messages. */
+/* Queues a line for each line's height the finger has crossed: dragging down
+ * shows older messages. */
 static void dragLogScroll(float py) {
-    int row = uiRowFromPixel(py);
-    logScrollPending += row - logScrollRow;
-    logScrollRow = row;
+    int line = logLineFromPixel(py);
+    logScrollPending += line - logScrollLine;
+    logScrollLine = line;
 }
 
 /* The next queued lines as a keystroke. The log scrolls one line on
@@ -1330,7 +1335,7 @@ boolean androidTouchEvent(SDL_Event *event, rogueEvent *out) {
                  * A hold does not inspect, so a drag may start with one. */
                 if (moved > TAP_MAX_MOVE_PX) {
                     state = TOUCH_LOG_SCROLLING;
-                    logScrollRow = uiRowFromPixel(startY);
+                    logScrollLine = logLineFromPixel(startY);
                 }
             } else if (elapsed >= LONG_PRESS_MS) {
                 /* Held long enough — enter inspect mode */
