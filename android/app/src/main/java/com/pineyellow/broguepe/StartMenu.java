@@ -54,21 +54,22 @@ final class StartMenu {
 
             // Resume is disabled when there is no compatible save.
             boolean canResume = hasSave && saveCompatible;
-            addButton(panel, resumeLabel(saveVariant, saveDifficulty), canResume, v -> {
-                activity.modalStack.clear();
-                dismiss();
-                activity.nextGameIsResume = true;
-                activity.nativeStartMenuResult(CHOICE_RESUME);
-            });
+            addButton(panel, resumeLabel(saveVariant, saveDifficulty), canResume,
+                whenNoModal(v -> {
+                    activity.modalStack.clear();
+                    dismiss();
+                    activity.nextGameIsResume = true;
+                    activity.nativeStartMenuResult(CHOICE_RESUME);
+                }));
 
             // New Game opens seed details before starting the run.
             addButton(panel, "New Game", true,
-                v -> activity.newGameSeedModal.show());
+                whenNoModal(v -> activity.newGameSeedModal.show()));
 
             addButton(panel, "Personal Stats", true,
-                v -> activity.playerStatsModal.show());
+                whenNoModal(v -> activity.playerStatsModal.show()));
             addButton(panel, "Credits", true,
-                v -> activity.creditsModal.show());
+                whenNoModal(v -> activity.creditsModal.show()));
 
             int screenWidth = activity.getResources().getDisplayMetrics().widthPixels;
             int screenHeight = activity.getResources().getDisplayMetrics().heightPixels;
@@ -93,6 +94,16 @@ final class StartMenu {
                 .setInterpolator(new DecelerateInterpolator(1.5f))
                 .start();
         });
+    }
+
+    /** A modal has no size until the next layout, and taps are handled
+     *  before layout, so a quick second tap can pass through a modal that
+     *  is just opening and reach the menu again. The menu ignores taps
+     *  while any modal is open. */
+    private View.OnClickListener whenNoModal(View.OnClickListener listener) {
+        return v -> {
+            if (activity.modalStack.isEmpty()) listener.onClick(v);
+        };
     }
 
     private static String resumeLabel(int saveVariant, int saveDifficulty) {
