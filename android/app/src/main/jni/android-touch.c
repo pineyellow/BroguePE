@@ -40,7 +40,7 @@
 #define LONG_PRESS_MS         400   /* hold time for inspect mode */
 #define TAP_MAX_MOVE_PX        20   /* max drift before a tap becomes a drag */
 #define MIN_ZOOM_LEVEL       1.0f
-#define MAX_ZOOM_LEVEL       3.0f
+#define MAX_ZOOM_LEVEL       4.0f
 #define MIN_PINCH_DISTANCE_PX 8.0f
 #define WHEEL_ZOOM_STEP      1.1f   /* zoom factor per mouse wheel notch */
 
