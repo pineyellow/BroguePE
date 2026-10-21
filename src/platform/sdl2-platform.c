@@ -521,7 +521,10 @@ static void _nextKeyOrMouseEvent(rogueEvent *returnEvent, boolean textInput, boo
         updateScreen();
 
         if (pollBrogueEvent(returnEvent, textInput)) break;
-        if (!textInput && androidSwipeRepeatEvent(returnEvent)) break;
+        // A poll can stop at SDL's end marker from an earlier pass, leaving a
+        // finger-lift unread; poll again so it ends the swipe before a repeat.
+        if (!textInput && (pollBrogueEvent(returnEvent, textInput)
+                || androidSwipeRepeatEvent(returnEvent))) break;
 
         _delayUpTo(PAUSE_BETWEEN_EVENT_POLLING);
     }
