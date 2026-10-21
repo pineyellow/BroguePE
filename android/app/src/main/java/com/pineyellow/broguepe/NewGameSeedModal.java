@@ -443,8 +443,6 @@ final class NewGameSeedModal extends SeedDetailsModal {
         seedEdit.setCursorVisible(false);
     }
 
-
-
     /** 9-digit random seed matching Brogue's clock-based seed shape at
      *  the current date range. See RANDOM_SEED_MIN/MAX for rationale. */
     private long pickRandomSeed() {
