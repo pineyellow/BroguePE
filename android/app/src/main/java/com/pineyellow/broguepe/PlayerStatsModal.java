@@ -383,7 +383,8 @@ final class PlayerStatsModal {
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
         bg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
-        bg.setColor(Palette.ITEM_BG);
+        // Set apart from the section header above.
+        bg.setColor(Palette.RECENT_GAME_BG);
         // Bordered like the other tappable rows here.
         bg.setStroke(1, Palette.BORDER_DIM);
         row.setBackground(new RippleDrawable(
