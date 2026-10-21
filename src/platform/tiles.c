@@ -358,6 +358,10 @@ void setMessageArchiveActive(boolean active) {
     messageArchiveActive = active;
 }
 
+boolean isMessageArchiveActive(void) {
+    return messageArchiveActive;
+}
+
 static int baseTileWidth = -1;      // width (px) of tiles in the smallest texture (`Textures[0]`)
 static int baseTileHeight = -1;     // height (px) of tiles in the smallest texture (`Textures[0]`)
 static SDL_atomic_t rendererRecoveryPending;

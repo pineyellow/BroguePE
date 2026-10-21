@@ -18,6 +18,9 @@
  *                         whose anchor trails the finger on a leash
  *   Two fingers         → zoom or free-look pan, whichever they do first
  *
+ * While the message log is open, a single-finger drag in either mode scrolls
+ * it instead, the touched line following the finger.
+ *
  * A physical mouse hovers and right-clicks as on desktop, and additionally:
  *   Left click       → MOUSE_DOWN + MOUSE_UP  (on release)
  *   Left drag        → free-look camera pan
@@ -63,6 +66,7 @@ typedef enum {
     TOUCH_DRAGGING,     /* one-finger free-look camera pan */
     TOUCH_INSPECTING,   /* long press engaged — emitting hover events */
     TOUCH_SWIPING,      /* swipe to move — finger steering the player */
+    TOUCH_LOG_SCROLLING, /* one-finger drag scrolling the open message log */
     TOUCH_PINCHING,     /* two-finger continuous zoom */
     TOUCH_MULTITOUCH,   /* three-plus fingers; consume until release */
 } TouchState;
@@ -102,6 +106,11 @@ static int swipeDirection = -1;     /* index into swipeKeys; -1 in the dead zone
 static Uint32 swipeLastStepTime;
 static boolean swipeHolding = false; /* held past the delay; repeating */
 static boolean swipeHalted = false;  /* walk stopped; nothing more until lift */
+
+/* Dragging the open message log: the UI row the finger was last on, and the
+ * lines still to scroll, positive toward older messages. */
+static int logScrollRow;
+static int logScrollPending = 0;
 
 /* Clockwise from right, matching atan2 with screen y pointing down. */
 static const char swipeKeys[8] = {
@@ -236,6 +245,7 @@ void androidResetTouchState(void) {
     }
     pinchGesture = PINCH_UNDECIDED;
     state = TOUCH_IDLE;
+    logScrollPending = 0;
     mouseHeld = false;
     mouseDragging = false;
     pendingMouseUp = false;
@@ -1074,6 +1084,48 @@ boolean androidSwipeRepeatEvent(rogueEvent *out) {
     return true;
 }
 
+/* ---- Drag to scroll the message log ---- */
+
+/* The 1x UI row under a pixel, as cellFromPixel() finds it for a modal, but
+ * not clamped to the grid, so a drag that leaves it keeps its rows. */
+static int uiRowFromPixel(float py) {
+    extern int windowWidth, windowHeight;
+    int fitH = windowHeight;
+    if (windowHeight * 16 / 10 > windowWidth) fitH = windowWidth * 10 / 16;
+    return (int)floorf((py - (windowHeight - fitH) / 2) * ROWS / fitH);
+}
+
+/* Queues a line for each row the finger has crossed, so the touched line
+ * stays under it: dragging down shows older messages. */
+static void dragLogScroll(float py) {
+    int row = uiRowFromPixel(py);
+    logScrollPending += row - logScrollRow;
+    logScrollRow = row;
+}
+
+/* The next queued lines as a keystroke. The log scrolls one line on
+ * shift+up/down and a third of a screen on up/down (scrollMessageArchive() in
+ * IO.c), so a drag far ahead of it catches up in thirds. */
+static boolean logScrollEvent(rogueEvent *out) {
+    if (!isMessageArchiveActive()) {
+        logScrollPending = 0;
+        return false;
+    }
+    if (logScrollPending == 0) {
+        return false;
+    }
+    int jump = MESSAGE_ARCHIVE_VIEW_LINES / 3;
+    int lines = (logScrollPending >= jump || logScrollPending <= -jump) ? jump : 1;
+    boolean older = logScrollPending > 0;
+    logScrollPending += older ? -lines : lines;
+    out->eventType = KEYSTROKE;
+    out->param1 = older ? UP_KEY : DOWN_KEY;
+    out->param2 = 0;
+    out->shiftKey = lines == 1;
+    out->controlKey = false;
+    return true;
+}
+
 /* ---- Public API ---- */
 
 boolean androidSidebarTouchEnabled(void) {
@@ -1168,9 +1220,11 @@ boolean androidTouchEvent(SDL_Event *event, rogueEvent *out) {
         return true;
     }
 
-    /* Called with NULL event just to check pending queue. */
+    /* Called with NULL event just to check pending queue. A log drag's lines
+     * left over from its last move are sent from here, not ahead of a new SDL
+     * event, which would then be dropped. */
     if (!event) {
-        return false;
+        return logScrollEvent(out);
     }
 
     /* Convert normalized touch coords to pixels */
@@ -1271,7 +1325,14 @@ boolean androidTouchEvent(SDL_Event *event, rogueEvent *out) {
             Uint32 elapsed = event->tfinger.timestamp - startTime;
             float moved = dist(startX, startY, px, py);
 
-            if (elapsed >= LONG_PRESS_MS) {
+            if (isMessageArchiveActive()) {
+                /* The open log is dragged instead of the map, in either mode.
+                 * A hold does not inspect, so a drag may start with one. */
+                if (moved > TAP_MAX_MOVE_PX) {
+                    state = TOUCH_LOG_SCROLLING;
+                    logScrollRow = uiRowFromPixel(startY);
+                }
+            } else if (elapsed >= LONG_PRESS_MS) {
                 /* Held long enough — enter inspect mode */
                 state = TOUCH_INSPECTING;
                 int cx, cy;
@@ -1320,6 +1381,9 @@ boolean androidTouchEvent(SDL_Event *event, rogueEvent *out) {
             if (!swipeHalted) {
                 steerSwipe(px, py);
             }
+        } else if (state == TOUCH_LOG_SCROLLING && event->tfinger.fingerId == primaryFinger) {
+            dragLogScroll(py);
+            return logScrollEvent(out);
         } else if (state == TOUCH_INSPECTING && event->tfinger.fingerId == primaryFinger) {
             /* Drag during inspect — emit hover events */
             int cx, cy;
@@ -1341,7 +1405,9 @@ boolean androidTouchEvent(SDL_Event *event, rogueEvent *out) {
             Uint32 elapsed = event->tfinger.timestamp - startTime;
             float moved = dist(startX, startY, px, py);
 
-            if (moved <= TAP_MAX_MOVE_PX && elapsed < LONG_PRESS_MS) {
+            /* On the open log, a hold that never moved closes it like a tap. */
+            if (moved <= TAP_MAX_MOVE_PX
+                    && (elapsed < LONG_PRESS_MS || isMessageArchiveActive())) {
                 /* Tap → left click (down now, up queued) */
                 int cx, cy;
                 cellFromPixel(startX, startY, &cx, &cy);
