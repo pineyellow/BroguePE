@@ -107,6 +107,10 @@ public class BrogueActivity extends SDLActivity {
         RecentGamesStore.get(this);
         requestHighestRefreshRate();
         configureRoundedCornerInsets();
+        // Keyboard and gamepad presses would outline the screen in lime.
+        if (mSurface != null && Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            mSurface.setDefaultFocusHighlightEnabled(false);
+        }
 
         snapshotThread = new HandlerThread("BrogueFrameCapture");
         snapshotThread.start();
