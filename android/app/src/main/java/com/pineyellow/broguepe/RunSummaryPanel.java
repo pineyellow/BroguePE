@@ -165,11 +165,11 @@ final class RunSummaryPanel {
         return panel;
     }
 
-    /** Centred, up to 600x440dp and at most 90% of the width and 85% of the
-     *  height. */
+    /** Centred, up to 600x440dp and at most 85% of the width and height, so
+     *  a small screen still has backdrop at the sides to tap outside. */
     FrameLayout.LayoutParams panelParams() {
         DisplayMetrics metrics = activity.getResources().getDisplayMetrics();
-        int width = Math.min(activity.dpToPx(600), (int)(metrics.widthPixels * 0.9f));
+        int width = Math.min(activity.dpToPx(600), (int)(metrics.widthPixels * 0.85f));
         int height = Math.min(activity.dpToPx(440), (int)(metrics.heightPixels * 0.85f));
         return new FrameLayout.LayoutParams(width, height, Gravity.CENTER);
     }
