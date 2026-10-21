@@ -805,6 +805,12 @@ static boolean confirmationReady = false;
 static boolean confirmationResult = false;
 
 boolean androidGetConfirmation(const char *prompt) {
+    /* A held swipe stops at a prompt, as a held D-pad does, so a finger still
+     * down after the answer does not walk into the same prompt again. */
+    if (state == TOUCH_SWIPING) {
+        haltSwipe();
+    }
+
     pthread_mutex_lock(&confirmationMutex);
     confirmationReady = false;
     confirmationResult = false;
