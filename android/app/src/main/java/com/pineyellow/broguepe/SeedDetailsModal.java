@@ -11,11 +11,8 @@ import android.widget.TextView;
 /** Offline seed preview shared by new-game and recent-seed flows. */
 class SeedDetailsModal {
 
-    static final long TWEEN_MS = 400;
-
     protected final BrogueActivity activity;
     protected long seed;
-    protected TextView headerLabelView;
 
     SeedDetailsModal(BrogueActivity activity) {
         this.activity = activity;
@@ -40,13 +37,12 @@ class SeedDetailsModal {
         LinearLayout panel = ModalChrome.buildPanel(
             activity, root, getTitleUpper(), getContentTopGapDp());
 
-        headerLabelView = makeHeaderLabelView();
+        TextView headerLabelView = makeHeaderLabelView();
         panel.addView(headerLabelView);
         onSeedViewBuilt(headerLabelView);
         onBeforeActionButtons(panel);
 
         StartMenu.addButton(panel, "Play", true, v -> launchRun());
-        StartMenu.addButton(panel, "Back", true, v -> activity.modalStack.pop());
 
         ModalChrome.present(activity, root, panel);
         return root;

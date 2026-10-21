@@ -1,31 +1,29 @@
 package com.pineyellow.broguepe;
 
-import android.animation.Animator;
-import android.animation.AnimatorListenerAdapter;
-import android.animation.ValueAnimator;
 import android.content.Context;
 import android.content.res.ColorStateList;
 import android.graphics.Typeface;
+import android.graphics.drawable.GradientDrawable;
 import android.text.InputFilter;
 import android.text.InputType;
+import android.text.TextPaint;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
 import android.view.View;
-import android.view.animation.DecelerateInterpolator;
+import android.view.ViewGroup;
 import android.view.inputmethod.EditorInfo;
 import android.view.inputmethod.InputMethodManager;
 import android.widget.EditText;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
-import android.widget.RelativeLayout;
 import android.widget.TextView;
 
 import java.util.Random;
 
-/** Main-menu "New Game" entry. Picks a random seed client-side, tweens the
- *  header label up from 0 → chosen seed, and lets the player tap the pencil
- *  (or the seed itself) to override via the soft keyboard. */
+/** Main-menu "New Game" entry. Picks a random seed client-side and lets the
+ *  player tap the seed, its pill or its label to override it via the soft
+ *  keyboard. */
 final class NewGameSeedModal extends SeedDetailsModal {
 
     // Seeds are unsigned 64-bit, as in Brogue CE. Java has no unsigned long, so
@@ -94,33 +92,17 @@ final class NewGameSeedModal extends SeedDetailsModal {
         panel.removeView(seedView);
 
         seedEdit = makeSeedEditText();
-        ImageView pencil = makePencilIcon();
+        TextView label = makeSeedLabel();
+        View pill = makeSeedPill();
 
-        int seedId = View.generateViewId();
-        seedEdit.setId(seedId);
+        panel.addView(new SeedRow(activity, label, pill, seedEdit, makePencilIcon()),
+            seedIndex, new LinearLayout.LayoutParams(
+                LinearLayout.LayoutParams.MATCH_PARENT,
+                LinearLayout.LayoutParams.WRAP_CONTENT));
 
-        RelativeLayout wrapper = new RelativeLayout(activity);
-        wrapper.setClipChildren(false);
-
-        RelativeLayout.LayoutParams seedP = new RelativeLayout.LayoutParams(
-            RelativeLayout.LayoutParams.WRAP_CONTENT,
-            RelativeLayout.LayoutParams.WRAP_CONTENT);
-        seedP.addRule(RelativeLayout.CENTER_IN_PARENT);
-        wrapper.addView(seedEdit, seedP);
-
-        int hitPx = activity.dpToPx(48);
-        RelativeLayout.LayoutParams pencilP = new RelativeLayout.LayoutParams(hitPx, hitPx);
-        pencilP.addRule(RelativeLayout.RIGHT_OF, seedId);
-        pencilP.addRule(RelativeLayout.CENTER_VERTICAL);
-        wrapper.addView(pencil, pencilP);
-
-        panel.addView(wrapper, seedIndex, new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT,
-            LinearLayout.LayoutParams.WRAP_CONTENT));
-
-        headerLabelView = seedEdit;
-
-        pencil.setOnClickListener(v -> focusEditor());
+        // The pencil is not clickable, so a tap on it reaches the pill.
+        pill.setOnClickListener(v -> focusEditor());
+        label.setOnClickListener(v -> focusEditor());
         seedEdit.setOnEditorActionListener((v, actionId, event) -> {
             if (actionId == EditorInfo.IME_ACTION_DONE) {
                 commitEdit();
@@ -134,9 +116,6 @@ final class NewGameSeedModal extends SeedDetailsModal {
 
     @Override
     protected void onBeforeActionButtons(LinearLayout panel) {
-        panel.addView(ModalChrome.makeDimSeparator(activity),
-            ModalChrome.separatorParams(activity, 8, 8, 0, 2));
-
         modeHintView = makeHintView();
         updateModeHint();
         addHintView(panel, modeHintView);
@@ -274,11 +253,14 @@ final class NewGameSeedModal extends SeedDetailsModal {
             }
         };
         v.setTextColor(Palette.GHOST_WHITE);
-        v.setTextSize(TypedValue.COMPLEX_UNIT_SP, 22);
+        v.setTextSize(TypedValue.COMPLEX_UNIT_SP, 18);
         v.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         v.setGravity(Gravity.CENTER);
-        v.setPadding(0, activity.dpToPx(6), 0, activity.dpToPx(6));
+        v.setPadding(0, activity.dpToPx(3), 0, activity.dpToPx(3));
         v.setBackground(null);
+        // focusEditor selects the whole seed; tint that in the buttons' press
+        // color instead of the system blue.
+        v.setHighlightColor(Palette.RIPPLE_GLOW);
         // Preserve WRAP_CONTENT's responsive sizing while preventing the empty,
         // backgroundless field from collapsing to zero width.
         v.setMinEms(1);
@@ -294,17 +276,136 @@ final class NewGameSeedModal extends SeedDetailsModal {
         return v;
     }
 
+    private TextView makeSeedLabel() {
+        TextView v = new TextView(activity);
+        v.setText("Seed:");
+        v.setTextColor(Palette.PALE_BLUE);
+        v.setTextSize(TypedValue.COMPLEX_UNIT_SP, 14);
+        v.setTypeface(Typeface.MONOSPACE);
+        return v;
+    }
+
+    /** Borderless pill. GradientDrawable caps the corner radius at half the
+     *  height, so a large one rounds the ends fully. */
+    private View makeSeedPill() {
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.RECTANGLE);
+        bg.setCornerRadius(activity.dpToPx(100));
+        bg.setColor(Palette.ACTION_BG);
+        View v = new View(activity);
+        v.setBackground(bg);
+        return v;
+    }
+
     private ImageView makePencilIcon() {
         ImageView v = new ImageView(activity);
         v.setImageResource(R.drawable.ic_edit);
         v.setImageTintList(ColorStateList.valueOf(Palette.PALE_BLUE));
-        // 48dp outer bounds = comfortable touch target; 15dp padding shrinks
-        // the visible drawable to ~18dp via CENTER_INSIDE.
-        v.setScaleType(ImageView.ScaleType.CENTER_INSIDE);
-        int padding = activity.dpToPx(15);
-        v.setPadding(padding, padding, padding, padding);
-        v.setClickable(true);
+        v.setScaleType(ImageView.ScaleType.FIT_CENTER);
         return v;
+    }
+
+    /** "Seed:" and a pill holding the seed and the pencil, centered as a group
+     *  for a 9-digit seed like the random ones. A longer seed grows the pill
+     *  to the right until it reaches the edge, then pushes the group left, and
+     *  its text shrinks only when that is not enough. */
+    private static final class SeedRow extends ViewGroup {
+        private static final String REFERENCE_SEED = "000000000";
+
+        private final TextView label;
+        private final View pill;
+        private final EditText seed;
+        private final View pencil;
+        private final int labelGap;
+        private final int pillStart;
+        private final int pencilGap;
+        private final int pillEnd;
+        private final float seedTextPx;
+        private final int referenceSeedWidth;
+
+        SeedRow(BrogueActivity activity, TextView label, View pill, EditText seed,
+                View pencil) {
+            super(activity);
+            this.label = label;
+            this.pill = pill;
+            this.seed = seed;
+            this.pencil = pencil;
+            labelGap = activity.dpToPx(8);
+            pillStart = activity.dpToPx(14);
+            pencilGap = activity.dpToPx(7);
+            pillEnd = activity.dpToPx(10);
+            seedTextPx = seed.getTextSize();
+            referenceSeedWidth = (int) Math.ceil(seed.getPaint().measureText(REFERENCE_SEED));
+            setPadding(0, activity.dpToPx(8), 0, activity.dpToPx(4));
+
+            // The pill goes first so it draws behind the seed and the pencil.
+            addView(pill);
+            addView(seed);
+            int pencilPx = activity.dpToPx(16);
+            addView(pencil, new LayoutParams(pencilPx, pencilPx));
+            addView(label);
+        }
+
+        @Override
+        protected void onMeasure(int widthSpec, int heightSpec) {
+            int width = MeasureSpec.getSize(widthSpec);
+            measureChild(label, widthSpec, heightSpec);
+            measureChild(pencil, widthSpec, heightSpec);
+            fitSeedText(width - getPaddingLeft() - getPaddingRight() - sideWidth());
+            measureChild(seed, widthSpec, heightSpec);
+            pill.measure(
+                MeasureSpec.makeMeasureSpec(pillStart + seed.getMeasuredWidth() + pencilGap
+                    + pencil.getMeasuredWidth() + pillEnd, MeasureSpec.EXACTLY),
+                MeasureSpec.makeMeasureSpec(seed.getMeasuredHeight(), MeasureSpec.EXACTLY));
+            int height = Math.max(label.getMeasuredHeight(), pill.getMeasuredHeight());
+            setMeasuredDimension(width, getPaddingTop() + height + getPaddingBottom());
+        }
+
+        /** The group's width apart from the seed's own text. */
+        private int sideWidth() {
+            return label.getMeasuredWidth() + labelGap + pillStart + pencilGap
+                + pencil.getMeasuredWidth() + pillEnd;
+        }
+
+        /** The size is set only when it changes, so a measure pass does not
+         *  keep requesting another one. */
+        private void fitSeedText(int room) {
+            TextPaint paint = new TextPaint(seed.getPaint());
+            paint.setTextSize(seedTextPx);
+            float textWidth = (float) Math.ceil(paint.measureText(seed.getText().toString()));
+            float size = room <= 0 || textWidth <= room
+                ? seedTextPx
+                : (float) Math.floor(seedTextPx * room / textWidth);
+            if (size != seed.getTextSize()) {
+                seed.setTextSize(TypedValue.COMPLEX_UNIT_PX, size);
+            }
+        }
+
+        @Override
+        protected void onLayout(boolean changed, int l, int t, int r, int b) {
+            int width = r - l - getPaddingLeft() - getPaddingRight();
+            int groupWidth = sideWidth() + seed.getMeasuredWidth();
+            int referenceWidth = sideWidth() + referenceSeedWidth;
+            int x = groupWidth <= referenceWidth
+                ? (width - groupWidth) / 2
+                : Math.min((width - referenceWidth) / 2, width - groupWidth);
+            x = getPaddingLeft() + Math.max(0, x);
+            int centerY = getPaddingTop()
+                + Math.max(label.getMeasuredHeight(), pill.getMeasuredHeight()) / 2;
+
+            x = place(label, x, centerY) + labelGap;
+            place(pill, x, centerY);
+            x = place(seed, x + pillStart, centerY) + pencilGap;
+            place(pencil, x, centerY);
+        }
+
+        /** Lays {@code v} out from {@code left}, centered on {@code centerY},
+         *  and returns its right edge. */
+        private static int place(View v, int left, int centerY) {
+            int top = centerY - v.getMeasuredHeight() / 2;
+            v.layout(left, top, left + v.getMeasuredWidth(), top + v.getMeasuredHeight());
+            return left + v.getMeasuredWidth();
+        }
     }
 
     private void focusEditor() {

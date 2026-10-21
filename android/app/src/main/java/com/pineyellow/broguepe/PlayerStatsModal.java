@@ -128,14 +128,6 @@ final class PlayerStatsModal {
         panel.addView(statsContent);
         renderStats(statsContent);
 
-        // Breathing room between the last section and the Back button so the
-        // button doesn't hug the last row of content when scrolled to bottom.
-        View spacer = new View(activity);
-        panel.addView(spacer, new LinearLayout.LayoutParams(
-            LinearLayout.LayoutParams.MATCH_PARENT, activity.dpToPx(20)));
-
-        StartMenu.addButton(panel, "Back", true, v -> activity.modalStack.pop());
-
         ModalChrome.present(activity, root, panel);
         return root;
     }
