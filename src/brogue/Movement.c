@@ -148,12 +148,12 @@ void describeLocation(char *buf, short x, short y) {
     boolean monsterDormant;
     boolean monsterIsPlayer = false;
 
-    char subject[COLS * 3];
-    char verb[COLS * 3];
-    char preposition[COLS * 3];
-    char object[COLS * 3];
+    char subject[COLS * 3] = "";
+    char verb[COLS * 3] = "";
+    char preposition[COLS * 3] = "";
+    char object[COLS * 3] = "";
     char itemLocation[COLS * 3] = "";
-    char adjective[COLS * 3];
+    char adjective[COLS * 3] = "";
 
     assureCosmeticRNG;
 
@@ -301,7 +301,7 @@ void describeLocation(char *buf, short x, short y) {
             subjectMoving = false;
         } else if (monst->status[STATUS_LEVITATING]) {
             strcat(verb, (monsterIsPlayer ? " hovering" : (subjectMoving ? " flying" : " hovering")));
-            strcat(preposition, "over");
+            strcpy(preposition, "over");
             prepositionLocked = true;
         } else if (monsterCanSubmergeNow(monst)) {
             strcat(verb, (subjectMoving ? " gliding" : " drifting"));
@@ -309,7 +309,7 @@ void describeLocation(char *buf, short x, short y) {
             strcat(verb, (subjectMoving ? " swimming" : " struggling"));
         } else if (cellHasTerrainFlag((pos){ x, y }, T_AUTO_DESCENT)) {
             strcat(verb, " suspended in mid-air");
-            strcat(preposition, "over");
+            strcpy(preposition, "over");
             prepositionLocked = true;
             subjectMoving = false;
         } else if (monst->status[STATUS_CONFUSED]) {
@@ -356,9 +356,18 @@ void describeLocation(char *buf, short x, short y) {
                 strcat(itemLocation, standsInTerrain ? " in " : " on ");
                 strcat(itemLocation, tileText(x, y));
             }
-            sprintf(buf, "%s %s %s %s%s.", subject, verb, preposition, object, itemLocation);
-            describedItemName(theItem, object, DCOLS - strlen(buf));
 
+            // This call is only needed for the `strlen()` call just below here
+            sprintf(buf, "%s %s%s %s%s.", subject, verb, preposition, object, itemLocation);
+            describedItemName(theItem, object, DCOLS - strlen(buf));
+            // This `sprintf` call is similar to the one at the end of this function, but that one
+            // adds an extra space; to avoid the extra space in messages like "X is standing  over Y",
+            // we have to use a slightly different version here. A space is added to the end of the
+            // verb (if not already present) a few lines above here, so we shouldn't add a space
+            // after the verb in this `sprintf` call.
+            sprintf(buf, "%s %s%s %s%s.", subject, verb, preposition, object, itemLocation);
+            restoreRNG;
+            return;
         } else {
             if (!prepositionLocked) {
                 strcpy(preposition, subjectMoving ? (standsInTerrain ? "through" : "across")
@@ -385,6 +394,7 @@ void describeLocation(char *buf, short x, short y) {
             strcpy(preposition, standsInTerrain ? (subjectMoving ? "through" : "in")
                    : (subjectMoving ? "across" : "on"));
 
+            // This call is only needed for the `strlen()` call just below here
             sprintf(buf, "%s %s %s %s%s.", subject, verb, preposition, object, itemLocation);
             describedItemName(theItem, subject, DCOLS - strlen(buf));
 
