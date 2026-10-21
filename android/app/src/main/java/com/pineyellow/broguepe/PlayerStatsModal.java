@@ -509,6 +509,10 @@ final class PlayerStatsModal {
                 iconWidth = icon.getDrawable().getIntrinsicWidth();
                 iconHeight = iconSize + verticalPadding * 2;
                 verticalPadding = 0;
+            } else if (!useTileGlyph) {
+                // A text glyph keeps its whole cell, which is narrower than the
+                // square box, so the box is the glyph plus a little room on each side.
+                iconWidth = icon.getDrawable().getIntrinsicWidth() + activity.dpToPx(4);
             }
             LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(
                 iconWidth, iconHeight);
