@@ -197,7 +197,7 @@ final class DiscoveriesOverlay {
         TextView title = new TextView(activity);
         title.setText(R.string.discoveries_title);
         title.setTextColor(Palette.DIM_WHITE_BLUE);
-        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        title.setTextSize(TypedValue.COMPLEX_UNIT_SP, UiStyle.HEADER_TITLE_TEXT_SP);
         title.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         title.setLetterSpacing(0.15f);
         title.setPadding(activity.dpToPx(4), activity.dpToPx(2), 0, activity.dpToPx(4));

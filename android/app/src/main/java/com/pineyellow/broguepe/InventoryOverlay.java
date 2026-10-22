@@ -163,6 +163,7 @@ final class InventoryOverlay {
                     packCountView.setTextColor(packCount >= packCapacity
                         ? Palette.PACK_FULL : Palette.PALE_BLUE);
                     styleHeaderText(packCountView);
+                    packCountView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
                     packCountView.setTypeface(Typeface.MONOSPACE);
                     packCountView.setPadding(0, activity.dpToPx(2),
                         activity.dpToPx(8), activity.dpToPx(4));
@@ -620,7 +621,7 @@ final class InventoryOverlay {
     }
 
     private static void styleHeaderText(TextView view) {
-        view.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
+        view.setTextSize(TypedValue.COMPLEX_UNIT_SP, UiStyle.HEADER_TITLE_TEXT_SP);
         view.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
         view.setLetterSpacing(0.15f);
     }
