@@ -385,6 +385,7 @@ final class InventoryOverlay {
         String name = item.optString("name", "???");
         ItemDescription description = ItemDescription.fromJson(item);
         String actions = item.optString("actions", "");
+        int category = item.optInt("category", 0);
         int magicPolarity = item.optInt("magicPolarity", 0);
         String displayName = name;
 
@@ -510,7 +511,7 @@ final class InventoryOverlay {
                 if (ak.isEmpty()) continue;
                 char actionChar = ak.charAt(0);
                 if (actionChar == 'c' && !showCallButton) continue;
-                String label = actionVerbLabel(actionChar);
+                String label = actionVerbLabel(actionChar, category);
 
                 Button actionBtn = new Button(activity);
                 actionBtn.setText(label);
@@ -708,12 +709,22 @@ final class InventoryOverlay {
         row.addView(v);
     }
 
+    // Item category bits, matching the itemCategory enum in Rogue.h.
+    private static final int CATEGORY_FOOD   = 1 << 0;
+    private static final int CATEGORY_POTION = 1 << 3;
+    private static final int CATEGORY_SCROLL = 1 << 4;
+
     /** Human-readable label for an inventory verb key (a/e/r/c/d/t). */
-    private static String actionVerbLabel(char key) {
+    private static String actionVerbLabel(char key, int category) {
         switch (key) {
-            case 'a': return "Apply";
+            case 'a':
+                // The engine's one apply key, named for what it does to this item.
+                if ((category & CATEGORY_FOOD) != 0)   return "Eat";
+                if ((category & CATEGORY_POTION) != 0) return "Drink";
+                if ((category & CATEGORY_SCROLL) != 0) return "Read";
+                return "Use";
             case 'e': return "Equip";
-            case 'r': return "Remove";
+            case 'r': return "Unequip";
             case 'c': return "Call";
             case 'd': return "Drop";
             case 't': return "Throw";
