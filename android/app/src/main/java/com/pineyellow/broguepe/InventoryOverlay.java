@@ -13,6 +13,7 @@ import android.graphics.drawable.RippleDrawable;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
+import android.text.style.StyleSpan;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -716,43 +717,65 @@ final class InventoryOverlay {
     }
 
     /** The item's name with the engine's gray detail suffixes, yellow Amulet
-     *  and lumenstone names, and unidentified potion colors and ring gems in
-     *  their own colors. Falls back to plain text when the runs are missing
-     *  or don't spell out the name. */
+     *  and lumenstone names, unidentified flavors and called names colored by
+     *  FlavorColors (called names in italics), and the "staff" or "wand" noun
+     *  in its own color. The engine's colors are left out when its runs are
+     *  missing or don't spell out the name. */
     static CharSequence styledItemName(JSONObject item, String name) {
-        JSONArray runs = item.optJSONArray("nameRuns");
-        if (runs == null) return name;
         int category = item.optInt("category", 0);
-        StringBuilder joined = new StringBuilder();
-        List<int[]> spans = new ArrayList<>();
-        for (int i = 0; i < runs.length(); i++) {
-            JSONObject run = runs.optJSONObject(i);
-            if (run == null) return name;
-            int start = joined.length();
-            String text = run.optString("text", "");
-            joined.append(text);
-            int color = nameToneColor(run.optInt("tone", 0), category, text);
-            if (color != 0 && joined.length() > start) {
-                spans.add(new int[]{start, joined.length(), color});
-            }
+        // Each span is {start, end, color, italic}.
+        List<int[]> spans = nameRunSpans(item.optJSONArray("nameRuns"), category, name);
+        int[] noun = FlavorColors.nounSpan(category, name);
+        if (noun != null) {
+            spans.add(new int[]{noun[0], noun[1], noun[2], 0});
         }
-        if (spans.isEmpty() || !joined.toString().equals(name)) return name;
+        if (spans.isEmpty()) return name;
         SpannableString styled = new SpannableString(name);
         for (int[] s : spans) {
             styled.setSpan(new ForegroundColorSpan(s[2]),
                 s[0], s[1], Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            if (s[3] != 0) {
+                styled.setSpan(new StyleSpan(Typeface.ITALIC),
+                    s[0], s[1], Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+            }
         }
         return styled;
     }
 
+    /** {start, end, color, italic} spans for the engine's colored runs, or
+     *  none when the runs are missing or don't spell out the name. */
+    private static List<int[]> nameRunSpans(JSONArray runs, int category, String name) {
+        List<int[]> spans = new ArrayList<>();
+        if (runs == null) return spans;
+        StringBuilder joined = new StringBuilder();
+        for (int i = 0; i < runs.length(); i++) {
+            JSONObject run = runs.optJSONObject(i);
+            if (run == null) return new ArrayList<>();
+            int start = joined.length();
+            String text = run.optString("text", "");
+            int tone = run.optInt("tone", 0);
+            // A name given with Call follows "called "; a flavor never does.
+            String before = joined.toString();
+            boolean called = tone == 3 && before.regionMatches(true,
+                before.length() - CALLED.length(), CALLED, 0, CALLED.length());
+            joined.append(text);
+            int color = nameToneColor(tone, category, text, called);
+            if (color != 0 && joined.length() > start) {
+                spans.add(new int[]{start, joined.length(), color, called ? 1 : 0});
+            }
+        }
+        return joined.toString().equals(name) ? spans : new ArrayList<>();
+    }
+
+    private static final String CALLED = " called ";
+
     /** The color for one of itemNameTone()'s tones in Items.c, or 0 to leave
-     *  the text plain. Tone 3 also marks called names and other flavors,
-     *  which have no entry in FlavorColors and stay plain. */
-    private static int nameToneColor(int tone, int category, String text) {
+     *  the text plain. Tone 3 marks unidentified flavors and called names. */
+    private static int nameToneColor(int tone, int category, String text, boolean called) {
         switch (tone) {
             case 1:  return Palette.ITEM_NAME_DETAIL;
             case 2:  return Palette.ITEM_NAME_SPECIAL;
-            case 3:  return FlavorColors.colorFor(category, text);
+            case 3:  return FlavorColors.colorFor(category, text, called);
             default: return 0;
         }
     }
