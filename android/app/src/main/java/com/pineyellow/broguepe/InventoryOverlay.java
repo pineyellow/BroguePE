@@ -155,14 +155,15 @@ final class InventoryOverlay {
                 headerBar.addView(header, new LinearLayout.LayoutParams(
                     0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
 
-                // The pack count sits on the right, brighter than the title so
-                // it reads as a status, and red once the pack is full.
+                // The pack count sits on the right in a regular weight, like the
+                // New Game "Seed:" label, and turns red once the pack is full.
                 if (!selectMode) {
                     TextView packCountView = new TextView(activity);
                     packCountView.setText("(" + packCount + "/" + packCapacity + ")");
                     packCountView.setTextColor(packCount >= packCapacity
-                        ? Palette.PACK_FULL : Palette.GHOST_WHITE);
+                        ? Palette.PACK_FULL : Palette.PALE_BLUE);
                     styleHeaderText(packCountView);
+                    packCountView.setTypeface(Typeface.MONOSPACE);
                     packCountView.setPadding(0, activity.dpToPx(2),
                         activity.dpToPx(8), activity.dpToPx(4));
                     headerBar.addView(packCountView);
