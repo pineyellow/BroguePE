@@ -2992,30 +2992,48 @@ static int jsonEscape(char *dest, const char *src, int maxLen) {
     return j;
 }
 
-// Preserve Brogue's good/bad color boundaries as semantic text runs.
+static boolean sameMessageColor(const color *a, const color *b) {
+    return a->red == b->red && a->green == b->green && a->blue == b->blue;
+}
+
+// Good/bad stat colors in item descriptions: 1, -1, or 0 for plain text.
+static int descriptionPolarity(const color *foreground) {
+    if (sameMessageColor(foreground, &goodMessageColor)) {
+        return 1;
+    } else if (sameMessageColor(foreground, &badMessageColor)) {
+        return -1;
+    }
+    return 0;
+}
+
+// Item name colors from itemName() with a white base color: 1 for the gray
+// detail suffixes, 2 for the yellow Amulet and lumenstone names, 0 otherwise
+// (the purple of unidentified flavors is left plain).
+static int itemNameTone(const color *foreground) {
+    if (sameMessageColor(foreground, &gray)) {
+        return 1;
+    } else if (sameMessageColor(foreground, &itemMessageColor)) {
+        return 2;
+    }
+    return 0;
+}
+
+// Preserve Brogue's color boundaries as semantic text runs, appending
+// ,"key":[{"text":...,"field":N},...] with N from classify().
 // Text runs avoid byte-offset differences between native UTF-8 and Java strings.
-static boolean appendItemDescriptionRuns(jsonBuffer *json, const char *description) {
-    if (!appendJsonFormat(json, ",\"descRuns\":[")) {
+static boolean appendTextRuns(jsonBuffer *json, const char *key, const char *field,
+                              const char *text, int (*classify)(const color *)) {
+    if (!appendJsonFormat(json, ",\"%s\":[", key)) {
         return false;
     }
-    int polarity = 0;
+    int value = 0;
     boolean first = true;
-    const char *cursor = description;
+    const char *cursor = text;
     while (*cursor) {
         if (*cursor == COLOR_ESCAPE) {
             color foreground;
             cursor += decodeMessageColor(cursor, 0, &foreground);
-            if (foreground.red == goodMessageColor.red
-                && foreground.green == goodMessageColor.green
-                && foreground.blue == goodMessageColor.blue) {
-                polarity = 1;
-            } else if (foreground.red == badMessageColor.red
-                       && foreground.green == badMessageColor.green
-                       && foreground.blue == badMessageColor.blue) {
-                polarity = -1;
-            } else {
-                polarity = 0;
-            }
+            value = classify(&foreground);
             continue;
         }
 
@@ -3032,8 +3050,8 @@ static boolean appendItemDescriptionRuns(jsonBuffer *json, const char *descripti
         run[length] = '\0';
 
         jsonEscape(escaped, run, sizeof(escaped));
-        if (!appendJsonFormat(json, "%s{\"text\":\"%s\",\"polarity\":%d}",
-                              first ? "" : ",", escaped, polarity)) {
+        if (!appendJsonFormat(json, "%s{\"text\":\"%s\",\"%s\":%d}",
+                              first ? "" : ",", escaped, field, value)) {
             return false;
         }
         first = false;
@@ -3221,8 +3239,9 @@ char displayInventory(unsigned short categoryMask,
     for (i = 0; i < itemNumber && jsonOK; i++) {
         theItem = itemList[i];
 
-        // Get plain item name (no color escapes).
-        itemName(theItem, buf, true, true, NULL);
+        // A white base color makes itemName() mark its gray details and yellow
+        // names; nameRuns carries those, and name stays plain text.
+        itemName(theItem, buf, true, true, &white);
         upperCase(buf);
         char nameClean[COLS*3];
         stripEscapes(nameClean, buf, sizeof(nameClean));
@@ -3296,9 +3315,8 @@ char displayInventory(unsigned short categoryMask,
                 actions, visibleEquippedCount, magicPol,
                 tileGlyph, textGlyph, iconRed, iconGreen, iconBlue);
             if (jsonOK) {
-                jsonOK = appendItemDescriptionRuns(&json, descRaw);
+                jsonOK = appendTextRuns(&json, "descRuns", "polarity", descRaw, descriptionPolarity);
             }
-            jsonOK = jsonOK && appendJsonFormat(&json, "}");
         } else {
             // Selection mode: no description or actions needed.
             jsonOK = appendJsonFormat(&json,
@@ -3306,7 +3324,7 @@ char displayInventory(unsigned short categoryMask,
                 "\"category\":%u,\"equipped\":%s,\"selectable\":%s,"
                 "\"equippedCount\":%d,\"magicPolarity\":%d,"
                 "\"tileGlyph\":%d,\"textGlyph\":%d,"
-                "\"iconRed\":%d,\"iconGreen\":%d,\"iconBlue\":%d}",
+                "\"iconRed\":%d,\"iconGreen\":%d,\"iconBlue\":%d",
                 (visibleItemCount > 0 ? "," : ""),
                 theItem->inventoryLetter, nameEsc,
                 theItem->category,
@@ -3315,6 +3333,10 @@ char displayInventory(unsigned short categoryMask,
                 visibleEquippedCount, magicPol,
                 tileGlyph, textGlyph, iconRed, iconGreen, iconBlue);
         }
+        if (jsonOK) {
+            jsonOK = appendTextRuns(&json, "nameRuns", "tone", buf, itemNameTone);
+        }
+        jsonOK = jsonOK && appendJsonFormat(&json, "}");
         visibleItemCount++;
     }
     if (jsonOK) {

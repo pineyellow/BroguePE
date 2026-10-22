@@ -10,6 +10,9 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.InsetDrawable;
 import android.graphics.drawable.RippleDrawable;
+import android.text.SpannableString;
+import android.text.Spanned;
+import android.text.style.ForegroundColorSpan;
 import android.util.TypedValue;
 import android.view.Gravity;
 import android.view.KeyEvent;
@@ -428,7 +431,8 @@ final class InventoryOverlay {
         addMagicIndicator(activity, headerRow, magicPolarity);
 
         TextView nameView = new TextView(activity);
-        nameView.setText(displayName);
+        // Unselectable rows stay evenly dimmed.
+        nameView.setText(selectable ? styledItemName(item, displayName) : displayName);
         nameView.setTextColor(selectable ? Palette.GHOST_WHITE
             : (selectMode ? Palette.DISABLED_TEXT : Color.argb(150, 120, 115, 130)));
         nameView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
@@ -709,6 +713,34 @@ final class InventoryOverlay {
         v.setTypeface(Typeface.MONOSPACE);
         v.setPadding(activity.dpToPx(4), 0, 0, 0);
         row.addView(v);
+    }
+
+    /** The item's name with the engine's gray detail suffixes and yellow
+     *  Amulet and lumenstone names. Falls back to plain text when the runs
+     *  are missing or don't spell out the name. */
+    static CharSequence styledItemName(JSONObject item, String name) {
+        JSONArray runs = item.optJSONArray("nameRuns");
+        if (runs == null) return name;
+        StringBuilder joined = new StringBuilder();
+        List<int[]> tones = new ArrayList<>();
+        for (int i = 0; i < runs.length(); i++) {
+            JSONObject run = runs.optJSONObject(i);
+            if (run == null) return name;
+            int start = joined.length();
+            joined.append(run.optString("text", ""));
+            int tone = run.optInt("tone", 0);
+            if (tone != 0 && joined.length() > start) {
+                tones.add(new int[]{start, joined.length(), tone});
+            }
+        }
+        if (tones.isEmpty() || !joined.toString().equals(name)) return name;
+        SpannableString styled = new SpannableString(name);
+        for (int[] t : tones) {
+            styled.setSpan(new ForegroundColorSpan(t[2] == 2
+                    ? Palette.ITEM_NAME_SPECIAL : Palette.ITEM_NAME_DETAIL),
+                t[0], t[1], Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        }
+        return styled;
     }
 
     // Item category bits, matching the itemCategory enum in Rogue.h.
