@@ -3007,13 +3007,15 @@ static int descriptionPolarity(const color *foreground) {
 }
 
 // Item name colors from itemName() with a white base color: 1 for the gray
-// detail suffixes, 2 for the yellow Amulet and lumenstone names, 0 otherwise
-// (the purple of unidentified flavors is left plain).
+// detail suffixes, 2 for the yellow Amulet and lumenstone names, 3 for the
+// purple of unidentified flavors and called names, 0 otherwise.
 static int itemNameTone(const color *foreground) {
     if (sameMessageColor(foreground, &gray)) {
         return 1;
     } else if (sameMessageColor(foreground, &itemMessageColor)) {
         return 2;
+    } else if (sameMessageColor(foreground, &backgroundMessageColor)) {
+        return 3;
     }
     return 0;
 }

@@ -715,32 +715,46 @@ final class InventoryOverlay {
         row.addView(v);
     }
 
-    /** The item's name with the engine's gray detail suffixes and yellow
-     *  Amulet and lumenstone names. Falls back to plain text when the runs
-     *  are missing or don't spell out the name. */
+    /** The item's name with the engine's gray detail suffixes, yellow Amulet
+     *  and lumenstone names, and unidentified potion colors and ring gems in
+     *  their own colors. Falls back to plain text when the runs are missing
+     *  or don't spell out the name. */
     static CharSequence styledItemName(JSONObject item, String name) {
         JSONArray runs = item.optJSONArray("nameRuns");
         if (runs == null) return name;
+        int category = item.optInt("category", 0);
         StringBuilder joined = new StringBuilder();
-        List<int[]> tones = new ArrayList<>();
+        List<int[]> spans = new ArrayList<>();
         for (int i = 0; i < runs.length(); i++) {
             JSONObject run = runs.optJSONObject(i);
             if (run == null) return name;
             int start = joined.length();
-            joined.append(run.optString("text", ""));
-            int tone = run.optInt("tone", 0);
-            if (tone != 0 && joined.length() > start) {
-                tones.add(new int[]{start, joined.length(), tone});
+            String text = run.optString("text", "");
+            joined.append(text);
+            int color = nameToneColor(run.optInt("tone", 0), category, text);
+            if (color != 0 && joined.length() > start) {
+                spans.add(new int[]{start, joined.length(), color});
             }
         }
-        if (tones.isEmpty() || !joined.toString().equals(name)) return name;
+        if (spans.isEmpty() || !joined.toString().equals(name)) return name;
         SpannableString styled = new SpannableString(name);
-        for (int[] t : tones) {
-            styled.setSpan(new ForegroundColorSpan(t[2] == 2
-                    ? Palette.ITEM_NAME_SPECIAL : Palette.ITEM_NAME_DETAIL),
-                t[0], t[1], Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
+        for (int[] s : spans) {
+            styled.setSpan(new ForegroundColorSpan(s[2]),
+                s[0], s[1], Spanned.SPAN_EXCLUSIVE_EXCLUSIVE);
         }
         return styled;
+    }
+
+    /** The color for one of itemNameTone()'s tones in Items.c, or 0 to leave
+     *  the text plain. Tone 3 also marks called names and other flavors,
+     *  which have no entry in FlavorColors and stay plain. */
+    private static int nameToneColor(int tone, int category, String text) {
+        switch (tone) {
+            case 1:  return Palette.ITEM_NAME_DETAIL;
+            case 2:  return Palette.ITEM_NAME_SPECIAL;
+            case 3:  return FlavorColors.colorFor(category, text);
+            default: return 0;
+        }
     }
 
     // Item category bits, matching the itemCategory enum in Rogue.h.
