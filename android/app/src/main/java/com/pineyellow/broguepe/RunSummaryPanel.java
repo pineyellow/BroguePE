@@ -427,7 +427,8 @@ final class RunSummaryPanel {
         InventoryOverlay.addMagicIndicator(activity, row, item.optInt("magicPolarity", 0));
 
         TextView nameView = new TextView(activity);
-        nameView.setText(name);
+        // Games saved before names carried colors show them plain.
+        nameView.setText(InventoryOverlay.styledItemName(item, name));
         nameView.setTextColor(Palette.GHOST_WHITE);
         nameView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         nameView.setTypeface(Typeface.MONOSPACE);

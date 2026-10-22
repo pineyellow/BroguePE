@@ -3126,8 +3126,8 @@ char *runSummaryJson(const char *outcome, const char *cause, unsigned long colle
     for (i = 0; i < itemNumber && jsonOK; i++) {
         theItem = itemList[i];
 
-        // Same fields as the inventory panel's select mode.
-        itemName(theItem, buf, true, true, NULL);
+        // Same fields as the inventory panel's select mode, name colors included.
+        itemName(theItem, buf, true, true, &white);
         upperCase(buf);
         stripEscapes(nameClean, buf, sizeof(nameClean));
         jsonEscape(nameEsc, nameClean, sizeof(nameEsc));
@@ -3140,12 +3140,14 @@ char *runSummaryJson(const char *outcome, const char *cause, unsigned long colle
         int textGlyph = textFontIndex(theItem->displayChar);
 
         jsonOK = appendJsonFormat(&json,
-            "%s{\"name\":\"%s\",\"equipped\":%s,\"magicPolarity\":%d,"
+            "%s{\"name\":\"%s\",\"category\":%u,\"equipped\":%s,\"magicPolarity\":%d,"
             "\"tileGlyph\":%d,\"textGlyph\":%d,"
-            "\"iconRed\":%d,\"iconGreen\":%d,\"iconBlue\":%d}",
-            (i > 0 ? "," : ""), nameEsc,
+            "\"iconRed\":%d,\"iconGreen\":%d,\"iconBlue\":%d",
+            (i > 0 ? "," : ""), nameEsc, theItem->category,
             (theItem->flags & ITEM_EQUIPPED) ? "true" : "false",
-            magicPol, tileGlyph, textGlyph, iconRed, iconGreen, iconBlue);
+            magicPol, tileGlyph, textGlyph, iconRed, iconGreen, iconBlue)
+            && appendTextRuns(&json, "nameRuns", "tone", buf, itemNameTone)
+            && appendJsonFormat(&json, "}");
     }
     if (jsonOK) {
         jsonOK = appendJsonFormat(&json, "]")
