@@ -6,6 +6,7 @@ import org.json.JSONObject;
 /** Display-only stress data. Included only in debug builds with -PdebugOverlay=true.
  * Never publishes to StatsStore or writes files. Names match the monster catalog. */
 final class PlayerStatsPreview {
+    // Every monster in Brogue's monsterCatalog (Globals.c), in catalog order.
     private static final String[] MONSTERS = {
         "rat", "kobold", "jackal", "eel", "monkey", "bloat", "pit bloat",
         "goblin", "goblin conjurer", "goblin mystic", "goblin totem", "pink jelly",
@@ -14,7 +15,12 @@ final class PlayerStatsPreview {
         "zombie", "troll", "ogre shaman", "naga", "salamander", "explosive bloat",
         "dar blademaster", "dar priestess", "dar battlemage", "acidic jelly",
         "centaur", "underworm", "sentinel", "dart turret", "kraken", "lich",
-        "phylactery", "pixie", "phantom"
+        "phylactery", "pixie", "phantom", "flame turret", "imp", "fury",
+        "revenant", "tentacle horror", "golem", "dragon", "goblin warlord",
+        "black jelly", "vampire", "flamedancer", "spectral blade", "spectral sword",
+        "stone guardian", "winged guardian", "guardian spirit", "Warden of Yendor",
+        "eldritch totem", "mirrored totem", "unicorn", "ifrit", "phoenix",
+        "phoenix egg", "mangrove dryad"
     };
     // Deaths the game words as a sentence, exactly as gameOver() gets them. Both lava and both
     // reflected bolts are here to show their pills merging. The last one isn't in the table in

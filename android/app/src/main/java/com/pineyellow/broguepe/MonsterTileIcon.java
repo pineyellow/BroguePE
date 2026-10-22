@@ -19,8 +19,12 @@ final class MonsterTileIcon {
         if (info == null || info.length < 5) return null;
 
         boolean useTileGlyph = GameSettings.useTileCreatureAndItemGlyphs(activity);
-        return makeGlyphView(activity, useTileGlyph ? info[0] : info[4], useTileGlyph,
-            Color.rgb(percentToByte(info[1]), percentToByte(info[2]), percentToByte(info[3])));
+        int color = Color.rgb(percentToByte(info[1]), percentToByte(info[2]), percentToByte(info[3]));
+        // The only two black monsters would vanish on the dark pills.
+        if ("arrow turret".equals(monsterName) || "black jelly".equals(monsterName)) {
+            color = Palette.DIM_BLUE_GRAY;
+        }
+        return makeGlyphView(activity, useTileGlyph ? info[0] : info[4], useTileGlyph, color);
     }
 
     /** One glyph from the atlas in one color, sized like a monster icon. */
