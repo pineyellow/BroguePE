@@ -290,8 +290,9 @@ final class PlayerStatsModal {
         // inventory item's details, so they read as the header's.
         LinearLayout content = new LinearLayout(activity);
         content.setOrientation(LinearLayout.VERTICAL);
+        // The entries' own 2dp margins make the top and bottom 6dp, as the sides.
         content.setPadding(activity.dpToPx(6), activity.dpToPx(4),
-                           activity.dpToPx(6), activity.dpToPx(6));
+                           activity.dpToPx(6), activity.dpToPx(4));
         int corner = activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP);
         GradientDrawable contentBg = new GradientDrawable();
         contentBg.setShape(GradientDrawable.RECTANGLE);
