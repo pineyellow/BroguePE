@@ -4590,19 +4590,17 @@ short printMonsterInfo(creature *monst, short y, boolean dim, boolean highlight)
         pmapAt(monst->loc)->flags &= ~IS_IN_PATH;
         getCellAppearance(monst->loc, &monstChar, &monstForeColor, &monstBackColor);
         applyColorBounds(&monstForeColor, 0, 100);
-        applyColorBounds(&monstBackColor, 0, 100);
         if (inPath) {
             pmapAt(monst->loc)->flags |= IS_IN_PATH;
         }
 
         if (dim) {
             applyColorAverage(&monstForeColor, &black, 50);
-            applyColorAverage(&monstBackColor, &black, 50);
         } else if (highlight) {
             applyColorAugment(&monstForeColor, &black, 100);
-            applyColorAugment(&monstBackColor, &black, 100);
         }
-        plotCharWithColor(monstChar, (windowpos){ 0, y }, &monstForeColor, &monstBackColor);
+        // Black lets the map show through; the floor's color would draw an opaque square.
+        plotCharWithColor(monstChar, (windowpos){ 0, y }, &monstForeColor, &black);
         if(monst->carriedItem) {
             plotCharWithColor(monst->carriedItem->displayChar, (windowpos) { 1, y }, &itemColor, &black);
         }
@@ -4875,15 +4873,14 @@ short printItemInfo(item *theItem, short y, boolean dim, boolean highlight) {
             }
         }
         applyColorBounds(&itemForeColor, 0, 100);
-        applyColorBounds(&itemBackColor, 0, 100);
         if (inPath) {
             pmapAt(theItem->loc)->flags |= IS_IN_PATH;
         }
         if (dim) {
             applyColorAverage(&itemForeColor, &black, 50);
-            applyColorAverage(&itemBackColor, &black, 50);
         }
-        plotCharWithColor(itemChar, (windowpos){ 0, y }, &itemForeColor, &itemBackColor);
+        // Black lets the map show through, as for monsters.
+        plotCharWithColor(itemChar, (windowpos){ 0, y }, &itemForeColor, &black);
         printString(":                  ", 1, y, (dim ? &gray : &white), &black, 0);
         if (rogue.playbackOmniscience || !player.status[STATUS_HALLUCINATING]) {
             itemName(theItem, name, true, true, (dim ? &gray : &white));
