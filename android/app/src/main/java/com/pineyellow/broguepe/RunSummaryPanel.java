@@ -282,8 +282,13 @@ final class RunSummaryPanel {
                 ? String.format(Locale.US, "%,d", s.optLong("turns")) : MISSING);
         addStat(content,"Gold",
             s.has("gold") ? Long.toString(s.optLong("gold")) : MISSING);
-        addStat(content,"Deepest depth",
-            s.has("deepestDepth") ? "Depth " + s.optInt("deepestDepth") : MISSING);
+        // Only when it says more than the Depth row, as it does on a win.
+        boolean sameDepth = !victory && s.has("depth") && s.has("deepestDepth")
+            && s.optInt("depth") == s.optInt("deepestDepth");
+        if (!sameDepth) {
+            addStat(content,"Deepest depth",
+                s.has("deepestDepth") ? String.valueOf(s.optInt("deepestDepth")) : MISSING);
+        }
         // On a death the score is the gold, except with gems in the pack or
         // after switching to easy mode mid-run, so only show it then.
         if (s.has("score") && s.optLong("score") != s.optLong("gold", -1)) {
@@ -368,7 +373,7 @@ final class RunSummaryPanel {
 
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(activity.dpToPx(5));
+        bg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         bg.setColor(Palette.ACTION_BUTTON_BG);
         bg.setStroke(1, Palette.BORDER_DIM);
         button.setBackground(new RippleDrawable(
