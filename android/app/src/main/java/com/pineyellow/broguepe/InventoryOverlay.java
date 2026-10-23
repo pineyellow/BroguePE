@@ -722,9 +722,14 @@ final class InventoryOverlay {
      *  in its own color. The engine's colors are left out when its runs are
      *  missing or don't spell out the name. */
     static CharSequence styledItemName(JSONObject item, String name) {
+        return styledItemName(item, name, item.optJSONArray("nameRuns"));
+    }
+
+    /** As above, with runs for name in place of the item's nameRuns. */
+    static CharSequence styledItemName(JSONObject item, String name, JSONArray runs) {
         int category = item.optInt("category", 0);
         // Each span is {start, end, color, italic}.
-        List<int[]> spans = nameRunSpans(item.optJSONArray("nameRuns"), category, name);
+        List<int[]> spans = nameRunSpans(runs, category, name);
         int[] noun = FlavorColors.nounSpan(category, name);
         if (noun != null) {
             spans.add(new int[]{noun[0], noun[1], noun[2], 0});

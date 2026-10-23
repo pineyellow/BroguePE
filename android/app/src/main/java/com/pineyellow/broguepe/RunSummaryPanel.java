@@ -32,12 +32,14 @@ import java.util.Map;
 
 /** One panel summing up a run: its stats on the left; on the right, the pack
  *  at its end or the monsters and allies met, switched by a title-row button.
- *  Each list scrolls on its own. Shown by the death screen and, for past runs,
- *  from the Recent Games list. The summary is the engine's runSummaryJson. */
+ *  Next to it, a reveal button shows what the pack's items really were. Each list
+ *  scrolls on its own. Shown by the death screen and, for past runs, from the
+ *  Recent Games list. The summary is the engine's runSummaryJson. */
 final class RunSummaryPanel {
 
     private static final String SHOW_CREATURES = "Show monsters and allies";
     private static final String SHOW_PACK = "Show inventory";
+    private static final String REVEAL = "Reveal items";
     private static final String MISSING = "-";
 
     private final BrogueActivity activity;
@@ -77,10 +79,21 @@ final class RunSummaryPanel {
             FrameLayout.LayoutParams.MATCH_PARENT);
         titleParams.topMargin = activity.dpToPx(6);
         header.addView(titleView, titleParams);
-        ImageView switchButton = makeSwitchButton();
+        ImageView switchButton = makeIconButton(R.drawable.ic_swap);
         int switchSize = activity.dpToPx(36);
         header.addView(switchButton, new FrameLayout.LayoutParams(
             switchSize, switchSize, Gravity.END | Gravity.TOP));
+        // Left of the switch button, and only when an item has more to show.
+        // Games saved before the engine sent true names have none.
+        JSONArray items = summary.optJSONArray("items");
+        ImageView revealButton = hasReveal(items) ? makeIconButton(R.drawable.ic_wand_shine) : null;
+        if (revealButton != null) {
+            revealButton.setContentDescription(REVEAL);
+            FrameLayout.LayoutParams revealParams = new FrameLayout.LayoutParams(
+                switchSize, switchSize, Gravity.END | Gravity.TOP);
+            revealParams.rightMargin = switchSize + activity.dpToPx(6);
+            header.addView(revealButton, revealParams);
+        }
         LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -142,7 +155,17 @@ final class RunSummaryPanel {
         // The right column shows either the pack or the monsters slain and
         // allies met this run; the title-row button switches between them.
         LinearLayout packContent = addScrollingBody(inventoryColumn);
-        addInventory(packContent, summary.optJSONArray("items"));
+        addInventory(packContent, items, false);
+        if (revealButton != null) {
+            // Unrevealed each time the panel opens. Revealing can't be undone,
+            // so the button goes away; disabled, it stays gone below.
+            revealButton.setOnClickListener(v -> {
+                v.setEnabled(false);
+                v.setVisibility(View.GONE);
+                packContent.removeAllViews();
+                addInventory(packContent, items, true);
+            });
+        }
         LinearLayout creaturesContent = addScrollingBody(inventoryColumn);
         View packBody = (View) packContent.getParent();
         View creaturesBody = (View) creaturesContent.getParent();
@@ -156,6 +179,9 @@ final class RunSummaryPanel {
             }
             creaturesBody.setVisibility(showCreatures ? View.VISIBLE : View.GONE);
             packBody.setVisibility(showCreatures ? View.GONE : View.VISIBLE);
+            if (revealButton != null && revealButton.isEnabled()) {
+                revealButton.setVisibility(showCreatures ? View.GONE : View.VISIBLE);
+            }
             v.setContentDescription(showCreatures ? SHOW_PACK : SHOW_CREATURES);
         });
         LinearLayout.LayoutParams inventoryParams = new LinearLayout.LayoutParams(
@@ -286,12 +312,12 @@ final class RunSummaryPanel {
         return label;
     }
 
-    /** Small square icon button, styled like the menu buttons. Not
-     *  focusable, so the death screen's root keeps focus and Enter still
-     *  dismisses it. */
-    private ImageView makeSwitchButton() {
+    /** Small square icon button for the title row, styled like the menu
+     *  buttons. Not focusable, so the death screen's root keeps focus and
+     *  Enter still dismisses it. */
+    private ImageView makeIconButton(int iconRes) {
         ImageView button = new ImageView(activity);
-        button.setImageResource(R.drawable.ic_swap);
+        button.setImageResource(iconRes);
         button.setColorFilter(Palette.PALE_BLUE);
         button.setScaleType(ImageView.ScaleType.FIT_CENTER);
         int pad = activity.dpToPx(7);
@@ -307,6 +333,18 @@ final class RunSummaryPanel {
         button.setClickable(true);
         button.setFocusable(false);
         return button;
+    }
+
+    /** Whether any item has a true name or magic mark the player didn't know. */
+    private static boolean hasReveal(JSONArray items) {
+        if (items == null) return false;
+        for (int i = 0; i < items.length(); i++) {
+            JSONObject item = items.optJSONObject(i);
+            if (item != null && (item.has("revealedName") || item.has("revealedPolarity"))) {
+                return true;
+            }
+        }
+        return false;
     }
 
     /** A small button, coloured like the menu buttons. */
@@ -366,8 +404,9 @@ final class RunSummaryPanel {
     }
 
     /** The pack at the run's end, equipped items first and a divider after
-     *  them. Names are what the player knew at the time. */
-    private void addInventory(LinearLayout content, JSONArray items) {
+     *  them. Names are what the player knew at the time or, revealed, what
+     *  the items really were. */
+    private void addInventory(LinearLayout content, JSONArray items, boolean revealed) {
         if (items == null || items.length() == 0) {
             TextView empty = new TextView(activity);
             empty.setText(R.string.inventory_empty);
@@ -394,14 +433,23 @@ final class RunSummaryPanel {
                 content.addView(ModalChrome.makeDimSeparator(activity),
                                 ModalChrome.separatorParams(activity, 4, 4, 4, 4));
             }
-            content.addView(makeItemRow(item));
+            content.addView(makeItemRow(item, revealed));
         }
     }
 
     /** A plain line: icon, good/bad magic mark and name. Nothing here is
      *  tapped, so it is far denser than the inventory panel's rows. */
-    private View makeItemRow(JSONObject item) {
+    private View makeItemRow(JSONObject item, boolean revealed) {
         String name = item.optString("name", "???");
+        JSONArray runs = item.optJSONArray("nameRuns");
+        int polarity = item.optInt("magicPolarity", 0);
+        if (revealed) {
+            if (item.has("revealedName")) {
+                name = item.optString("revealedName", name);
+                runs = item.optJSONArray("revealedNameRuns");
+            }
+            polarity = item.optInt("revealedPolarity", polarity);
+        }
 
         LinearLayout row = new LinearLayout(activity);
         row.setOrientation(LinearLayout.HORIZONTAL);
@@ -424,11 +472,11 @@ final class RunSummaryPanel {
         row.setLayoutParams(params);
 
         InventoryOverlay.addItemIcon(activity, row, item, true, 22, 25);
-        InventoryOverlay.addMagicIndicator(activity, row, item.optInt("magicPolarity", 0));
+        InventoryOverlay.addMagicIndicator(activity, row, polarity);
 
         TextView nameView = new TextView(activity);
         // Games saved before names carried colors show them plain.
-        nameView.setText(InventoryOverlay.styledItemName(item, name));
+        nameView.setText(InventoryOverlay.styledItemName(item, name, runs));
         nameView.setTextColor(Palette.GHOST_WHITE);
         nameView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         nameView.setTypeface(Typeface.MONOSPACE);
