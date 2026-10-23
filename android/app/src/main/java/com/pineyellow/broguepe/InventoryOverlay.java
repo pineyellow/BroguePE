@@ -559,12 +559,15 @@ final class InventoryOverlay {
                 actionBtn.setText(label);
                 actionBtn.setTextColor(Palette.GHOST_WHITE);
                 actionBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
-                actionBtn.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+                actionBtn.setTypeface(Typeface.MONOSPACE);
                 actionBtn.setAllCaps(true);
+                // Slim side padding leaves room for the spacing, so UNEQUIP
+                // still fits on one line beside a Call button.
+                actionBtn.setLetterSpacing(0.12f);
                 actionBtn.setStateListAnimator(null);
                 actionBtn.setElevation(0);
-                actionBtn.setPadding(activity.dpToPx(12), activity.dpToPx(8),
-                                     activity.dpToPx(12), activity.dpToPx(8));
+                actionBtn.setPadding(activity.dpToPx(6), activity.dpToPx(8),
+                                     activity.dpToPx(6), activity.dpToPx(8));
                 actionBtn.setMinWidth(0);
                 actionBtn.setMinimumWidth(0);
                 actionBtn.setMinHeight(activity.dpToPx(36));
