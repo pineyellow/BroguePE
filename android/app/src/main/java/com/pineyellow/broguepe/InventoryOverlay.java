@@ -456,8 +456,13 @@ final class InventoryOverlay {
         nameView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         nameView.setTypeface(Typeface.MONOSPACE);
         nameView.setPadding(activity.dpToPx(6), 0, 0, 0);
-        // One unwrapped line, which an expanded row slides along.
-        nameView.setSingleLine(true);
+        // Select mode rows don't expand, so their names wrap to a second line.
+        // Otherwise one unwrapped line, which an expanded row slides along.
+        if (selectMode) {
+            nameView.setMaxLines(2);
+        } else {
+            nameView.setSingleLine(true);
+        }
         nameView.setEllipsize(android.text.TextUtils.TruncateAt.END);
         headerRow.addView(nameView, new LinearLayout.LayoutParams(
             0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
