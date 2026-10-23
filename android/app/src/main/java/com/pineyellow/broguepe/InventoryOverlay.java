@@ -1,5 +1,11 @@
 package com.pineyellow.broguepe;
 
+import android.animation.Animator;
+import android.animation.AnimatorListenerAdapter;
+import android.animation.Keyframe;
+import android.animation.ObjectAnimator;
+import android.animation.PropertyValuesHolder;
+import android.animation.ValueAnimator;
 import android.annotation.SuppressLint;
 import android.content.res.ColorStateList;
 import android.graphics.Bitmap;
@@ -10,6 +16,7 @@ import android.graphics.drawable.BitmapDrawable;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.InsetDrawable;
 import android.graphics.drawable.RippleDrawable;
+import android.text.Layout;
 import android.text.SpannableString;
 import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
@@ -20,6 +27,7 @@ import android.view.KeyEvent;
 import android.view.MotionEvent;
 import android.view.View;
 import android.view.animation.DecelerateInterpolator;
+import android.view.animation.LinearInterpolator;
 import android.view.animation.OvershootInterpolator;
 import android.widget.Button;
 import android.widget.FrameLayout;
@@ -41,10 +49,17 @@ import java.util.List;
  *  to reveal the item's description + available verbs as inline buttons. */
 final class InventoryOverlay {
 
+    /** An expanded row's name that doesn't fit slides at this speed, and rests
+     *  this long at its start and at its end. */
+    private static final int NAME_SCROLL_DP_PER_SECOND = 30;
+    private static final int NAME_SCROLL_START_PAUSE_MS = 2000;
+    private static final int NAME_SCROLL_END_PAUSE_MS = 3000;
+
     private final BrogueActivity activity;
     private final FrameLayout host;
     private View currentlyExpandedDetail;
     private ImageView currentlyExpandedChevron;
+    private TextView currentlyExpandedName;
     private final List<View> browseDetailSections = new ArrayList<>();
     private ScrollView browseScrollView;
     private View browseContent;
@@ -94,6 +109,7 @@ final class InventoryOverlay {
             host.removeAllViews();
             currentlyExpandedDetail = null;
             currentlyExpandedChevron = null;
+            currentlyExpandedName = null;
 
             try {
                 JSONObject root = new JSONObject(json);
@@ -278,6 +294,7 @@ final class InventoryOverlay {
             clearBrowseViewReferences();
             currentlyExpandedDetail = null;
             currentlyExpandedChevron = null;
+            currentlyExpandedName = null;
             if (host.getChildCount() < 2) {
                 host.setVisibility(View.GONE);
                 host.removeAllViews();
@@ -439,7 +456,8 @@ final class InventoryOverlay {
         nameView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         nameView.setTypeface(Typeface.MONOSPACE);
         nameView.setPadding(activity.dpToPx(6), 0, 0, 0);
-        nameView.setMaxLines(1);
+        // One unwrapped line, which an expanded row slides along.
+        nameView.setSingleLine(true);
         nameView.setEllipsize(android.text.TextUtils.TruncateAt.END);
         headerRow.addView(nameView, new LinearLayout.LayoutParams(
             0, LinearLayout.LayoutParams.WRAP_CONTENT, 1f));
@@ -464,6 +482,18 @@ final class InventoryOverlay {
 
         LinearLayout row = new LinearLayout(activity);
         row.setOrientation(LinearLayout.VERTICAL);
+
+        // The slide repeats until it is stopped, so stop it when the panel
+        // goes away.
+        nameView.addOnAttachStateChangeListener(new View.OnAttachStateChangeListener() {
+            @Override
+            public void onViewAttachedToWindow(View v) {}
+
+            @Override
+            public void onViewDetachedFromWindow(View v) {
+                setNameScrolling(nameView, false);
+            }
+        });
 
         // Points right when collapsed and is turned down when expanded.
         ImageView chevron = new ImageView(activity);
@@ -588,14 +618,19 @@ final class InventoryOverlay {
                     if (currentlyExpandedChevron != null) {
                         currentlyExpandedChevron.setRotation(0f);
                     }
+                    if (currentlyExpandedName != null) {
+                        setNameScrolling(currentlyExpandedName, false);
+                    }
                 }
                 currentlyExpandedDetail = detailSection;
                 currentlyExpandedChevron = chevron;
+                currentlyExpandedName = nameView;
                 detailSection.animate().cancel();
                 detailSection.setVisibility(View.VISIBLE);
                 detailSection.setAlpha(0f);
                 detailSection.animate().alpha(1f).setDuration(150).start();
                 chevron.setRotation(90f);
+                setNameScrolling(nameView, true);
                 row.post(() -> {
                     int rowBottom = row.getTop() + row.getHeight();
                     int visibleBottom = scrollView.getScrollY() + scrollView.getHeight();
@@ -611,8 +646,10 @@ final class InventoryOverlay {
                 if (currentlyExpandedDetail == detailSection) {
                     currentlyExpandedDetail = null;
                     currentlyExpandedChevron = null;
+                    currentlyExpandedName = null;
                 }
                 chevron.setRotation(0f);
+                setNameScrolling(nameView, false);
             }
         });
 
@@ -623,6 +660,52 @@ final class InventoryOverlay {
         row.setLayoutParams(rowP);
 
         return row;
+    }
+
+    /** An expanded row's name that doesn't fit rests at its start, slides to
+     *  its end, rests and slides back, over and over. A collapsed one ends in
+     *  "...". The running slide is kept in the view's tag. */
+    private void setNameScrolling(TextView nameView, boolean scrolling) {
+        if (nameView.getTag() instanceof Animator) {
+            ((Animator) nameView.getTag()).cancel();
+        }
+        if (!scrolling) return;
+        int room = nameView.getWidth() - nameView.getCompoundPaddingLeft()
+            - nameView.getCompoundPaddingRight();
+        int overflow = (int) Math.ceil(
+            Layout.getDesiredWidth(nameView.getText(), nameView.getPaint())) - room;
+        if (room <= 0 || overflow <= 0) return;
+
+        long travelMs = overflow * 1000L / activity.dpToPx(NAME_SCROLL_DP_PER_SECOND);
+        long cycleMs = NAME_SCROLL_START_PAUSE_MS + travelMs
+            + NAME_SCROLL_END_PAUSE_MS + travelMs;
+        float leave = (float) NAME_SCROLL_START_PAUSE_MS / cycleMs;
+        float arrive = (float) (NAME_SCROLL_START_PAUSE_MS + travelMs) / cycleMs;
+        float turn = (float) (NAME_SCROLL_START_PAUSE_MS + travelMs
+            + NAME_SCROLL_END_PAUSE_MS) / cycleMs;
+        ObjectAnimator slide = ObjectAnimator.ofPropertyValuesHolder(nameView,
+            PropertyValuesHolder.ofKeyframe("scrollX",
+                Keyframe.ofInt(0f, 0),
+                Keyframe.ofInt(leave, 0),
+                Keyframe.ofInt(arrive, overflow),
+                Keyframe.ofInt(turn, overflow),
+                Keyframe.ofInt(1f, 0)));
+        slide.setDuration(cycleMs);
+        slide.setInterpolator(new LinearInterpolator());
+        slide.setRepeatCount(ValueAnimator.INFINITE);
+        slide.addListener(new AnimatorListenerAdapter() {
+            // Also runs at once when the phone has animations turned off.
+            @Override
+            public void onAnimationEnd(Animator animation) {
+                nameView.setTag(null);
+                nameView.setScrollX(0);
+                nameView.setEllipsize(android.text.TextUtils.TruncateAt.END);
+            }
+        });
+        nameView.setTag(slide);
+        // The whole name, unclipped by "...", to slide along.
+        nameView.setEllipsize(null);
+        slide.start();
     }
 
     private static void styleHeaderText(TextView view) {
