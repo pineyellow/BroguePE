@@ -4522,8 +4522,11 @@ void highlightScreenCell(short x, short y, const color *highlightColor, short st
     storeColorComponents(buf->cells[x][y].foreColorComponents, &tempColor);
 
     tempColor = colorFromComponents(buf->cells[x][y].backColorComponents);
-    applyColorAugment(&tempColor, highlightColor, strength);
-    storeColorComponents(buf->cells[x][y].backColorComponents, &tempColor);
+    // Black shows the map through; tinting it would draw an opaque bar over the map.
+    if (tempColor.red || tempColor.green || tempColor.blue) {
+        applyColorAugment(&tempColor, highlightColor, strength);
+        storeColorComponents(buf->cells[x][y].backColorComponents, &tempColor);
+    }
 }
 
 // Like `armorValueIfUnenchanted` for the currently-equipped armor, but takes the penalty from
