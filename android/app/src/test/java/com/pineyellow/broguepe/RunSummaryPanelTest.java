@@ -42,4 +42,14 @@ public class RunSummaryPanelTest {
     public void runTalliesAreEmptyWithoutAList() {
         assertTrue(RunSummaryPanel.runTallies(null).isEmpty());
     }
+
+    @Test
+    public void runPlaytimeRoundsUpToWholeMinutes() {
+        assertEquals("0h 0m", RunSummaryPanel.formatRunPlaytime(0L));
+        assertEquals("0h 1m", RunSummaryPanel.formatRunPlaytime(10_000L));
+        assertEquals("0h 1m", RunSummaryPanel.formatRunPlaytime(60_000L));
+        assertEquals("0h 2m", RunSummaryPanel.formatRunPlaytime(65_000L));
+        assertEquals("1h 0m", RunSummaryPanel.formatRunPlaytime(3_540_001L));
+        assertEquals("0h 0m", RunSummaryPanel.formatRunPlaytime(-1L));
+    }
 }

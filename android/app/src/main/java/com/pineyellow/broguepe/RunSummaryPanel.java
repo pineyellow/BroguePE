@@ -274,8 +274,17 @@ final class RunSummaryPanel {
         addStat(content,"Mode", modeLabel(s));
         // Left out for a run that isn't timed, e.g. resumed from an older save.
         if (playtimeMillis >= 0) {
-            addStat(content,"Run playtime", PlayerStatsModal.formatPlaytime(playtimeMillis));
+            addStat(content,"Run playtime", formatRunPlaytime(playtimeMillis));
         }
+    }
+
+    /** Like PlayerStatsModal.formatPlaytime, but rounded up to the next whole
+     *  minute, so a run's first minute shows as 1m. The lifetime total rounds
+     *  down, since it is saved at each whole minute. */
+    static String formatRunPlaytime(long millis) {
+        long ms = Math.max(0L, millis);
+        long minutes = ms / 60_000L + (ms % 60_000L == 0 ? 0 : 1);
+        return PlayerStatsModal.formatPlaytime(minutes * 60_000L);
     }
 
     /** Adds a "Key: Value" row, coloured like ModalChrome.addKeyValueRow. */
