@@ -20,7 +20,7 @@ final class Palette {
     static final int STAT_IMPROVEMENT = Color.rgb(66, 231, 122); // Saturated green
     static final int STAT_PENALTY     = Color.rgb(255, 82, 99);  // Saturated red
     static final int PACK_FULL        = Color.rgb(220, 120, 125); // Faint red
-    static final int ITEM_NAME_DETAIL  = Color.rgb(132, 127, 155); // Brogue gray, tinted indigo
+    static final int ITEM_NAME_DETAIL  = Color.rgb(138, 138, 172); // Between Brogue gray and PALE_BLUE
     static final int ITEM_NAME_SPECIAL = Color.rgb(255, 255, 128); // itemMessageColor {100,100,50}
     static final int VOID_BLACK     = Color.argb(240, 10, 6, 18);
     static final int SUBMENU_BG     = Color.argb(255, 16, 10, 30);

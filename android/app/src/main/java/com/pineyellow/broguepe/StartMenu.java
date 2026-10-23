@@ -52,15 +52,26 @@ final class StartMenu {
             LinearLayout panel = new LinearLayout(activity);
             panel.setOrientation(LinearLayout.VERTICAL);
 
+            int screenWidth = activity.getResources().getDisplayMetrics().widthPixels;
+            int screenHeight = activity.getResources().getDisplayMetrics().heightPixels;
+            int panelWidth = Math.min(activity.dpToPx(280), (int)(screenWidth * 0.32f));
+
             // Resume is disabled when there is no compatible save.
             boolean canResume = hasSave && saveCompatible;
-            addButton(panel, resumeLabel(saveVariant, saveDifficulty), canResume,
-                whenNoModal(v -> {
+            View resumeButton = addButton(panel, resumeLabel(saveVariant, saveDifficulty, true),
+                canResume, whenNoModal(v -> {
                     activity.modalStack.clear();
                     dismiss();
                     activity.nextGameIsResume = true;
                     activity.nativeStartMenuResult(CHOICE_RESUME);
                 }));
+            // A narrow panel would wrap the label with its mode onto two
+            // lines, so it drops "Game" there.
+            TextView resumeText = (TextView) ((LinearLayout) resumeButton).getChildAt(0);
+            int room = panelWidth - resumeButton.getPaddingLeft() - resumeButton.getPaddingRight();
+            if (resumeText.getPaint().measureText(resumeText.getText().toString()) > room) {
+                resumeText.setText(resumeLabel(saveVariant, saveDifficulty, false));
+            }
 
             // New Game opens seed details before starting the run.
             addButton(panel, "New Game", true,
@@ -71,9 +82,6 @@ final class StartMenu {
             addButton(panel, "Credits", true,
                 whenNoModal(v -> activity.creditsModal.show()));
 
-            int screenWidth = activity.getResources().getDisplayMetrics().widthPixels;
-            int screenHeight = activity.getResources().getDisplayMetrics().heightPixels;
-            int panelWidth = Math.min(activity.dpToPx(280), (int)(screenWidth * 0.32f));
             FrameLayout.LayoutParams panelParams = new FrameLayout.LayoutParams(
                 panelWidth, FrameLayout.LayoutParams.WRAP_CONTENT,
                 Gravity.BOTTOM | Gravity.END);
@@ -105,7 +113,9 @@ final class StartMenu {
         };
     }
 
-    private static String resumeLabel(int saveVariant, int saveDifficulty) {
+    /** "Resume Game", with the save's mode if it has one. When not full, the
+     *  mode follows just "Resume". */
+    private static String resumeLabel(int saveVariant, int saveDifficulty, boolean full) {
         String mode = "";
         if (saveVariant == VARIANT_RAPID) {
             mode = "Rapid";
@@ -115,7 +125,8 @@ final class StartMenu {
         if (saveDifficulty == DIFFICULTY_EASY) {
             mode += mode.isEmpty() ? "Easy" : "/Easy";
         }
-        return mode.isEmpty() ? "Resume Game" : "Resume Game (" + mode + ")";
+        if (mode.isEmpty()) return "Resume Game";
+        return (full ? "Resume Game (" : "Resume (") + mode + ")";
     }
 
     void dismiss() {
