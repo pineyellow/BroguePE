@@ -460,6 +460,8 @@ final class InventoryOverlay {
         // Otherwise one unwrapped line, which an expanded row slides along.
         if (selectMode) {
             nameView.setMaxLines(2);
+            // Breaks only at spaces; Android 7-9 would otherwise hyphenate words.
+            nameView.setHyphenationFrequency(Layout.HYPHENATION_FREQUENCY_NONE);
         } else {
             nameView.setSingleLine(true);
         }
