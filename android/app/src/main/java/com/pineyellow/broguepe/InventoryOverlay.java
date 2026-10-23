@@ -529,7 +529,7 @@ final class InventoryOverlay {
             activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP),
             activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP),
             activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP)});
-        detailBg.setColor(Color.argb(180, 20, 13, 34));
+        detailBg.setColor(Palette.EXPANDED_BG);
         detailSection.setBackground(detailBg);
 
         if (!description.text.isEmpty()) {

@@ -286,8 +286,18 @@ final class PlayerStatsModal {
                                 activity.dpToPx(4), 0);
         panel.addView(header, headerParams);
 
+        // The entries sit in a darker panel right under the header, like an
+        // inventory item's details, so they read as the header's.
         LinearLayout content = new LinearLayout(activity);
         content.setOrientation(LinearLayout.VERTICAL);
+        content.setPadding(activity.dpToPx(6), activity.dpToPx(4),
+                           activity.dpToPx(6), activity.dpToPx(6));
+        int corner = activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP);
+        GradientDrawable contentBg = new GradientDrawable();
+        contentBg.setShape(GradientDrawable.RECTANGLE);
+        contentBg.setCornerRadii(new float[]{0, 0, 0, 0, corner, corner, corner, corner});
+        contentBg.setColor(Palette.EXPANDED_BG);
+        content.setBackground(contentBg);
         content.setVisibility(recentGamesExpanded ? View.VISIBLE : View.GONE);
         chevron.setRotation(recentGamesExpanded ? 90f : 0f);
 
@@ -316,8 +326,7 @@ final class PlayerStatsModal {
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT);
-        lp.setMargins(activity.dpToPx(4), activity.dpToPx(4),
-                      activity.dpToPx(4), 0);
+        lp.setMargins(activity.dpToPx(4), 0, activity.dpToPx(4), 0);
         panel.addView(content, lp);
 
         header.setClickable(true);

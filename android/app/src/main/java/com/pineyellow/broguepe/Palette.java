@@ -31,6 +31,7 @@ final class Palette {
     static final int INVENTORY_BG   = Color.argb(245, 13, 8, 25);
     static final int ITEM_BG        = Color.argb(200, 25, 17, 42);
     static final int RECENT_GAME_BG = Color.argb(200, 35, 24, 48);   // A touch lighter than ITEM_BG
+    static final int EXPANDED_BG    = Color.argb(180, 20, 13, 34);   // Under an expanded row
     static final int EQUIPPED_GLOW  = Color.argb(220, 52, 38, 63);
     static final int ACTION_BG      = Color.argb(220, 40, 28, 63);
     static final int GOOD_MAGIC     = Color.argb(255, 153, 128, 255); // Brogue {60,50,100}
