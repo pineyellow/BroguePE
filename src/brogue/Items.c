@@ -3087,7 +3087,7 @@ static boolean appendRunTally(jsonBuffer *json, const char *key, const int *tall
 // Summary of the run and the pack at its end, for the native death screen and
 // the Recent Games list. outcome is "died", "quit", "escaped" or "mastered".
 // Item names are what the player knew; nothing is identified. An item whose
-// true name or magic mark differs also carries them, for the Reveal button.
+// true name differs also carries it, for the Reveal button.
 // Returns a malloc'd string the caller frees, or NULL on failure.
 char *runSummaryJson(const char *outcome, const char *cause, unsigned long collectedGold, long score) {
     item *theItem;
@@ -3141,15 +3141,14 @@ char *runSummaryJson(const char *outcome, const char *cause, unsigned long colle
         int tileGlyph = theItem->displayChar + 128 - 2;
         int textGlyph = textFontIndex(theItem->displayChar);
 
-        // The true name, as a recording shows it with omniscience on, and the
-        // mark detect magic would show. The item itself is left unchanged.
+        // The true name, as a recording shows it with omniscience on. The item
+        // itself is left unchanged.
         boolean omniscient = rogue.playbackOmniscience;
         rogue.playbackOmniscience = true;
         itemName(theItem, revealed, true, true, &white);
         rogue.playbackOmniscience = omniscient;
         upperCase(revealed);
         stripEscapes(revealedClean, revealed, sizeof(revealedClean));
-        int revealedPol = (theItem->category & PRENAMED_CATEGORY) ? 0 : itemMagicPolarity(theItem);
 
         jsonOK = appendJsonFormat(&json,
             "%s{\"name\":\"%s\",\"category\":%u,\"equipped\":%s,\"magicPolarity\":%d,"
@@ -3163,9 +3162,6 @@ char *runSummaryJson(const char *outcome, const char *cause, unsigned long colle
             jsonEscape(nameEsc, revealedClean, sizeof(nameEsc));
             jsonOK = appendJsonFormat(&json, ",\"revealedName\":\"%s\"", nameEsc)
                 && appendTextRuns(&json, "revealedNameRuns", "tone", revealed, itemNameTone);
-        }
-        if (jsonOK && revealedPol != magicPol) {
-            jsonOK = appendJsonFormat(&json, ",\"revealedPolarity\":%d", revealedPol);
         }
         jsonOK = jsonOK && appendJsonFormat(&json, "}");
     }

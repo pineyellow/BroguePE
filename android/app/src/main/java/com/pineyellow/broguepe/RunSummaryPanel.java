@@ -335,12 +335,12 @@ final class RunSummaryPanel {
         return button;
     }
 
-    /** Whether any item has a true name or magic mark the player didn't know. */
+    /** Whether any item has a true name the player didn't know. */
     private static boolean hasReveal(JSONArray items) {
         if (items == null) return false;
         for (int i = 0; i < items.length(); i++) {
             JSONObject item = items.optJSONObject(i);
-            if (item != null && (item.has("revealedName") || item.has("revealedPolarity"))) {
+            if (item != null && item.has("revealedName")) {
                 return true;
             }
         }
@@ -442,13 +442,9 @@ final class RunSummaryPanel {
     private View makeItemRow(JSONObject item, boolean revealed) {
         String name = item.optString("name", "???");
         JSONArray runs = item.optJSONArray("nameRuns");
-        int polarity = item.optInt("magicPolarity", 0);
-        if (revealed) {
-            if (item.has("revealedName")) {
-                name = item.optString("revealedName", name);
-                runs = item.optJSONArray("revealedNameRuns");
-            }
-            polarity = item.optInt("revealedPolarity", polarity);
+        if (revealed && item.has("revealedName")) {
+            name = item.optString("revealedName", name);
+            runs = item.optJSONArray("revealedNameRuns");
         }
 
         LinearLayout row = new LinearLayout(activity);
@@ -472,7 +468,7 @@ final class RunSummaryPanel {
         row.setLayoutParams(params);
 
         InventoryOverlay.addItemIcon(activity, row, item, true, 22, 25);
-        InventoryOverlay.addMagicIndicator(activity, row, polarity);
+        InventoryOverlay.addMagicIndicator(activity, row, item.optInt("magicPolarity", 0));
 
         TextView nameView = new TextView(activity);
         // Games saved before names carried colors show them plain.
