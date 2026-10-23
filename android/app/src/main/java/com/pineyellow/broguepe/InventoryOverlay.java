@@ -42,6 +42,7 @@ import org.json.JSONObject;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 
 /** Slides the player's inventory in from the right when the engine asks for
  *  it (either to browse or to select an item for an action). The JSON blob
@@ -558,11 +559,12 @@ final class InventoryOverlay {
                 String label = actionVerbLabel(actionChar, category);
 
                 Button actionBtn = new Button(activity);
-                actionBtn.setText(label);
+                // Uppercased here, not with setAllCaps, which follows the
+                // phone's language and would give Turkish phones a dotted I.
+                actionBtn.setText(label.toUpperCase(Locale.ROOT));
                 actionBtn.setTextColor(Palette.GHOST_WHITE);
                 actionBtn.setTextSize(TypedValue.COMPLEX_UNIT_SP, 11);
                 actionBtn.setTypeface(Typeface.MONOSPACE);
-                actionBtn.setAllCaps(true);
                 // Slim side padding leaves room for the spacing, so UNEQUIP
                 // still fits on one line beside a Call button.
                 actionBtn.setLetterSpacing(0.12f);
