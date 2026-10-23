@@ -360,9 +360,9 @@ final class RunSummaryPanel {
         return label;
     }
 
-    /** Small square icon button for the title row, colored like the in-game
-     *  action buttons. Not focusable, so the death screen's root keeps focus
-     *  and Enter still dismisses it. */
+    /** Small square icon button for the title row: the in-game action
+     *  buttons' icon color on the stats card's fill. Not focusable, so the
+     *  death screen's root keeps focus and Enter still dismisses it. */
     private ImageView makeIconButton(int iconRes) {
         ImageView button = new ImageView(activity);
         button.setImageResource(iconRes);
@@ -374,7 +374,7 @@ final class RunSummaryPanel {
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
         bg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
-        bg.setColor(Palette.ACTION_BUTTON_BG);
+        bg.setColor(Palette.ITEM_BG);
         bg.setStroke(1, Palette.BORDER_DIM);
         button.setBackground(new RippleDrawable(
             ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
@@ -408,7 +408,7 @@ final class RunSummaryPanel {
 
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
-        bg.setCornerRadius(activity.dpToPx(5));
+        bg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
         bg.setColor(Palette.ITEM_BG);
         bg.setStroke(1, Palette.BORDER_DIM);
         button.setBackground(new RippleDrawable(
