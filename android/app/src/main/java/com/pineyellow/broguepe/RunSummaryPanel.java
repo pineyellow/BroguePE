@@ -5,6 +5,7 @@ import android.graphics.Color;
 import android.graphics.Typeface;
 import android.graphics.drawable.GradientDrawable;
 import android.graphics.drawable.RippleDrawable;
+import android.text.Layout;
 import android.text.SpannableStringBuilder;
 import android.text.Spanned;
 import android.text.style.ForegroundColorSpan;
@@ -228,9 +229,42 @@ final class RunSummaryPanel {
             causeView.setTextSize(TypedValue.COMPLEX_UNIT_SP, 13);
             causeView.setTypeface(Typeface.MONOSPACE);
             causeView.setGravity(Gravity.CENTER);
-            causeView.setPadding(activity.dpToPx(4), 0,
-                                 activity.dpToPx(4), activity.dpToPx(12));
-            content.addView(causeView);
+            int sidePad = activity.dpToPx(4);
+            int bottomPad = activity.dpToPx(12);
+
+            // A death's cause has its icon from Personal Stats' Primary Causes of
+            // Death just left of its first line. The text is centred as without
+            // the icon, with room for it on both sides so it is never cut off. A
+            // cause without one, or a win's, is the text alone.
+            PlayerStatsModal.TallyIcon icon = RecentGames.OUTCOME_DIED.equals(RecentGames.outcome(s))
+                ? PlayerStatsModal.TallyIcon.find(activity, DeathCauseIcon.label(activity, cause))
+                : null;
+            if (icon == null) {
+                causeView.setPadding(sidePad, 0, sidePad, bottomPad);
+                content.addView(causeView);
+            } else {
+                int room = icon.width + activity.dpToPx(6);
+                // An icon taller than a line would stick out above the first one.
+                int topPad = Math.max(0, (icon.height - causeView.getLineHeight() + 1) / 2);
+                causeView.setPadding(sidePad + room, topPad, sidePad + room, bottomPad);
+                FrameLayout causeRow = new FrameLayout(activity);
+                causeRow.addView(causeView, new FrameLayout.LayoutParams(
+                    FrameLayout.LayoutParams.MATCH_PARENT,
+                    FrameLayout.LayoutParams.WRAP_CONTENT));
+                causeRow.addView(icon.view, new FrameLayout.LayoutParams(icon.width, icon.height));
+                // Moved against the first line once the text is laid out.
+                causeView.addOnLayoutChangeListener((v, left, top, right, bottom,
+                                                     oldLeft, oldTop, oldRight, oldBottom) -> {
+                    Layout layout = causeView.getLayout();
+                    if (layout == null) return;
+                    float lineLeft = causeView.getTotalPaddingLeft() + layout.getLineLeft(0);
+                    float lineMiddle = causeView.getTotalPaddingTop()
+                        + (layout.getLineTop(0) + layout.getLineBottom(0)) / 2f;
+                    icon.view.setTranslationX(lineLeft - room);
+                    icon.view.setTranslationY(lineMiddle - icon.height / 2f);
+                });
+                content.addView(causeRow);
+            }
         }
 
         // A win ends at the surface or the deepest depth with the amulet in
@@ -321,13 +355,13 @@ final class RunSummaryPanel {
         return label;
     }
 
-    /** Small square icon button for the title row, styled like the menu
-     *  buttons. Not focusable, so the death screen's root keeps focus and
-     *  Enter still dismisses it. */
+    /** Small square icon button for the title row, colored like the in-game
+     *  action buttons. Not focusable, so the death screen's root keeps focus
+     *  and Enter still dismisses it. */
     private ImageView makeIconButton(int iconRes) {
         ImageView button = new ImageView(activity);
         button.setImageResource(iconRes);
-        button.setColorFilter(Palette.PALE_BLUE);
+        button.setColorFilter(Palette.ACTION_BUTTON_TEXT);
         button.setScaleType(ImageView.ScaleType.FIT_CENTER);
         int pad = activity.dpToPx(7);
         button.setPadding(pad, pad, pad, pad);
@@ -335,7 +369,7 @@ final class RunSummaryPanel {
         GradientDrawable bg = new GradientDrawable();
         bg.setShape(GradientDrawable.RECTANGLE);
         bg.setCornerRadius(activity.dpToPx(5));
-        bg.setColor(Palette.ITEM_BG);
+        bg.setColor(Palette.ACTION_BUTTON_BG);
         bg.setStroke(1, Palette.BORDER_DIM);
         button.setBackground(new RippleDrawable(
             ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));

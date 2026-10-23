@@ -465,6 +465,56 @@ final class PlayerStatsModal {
         }
     }
 
+    /** The icon for a tally's label, sized as its pill shows it: a monster's
+     *  glyph or a death cause's icon. Also used by the run summary's cause
+     *  line. */
+    static final class TallyIcon {
+        final ImageView view;
+        final int width;
+        final int height;
+        /** The pill's padding above and below the icon. */
+        final int verticalPadding;
+
+        private TallyIcon(ImageView view, int width, int height, int verticalPadding) {
+            this.view = view;
+            this.width = width;
+            this.height = height;
+            this.verticalPadding = verticalPadding;
+        }
+
+        /** Null when the label is neither a monster nor a known death cause. */
+        static TallyIcon find(BrogueActivity activity, String label) {
+            ImageView icon = MonsterTileIcon.makeView(activity, label);
+            boolean useTileGlyph = GameSettings.useTileCreatureAndItemGlyphs(activity);
+            boolean cell = false;
+            if (icon == null) {
+                // Not a monster, but a death the game worded as a sentence. In Hybrid its
+                // glyph can be a tile among text monsters, so the padding follows the icon.
+                DeathCauseIcon cause = DeathCauseIcon.find(activity, label);
+                if (cause == null) return null;
+                icon = cause.makeView(activity);
+                useTileGlyph = cause.tileSized;
+                cell = cause.cell;
+            }
+            int iconSize = activity.dpToPx(MonsterTileIcon.sizeDp(useTileGlyph));
+            int iconWidth = iconSize;
+            int iconHeight = iconSize;
+            int verticalPadding = useTileGlyph ? activity.dpToPx(4) : 0;
+            if (cell) {
+                // A whole cell is taller than a sprite trimmed to its artwork. It takes
+                // the pill's padding too, so its pill is as tall as the others.
+                iconWidth = icon.getDrawable().getIntrinsicWidth();
+                iconHeight = iconSize + verticalPadding * 2;
+                verticalPadding = 0;
+            } else if (!useTileGlyph) {
+                // A text glyph keeps its whole cell, which is narrower than the
+                // square box, so the box is the glyph plus a little room on each side.
+                iconWidth = icon.getDrawable().getIntrinsicWidth() + activity.dpToPx(4);
+            }
+            return new TallyIcon(icon, iconWidth, iconHeight, verticalPadding);
+        }
+    }
+
     private static View makeTagPill(BrogueActivity activity, PlayerStats.Tally t) {
         LinearLayout container = new LinearLayout(activity);
         container.setOrientation(LinearLayout.HORIZONTAL);
@@ -481,41 +531,14 @@ final class PlayerStatsModal {
         countParams.rightMargin = activity.dpToPx(4);
         container.addView(count, countParams);
 
-        ImageView icon = MonsterTileIcon.makeView(activity, t.label);
-        boolean useTileGlyph = GameSettings.useTileCreatureAndItemGlyphs(activity);
-        boolean cell = false;
-        if (icon == null) {
-            // Not a monster, but a death the game worded as a sentence. In Hybrid its
-            // glyph can be a tile among text monsters, so the padding follows the icon.
-            DeathCauseIcon cause = DeathCauseIcon.find(activity, t.label);
-            if (cause != null) {
-                icon = cause.makeView(activity);
-                useTileGlyph = cause.tileSized;
-                cell = cause.cell;
-            }
-        }
+        TallyIcon icon = TallyIcon.find(activity, t.label);
         if (icon != null) {
-            int iconSize = activity.dpToPx(MonsterTileIcon.sizeDp(useTileGlyph));
-            int iconWidth = iconSize;
-            int iconHeight = iconSize;
-            int verticalPadding = useTileGlyph ? activity.dpToPx(4) : 0;
-            if (cell) {
-                // A whole cell is taller than a sprite trimmed to its artwork. It takes
-                // the pill's padding too, so its pill is as tall as the others.
-                iconWidth = icon.getDrawable().getIntrinsicWidth();
-                iconHeight = iconSize + verticalPadding * 2;
-                verticalPadding = 0;
-            } else if (!useTileGlyph) {
-                // A text glyph keeps its whole cell, which is narrower than the
-                // square box, so the box is the glyph plus a little room on each side.
-                iconWidth = icon.getDrawable().getIntrinsicWidth() + activity.dpToPx(4);
-            }
             LinearLayout.LayoutParams iconParams = new LinearLayout.LayoutParams(
-                iconWidth, iconHeight);
+                icon.width, icon.height);
             iconParams.rightMargin = activity.dpToPx(4);
-            container.addView(icon, iconParams);
-            container.setPadding(activity.dpToPx(6), verticalPadding,
-                                 activity.dpToPx(10), verticalPadding);
+            container.addView(icon.view, iconParams);
+            container.setPadding(activity.dpToPx(6), icon.verticalPadding,
+                                 activity.dpToPx(10), icon.verticalPadding);
         } else {
             container.setPadding(activity.dpToPx(10), activity.dpToPx(5),
                                  activity.dpToPx(10), activity.dpToPx(5));
