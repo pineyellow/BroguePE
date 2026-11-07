@@ -103,16 +103,32 @@ public class RecentGamesTest {
     }
 
     @Test
-    public void exportNamesGiveModeSeedAndDepth() throws Exception {
-        JSONObject game = game("died", StartMenu.VARIANT_RAPID, 0, 10);
-        assertEquals("Rapid Brogue seed 12345 depth 3.broguerec", RecentGames.exportName(game));
-        game.put("outcome", "escaped");
-        game.put("deepestDepth", 10);
+    public void exportNamesFollowBrogueCe() throws Exception {
+        byte[] ce = header("CE 1.15.1", 0);
+        assertEquals("CE 1.15.1 #12345 Died at depth 3.broguerec",
+            RecentGames.exportName(game("died", 0, 0, 10), ce, ce.length));
+        assertEquals("CE 1.15.1 #12345 Quit at depth 3.broguerec",
+            RecentGames.exportName(game("quit", 0, 0, 10), ce, ce.length));
+        assertEquals("CE 1.15.1 #12345 Escaped the dungeons.broguerec",
+            RecentGames.exportName(game("escaped", 0, 0, 10), ce, ce.length));
+        assertEquals("CE 1.15.1 #12345 Mastered the dungeons.broguerec",
+            RecentGames.exportName(game("mastered", 0, 0, 10), ce, ce.length));
+
+        JSONObject game = game("died", StartMenu.VARIANT_RAPID, 1, 10);
         game.put("seed", "18446744073709551615");
-        game.put("variant", StartMenu.VARIANT_BROGUE);
-        assertEquals("Brogue seed 18446744073709551615 depth 10.broguerec",
-            RecentGames.exportName(game));
-        assertEquals("Brogue.broguerec", RecentGames.exportName(new JSONObject()));
+        byte[] easy = header("RB 1.7.1", 3);
+        assertEquals("RB 1.7.1 #18446744073709551615 Died at depth 3 (PE easy).broguerec",
+            RecentGames.exportName(game, easy, easy.length));
+        byte[] ceEasy = header("CE 1.15.1", 2);
+        assertEquals("CE 1.15.1 #18446744073709551615 Died at depth 3 (easy).broguerec",
+            RecentGames.exportName(game, ceEasy, ceEasy.length));
+
+        // Made before the version lost its ".9", which plays as 1.15.1.
+        byte[] old = header("CE 1.15.1.9", 0);
+        assertEquals("CE 1.15.1 #12345 Died at depth 3.broguerec",
+            RecentGames.exportName(game("died", 0, 0, 10), old, old.length));
+        assertEquals("Brogue Died at depth 0.broguerec",
+            RecentGames.exportName(new JSONObject(), new byte[0], 0));
     }
 
     @Test

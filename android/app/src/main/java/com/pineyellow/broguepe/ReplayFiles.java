@@ -52,7 +52,15 @@ final class ReplayFiles {
         Intent intent = new Intent(Intent.ACTION_CREATE_DOCUMENT);
         intent.addCategory(Intent.CATEGORY_OPENABLE);
         intent.setType(EXPORT_TYPE);
-        intent.putExtra(Intent.EXTRA_TITLE, RecentGames.exportName(game));
+        // Only its first bytes, like nativeRecordingIsPlayable's check.
+        byte[] header = new byte[RecentGames.RECORDING_HEADER_LENGTH];
+        int length = 0;
+        try (InputStream in = new FileInputStream(recording)) {
+            length = readHeader(in, header);
+        } catch (IOException e) {
+            Log.w(TAG, "couldn't read the header of " + recording, e);
+        }
+        intent.putExtra(Intent.EXTRA_TITLE, RecentGames.exportName(game, header, length));
         if (launch(intent, REQUEST_EXPORT)) pendingExport = recording;
     }
 

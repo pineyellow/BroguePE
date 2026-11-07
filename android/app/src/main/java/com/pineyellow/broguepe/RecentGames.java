@@ -38,6 +38,9 @@ final class RecentGames {
     static final int RECORDING_HEADER_LENGTH = 36;
     private static final int VERSION_LENGTH = 15;
     private static final int MODE_OFFSET = 15;
+    /** Brogue CE's own easy mode, the same in both games: GAME_MODE_EASY in
+     *  Rogue.h. */
+    private static final int MODE_CE_EASY = 2;
     /** The mode of a run on PE's Easy difficulty: GAME_MODE_BALANCED_EASY in
      *  Rogue.h. Brogue CE has no such mode. */
     private static final int MODE_PE_EASY = 3;
@@ -158,21 +161,40 @@ final class RecentGames {
         return unused;
     }
 
-    /** The file name an exported recording starts with, such as
-     *  "Rapid Brogue seed 12345 depth 7.broguerec". A win gives its deepest
-     *  depth, as its Recent Games entry does. */
-    static String exportName(JSONObject game) {
-        StringBuilder name = new StringBuilder();
-        switch (variant(game)) {
-            case StartMenu.VARIANT_RAPID:  name.append("Rapid Brogue"); break;
-            case StartMenu.VARIANT_BULLET: name.append("Bullet Brogue"); break;
-            default:                       name.append("Brogue"); break;
-        }
+    /** The file name an exported recording starts with, the way Brogue CE
+     *  names its own: "CE 1.15.1 #12345 Died at depth 4.broguerec" (see
+     *  getDefaultFilePath in Recordings.c). The version is the recording's
+     *  own, from its header, so the name says which version plays it. A run
+     *  only Brogue PE can play says so at the end. */
+    static String exportName(JSONObject game, byte[] header, int length) {
+        StringBuilder name = new StringBuilder(nameVersion(recordingVersion(header, length)));
         Long seed = seed(game);
-        if (seed != null) name.append(" seed ").append(Long.toUnsignedString(seed));
-        int depth = isVictory(game) ? game.optInt("deepestDepth") : game.optInt("depth");
-        if (depth > 0) name.append(" depth ").append(depth);
+        if (seed != null) name.append(" #").append(Long.toUnsignedString(seed));
+        int depth = game.optInt("depth");
+        switch (outcome(game)) {
+            case OUTCOME_MASTERED: name.append(" Mastered the dungeons"); break;
+            case OUTCOME_ESCAPED:  name.append(" Escaped the dungeons"); break;
+            case OUTCOME_QUIT:     name.append(" Quit at depth ").append(depth); break;
+            default:               name.append(" Died at depth ").append(depth); break;
+        }
+        int mode = length >= RECORDING_HEADER_LENGTH ? header[MODE_OFFSET] & 0xff : -1;
+        if (mode == MODE_PE_EASY) {
+            name.append(" (PE easy)");
+        } else if (mode == MODE_CE_EASY) {
+            name.append(" (easy)");
+        }
         return name.append(RECORDING_SUFFIX).toString();
+    }
+
+    /** A recording version as names show it: "CE 1.15.1". Recordings made
+     *  before PE matched Brogue CE's version say "CE 1.15.1.9", which plays as
+     *  1.15.1, so only the first three numbers are kept. */
+    static String nameVersion(String version) {
+        if (version == null) return "Brogue";
+        int space = version.indexOf(' ');
+        String[] numbers = version.substring(space + 1).split("\\.", -1);
+        if (numbers.length <= 3) return version;
+        return version.substring(0, space + 1) + numbers[0] + "." + numbers[1] + "." + numbers[2];
     }
 
     /** Marks the header of an exported replay as one only Brogue PE can play,
