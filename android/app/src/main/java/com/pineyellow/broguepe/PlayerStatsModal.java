@@ -324,6 +324,7 @@ final class PlayerStatsModal {
                 content.addView(makeRecentGameRow(game, iconWidth, dateFormat));
             }
         }
+        content.addView(makeImportRow());
         LinearLayout.LayoutParams lp = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,
             LinearLayout.LayoutParams.WRAP_CONTENT);
@@ -403,6 +404,40 @@ final class PlayerStatsModal {
         // Ignored once the run's panel is opening above, so a double tap opens it once.
         row.setOnClickListener(v -> {
             if (activity.modalStack.isOnTop(v)) activity.recentGameModal.show(game);
+        });
+
+        LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(
+            LinearLayout.LayoutParams.MATCH_PARENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT);
+        p.setMargins(0, activity.dpToPx(2), 0, activity.dpToPx(2));
+        row.setLayoutParams(p);
+        return row;
+    }
+
+    /** Below the entries, a row like theirs that picks a replay file, such as
+     *  one exported on another phone, and plays it. */
+    private View makeImportRow() {
+        TextView row = new TextView(activity);
+        row.setText("Import replay");
+        row.setTextColor(Palette.GHOST_WHITE);
+        row.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
+        row.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
+        row.setGravity(Gravity.CENTER);
+        row.setPadding(activity.dpToPx(12), activity.dpToPx(8),
+                       activity.dpToPx(12), activity.dpToPx(8));
+
+        GradientDrawable bg = new GradientDrawable();
+        bg.setShape(GradientDrawable.RECTANGLE);
+        bg.setCornerRadius(activity.dpToPx(UiStyle.MENU_ITEM_CORNER_RADIUS_DP));
+        bg.setColor(Palette.RECENT_GAME_BG);
+        bg.setStroke(1, Palette.BORDER_DIM);
+        row.setBackground(new RippleDrawable(
+            ColorStateList.valueOf(Palette.RIPPLE_GLOW), bg, null));
+        // The mode shown when tapped is the one to come back to.
+        row.setOnClickListener(v -> {
+            if (activity.modalStack.isOnTop(v)) {
+                activity.replayFiles.startImport(selectedVariant, selectedDifficulty);
+            }
         });
 
         LinearLayout.LayoutParams p = new LinearLayout.LayoutParams(

@@ -78,9 +78,12 @@ public class BrogueActivity extends SDLActivity {
     final NewGameSeedModal newGameSeedModal = new NewGameSeedModal(this);
     final DeathModal deathModal = new DeathModal(this);
     final RecentGameModal recentGameModal = new RecentGameModal(this);
+    final ReplayFiles replayFiles = new ReplayFiles(this);
     private final PlaybackControls playbackControls = new PlaybackControls(this);
-    // The Recent Games entry whose recording is playing, to reopen afterwards.
-    // UI thread only.
+    // For a recording started from Personal Stats: the mode to reopen it on,
+    // and the Recent Games entry to reopen above it, if it was one. UI thread
+    // only.
+    private int[] watchReturnMode;
     private org.json.JSONObject watchedGame;
     // Darkens the screen between the end of a recording and its panel.
     private View watchEndCover;
@@ -230,6 +233,13 @@ public class BrogueActivity extends SDLActivity {
             return insets;
         });
         decorView.requestApplyInsets();
+    }
+
+    @Override
+    protected void onActivityResult(int requestCode, int resultCode, android.content.Intent data) {
+        if (!replayFiles.onActivityResult(requestCode, resultCode, data)) {
+            super.onActivityResult(requestCode, resultCode, data);
+        }
     }
 
     @Override
@@ -518,29 +528,45 @@ public class BrogueActivity extends SDLActivity {
     /** Plays a Recent Games entry's recording. Afterwards the title menu
      *  reopens the entry's panel. */
     void watchRecording(org.json.JSONObject game, java.io.File recording) {
+        startWatching(recording, game, RecentGames.variant(game), RecentGames.difficulty(game));
+    }
+
+    /** Plays an imported replay. Afterwards the title menu reopens Personal
+     *  Stats on the mode it was imported from. */
+    void watchImportedRecording(java.io.File recording, int variant, int difficulty) {
+        startWatching(recording, null, variant, difficulty);
+    }
+
+    private void startWatching(java.io.File recording, org.json.JSONObject game,
+                               int variant, int difficulty) {
+        watchReturnMode = new int[] { variant, difficulty };
         watchedGame = game;
         modalStack.clear();
         startMenu.dismiss();
         nativeStartMenuViewRecording(recording.getAbsolutePath());
     }
 
-    /** Back from a recording: its panel over Personal Stats, on its mode. */
+    /** Back from a recording: Personal Stats on its mode, with the entry's
+     *  panel above it if it was one. */
     private void reopenWatchedGame() {
+        int[] mode = watchReturnMode;
+        if (mode == null) return;
         org.json.JSONObject game = watchedGame;
-        if (game == null) return;
+        watchReturnMode = null;
         watchedGame = null;
-        playerStatsModal.show(RecentGames.variant(game), RecentGames.difficulty(game), true);
-        recentGameModal.show(game);
+        playerStatsModal.show(mode[0], mode[1], true);
+        if (game != null) recentGameModal.show(game);
         // Removed in the same frame the panels appear, so nothing shows between.
         removeWatchEndCover();
     }
 
-    /** The engine shows the title screen before Android can build the panel,
-     *  so until then the screen is as dark as the two panels' backdrops. */
+    /** The engine shows the title screen before Android can build the panels,
+     *  so until then the screen is as dark as their backdrops: Personal
+     *  Stats's, and the entry's above it. */
     private void coverUntilWatchedGameReopens() {
         if (watchEndCover != null) return;
         watchEndCover = new View(this);
-        watchEndCover.setBackgroundColor(Color.argb(220, 0, 0, 0));
+        watchEndCover.setBackgroundColor(Color.argb(watchedGame != null ? 220 : 160, 0, 0, 0));
         addContentView(watchEndCover, new FrameLayout.LayoutParams(
             FrameLayout.LayoutParams.MATCH_PARENT,
             FrameLayout.LayoutParams.MATCH_PARENT));
@@ -556,11 +582,13 @@ public class BrogueActivity extends SDLActivity {
 
     /** Called from C when a recording starts or stops playing. Stopping
      *  returns once the cover is on screen, as the engine draws the title
-     *  screen next. */
+     *  screen next. Also called when a recording falls out of sync, which may
+     *  be while its controls are up. */
     public void setPlaybackVisible(final boolean visible) {
         if (visible) {
             runOnUiThread(() -> {
-                playbackControls.show();
+                // Showing again would reset the speed they show.
+                if (!playbackControls.isShowing()) playbackControls.show();
                 // The controls' keys go to whichever view has focus.
                 if (mSurface != null) mSurface.requestFocus();
             });
@@ -572,7 +600,7 @@ public class BrogueActivity extends SDLActivity {
             playbackControls.hide();
             // Settings opened from the replay's menu closes with it.
             settingsPanel.handleBack();
-            if (watchedGame == null) {
+            if (watchReturnMode == null) {
                 covered.countDown();
                 return;
             }

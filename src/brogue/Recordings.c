@@ -331,6 +331,14 @@ might succeed on the original computer."
 static void playbackPanic() {
 
     if (!rogue.playbackOOS) {
+        if (androidWatchingRecording && getRenderMode() == RENDER_LOADING) {
+            // Before the first turn, or in a long seek, the loading screen would hide this and
+            // leave no way out. It goes, and the controls come up, so the replay can be stopped.
+            androidCameraSnap = true;
+            setRenderMode(RENDER_GAMEPLAY);
+            androidSetLoadingVisible(false);
+            androidSetPlaybackVisible(true);
+        }
         rogue.playbackFastForward = false;
         rogue.playbackPaused = true;
         androidPlaybackPausedChanged(true);

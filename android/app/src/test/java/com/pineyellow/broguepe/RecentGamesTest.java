@@ -103,6 +103,34 @@ public class RecentGamesTest {
     }
 
     @Test
+    public void exportNamesGiveModeSeedAndDepth() throws Exception {
+        JSONObject game = game("died", StartMenu.VARIANT_RAPID, 0, 10);
+        assertEquals("Rapid Brogue seed 12345 depth 3.broguerec", RecentGames.exportName(game));
+        game.put("outcome", "escaped");
+        game.put("deepestDepth", 10);
+        game.put("seed", "18446744073709551615");
+        game.put("variant", StartMenu.VARIANT_BROGUE);
+        assertEquals("Brogue seed 18446744073709551615 depth 10.broguerec",
+            RecentGames.exportName(game));
+        assertEquals("Brogue.broguerec", RecentGames.exportName(new JSONObject()));
+    }
+
+    @Test
+    public void recordingVersionsComeFromBrogueHeadersOnly() throws Exception {
+        byte[] header = new byte[RecentGames.RECORDING_HEADER_LENGTH];
+        byte[] version = "RB 1.5.0".getBytes("US-ASCII");
+        System.arraycopy(version, 0, header, 0, version.length);
+        assertEquals("RB 1.5.0", RecentGames.recordingVersion(header, header.length));
+        assertNull(RecentGames.recordingVersion(header, header.length - 1));
+
+        byte[] text = "Just some notes, not a replay at all".getBytes("US-ASCII");
+        assertNull(RecentGames.recordingVersion(text, text.length));
+        header[4] = (byte) 0xC3;
+        assertNull(RecentGames.recordingVersion(header, header.length));
+        assertNull(RecentGames.recordingVersion(new byte[40], 40));
+    }
+
+    @Test
     public void onlyUnusedRecordingsAreDeleted() throws Exception {
         List<JSONObject> games = new ArrayList<>();
         JSONObject kept = game("died", 0, 0, 5);

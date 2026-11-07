@@ -32,6 +32,9 @@ final class RecentGames {
      *  that run's game takes it (see Recordings.c). */
     static final String FINISHED_RECORDING = "finished" + RECORDING_SUFFIX;
     static final String ABANDONED_RECORDING = "abandoned" + RECORDING_SUFFIX;
+    /** Bytes at the start of a recording before its moves, as in Recordings.c.
+     *  The first 15 name the version it was recorded in. */
+    static final int RECORDING_HEADER_LENGTH = 36;
 
     private static final int VERSION = 1;
 
@@ -143,6 +146,39 @@ final class RecentGames {
             }
         }
         return unused;
+    }
+
+    /** The file name an exported recording starts with, such as
+     *  "Rapid Brogue seed 12345 depth 7.broguerec". A win gives its deepest
+     *  depth, as its Recent Games entry does. */
+    static String exportName(JSONObject game) {
+        StringBuilder name = new StringBuilder();
+        switch (variant(game)) {
+            case StartMenu.VARIANT_RAPID:  name.append("Rapid Brogue"); break;
+            case StartMenu.VARIANT_BULLET: name.append("Bullet Brogue"); break;
+            default:                       name.append("Brogue"); break;
+        }
+        Long seed = seed(game);
+        if (seed != null) name.append(" seed ").append(Long.toUnsignedString(seed));
+        int depth = isVictory(game) ? game.optInt("deepestDepth") : game.optInt("depth");
+        if (depth > 0) name.append(" depth ").append(depth);
+        return name.append(RECORDING_SUFFIX).toString();
+    }
+
+    /** The version a recording's header names, such as "CE 1.14.1.0", or null
+     *  if the bytes don't start like a Brogue recording. */
+    static String recordingVersion(byte[] header, int length) {
+        if (header == null || length < RECORDING_HEADER_LENGTH) return null;
+        int end = 0;
+        while (end < 15 && header[end] != 0) {
+            // Shown to the player, so only plain printable ASCII.
+            if (header[end] < 0x20 || header[end] > 0x7e) return null;
+            end++;
+        }
+        String version = new String(header, 0, end, java.nio.charset.StandardCharsets.US_ASCII);
+        boolean known = version.startsWith("CE ") || version.startsWith("RB ")
+            || version.startsWith("BB ");
+        return known && version.length() > 3 ? version : null;
     }
 
     static boolean isVictory(JSONObject game) {

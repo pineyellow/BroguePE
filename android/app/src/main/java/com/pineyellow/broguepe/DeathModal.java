@@ -248,7 +248,8 @@ final class DeathModal {
 
         RunSummaryPanel summaryPanel = new RunSummaryPanel(activity);
         LinearLayout panel = summaryPanel.build(RunSummaryPanel.parseSummary(json),
-            activity.getString(R.string.death_title), activity.runPlaytimeMillis(), null, null);
+            activity.getString(R.string.death_title), activity.runPlaytimeMillis(),
+            null, null, null);
         // Taps inside the panel must not reach fadeView, which dismisses.
         // Clickable views are keyboard-focusable by default since Android 8;
         // keep focus on root so Enter always dismisses.

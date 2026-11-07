@@ -35,12 +35,14 @@ import java.util.Map;
  *  at its end or the monsters and allies met, switched by a title-row button.
  *  Next to it, a reveal button shows what the pack's items really were. Each list
  *  scrolls on its own. Shown by the death screen and, for past runs, from the
- *  Recent Games list. The summary is the engine's runSummaryJson. */
+ *  Recent Games list, where a button on the left of the title row exports the
+ *  run's recording. The summary is the engine's runSummaryJson. */
 final class RunSummaryPanel {
 
     private static final String SHOW_CREATURES = "Show monsters and allies";
     private static final String SHOW_PACK = "Show inventory";
     private static final String REVEAL = "Reveal items";
+    private static final String EXPORT = "Export replay";
     private static final String MISSING = "-";
 
     private final BrogueActivity activity;
@@ -60,9 +62,10 @@ final class RunSummaryPanel {
 
     /** playtimeMillis is the run's playtime, or -1 to leave it out. A non-null
      *  onWatch or onPlayAgain adds a Watch or Play Again button under the
-     *  stats. */
+     *  stats, and a non-null onExport an export button left of the title. */
     LinearLayout build(JSONObject summary, String title, long playtimeMillis,
-                       View.OnClickListener onWatch, View.OnClickListener onPlayAgain) {
+                       View.OnClickListener onWatch, View.OnClickListener onPlayAgain,
+                       View.OnClickListener onExport) {
         LinearLayout panel = ModalChrome.makePanel(activity);
         // Tighter header than the other modals so the columns get more room.
         // 12dp above the title; the switch button reaches 6dp further up.
@@ -94,6 +97,15 @@ final class RunSummaryPanel {
                 switchSize, switchSize, Gravity.END | Gravity.TOP);
             revealParams.rightMargin = switchSize + activity.dpToPx(6);
             header.addView(revealButton, revealParams);
+        }
+        // On the left, apart from the buttons for the right column. There is
+        // no room for a third button under the stats.
+        if (onExport != null) {
+            ImageView exportButton = makeIconButton(R.drawable.ic_download);
+            exportButton.setContentDescription(EXPORT);
+            exportButton.setOnClickListener(onExport);
+            header.addView(exportButton, new FrameLayout.LayoutParams(
+                switchSize, switchSize, Gravity.START | Gravity.TOP));
         }
         LinearLayout.LayoutParams headerParams = new LinearLayout.LayoutParams(
             LinearLayout.LayoutParams.MATCH_PARENT,

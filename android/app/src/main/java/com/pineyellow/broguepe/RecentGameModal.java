@@ -12,7 +12,8 @@ import java.io.File;
 /** A past run from the Recent Games list, in the death screen's panel over
  *  Personal Stats. Back or a tap outside the panel goes back to Personal
  *  Stats; Watch plays the run's recording; Play Again opens the seed screen
- *  with the run's seed and mode. */
+ *  with the run's seed and mode; the export button saves the recording to a
+ *  file. */
 final class RecentGameModal {
 
     private final BrogueActivity activity;
@@ -37,10 +38,15 @@ final class RecentGameModal {
 
         // Only a recording this version of the game can play back.
         File recording = RecentGamesStore.recordingFile(activity, game);
-        View.OnClickListener watch = recording == null || !recording.isFile()
+        boolean hasRecording = recording != null && recording.isFile();
+        View.OnClickListener watch = !hasRecording
                 || !activity.nativeRecordingIsPlayable(recording.getAbsolutePath())
             ? null
             : v -> activity.watchRecording(game, recording);
+        // Any recording, as the version it is from can still play it.
+        View.OnClickListener export = !hasRecording
+            ? null
+            : v -> activity.replayFiles.export(game, recording);
 
         Long seed = RecentGames.seed(game);
         View.OnClickListener playAgain = seed == null ? null : v -> {
@@ -54,7 +60,7 @@ final class RecentGameModal {
         RunSummaryPanel summaryPanel = new RunSummaryPanel(activity);
         LinearLayout panel = summaryPanel.build(game,
             activity.getString(RecentGames.titleRes(game)),
-            game.optLong("playtimeMillis", -1L), watch, playAgain);
+            game.optLong("playtimeMillis", -1L), watch, playAgain, export);
         // Taps inside the panel must not reach the backdrop.
         panel.setClickable(true);
         root.addView(panel, summaryPanel.panelParams());
