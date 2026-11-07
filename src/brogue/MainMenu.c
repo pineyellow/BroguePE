@@ -884,6 +884,7 @@ void mainBrogueJunction() {
                     // Put the new run on disk straight away, so that a crash on the first level
                     // can be resumed. This follows the game-start notice because saving reports
                     // the run's progress to the stats bucket that notice selects.
+                    androidMarkSaveBoundary();
                     androidWriteSaveFile();
                 }
 

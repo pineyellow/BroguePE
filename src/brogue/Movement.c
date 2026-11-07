@@ -1619,6 +1619,7 @@ void travelRoute(pos path[1000], short steps) {
                 if (!playerMoves(dir)) {
                     rogue.disturbed = true;
                 }
+                androidMarkSaveBoundary(); // each step is its own recorded key
                 if (pauseAnimation(25, PAUSE_BEHAVIOR_DEFAULT)) {
                     rogue.disturbed = true;
                 }
@@ -1654,6 +1655,7 @@ static void travelMap(short **distanceMap) {
                 if (!playerMoves(dir)) {
                     rogue.disturbed = true;
                 }
+                androidMarkSaveBoundary(); // each step is its own recorded key
                 if (pauseAnimation(500, PAUSE_BEHAVIOR_DEFAULT)) {
                     rogue.disturbed = true;
                 }
@@ -2046,6 +2048,7 @@ boolean explore(short frameDelay) {
             rogue.disturbed = true;
         } else {
             madeProgress = true;
+            androidMarkSaveBoundary(); // each step is its own recorded key
             if (pauseAnimation(frameDelay, PAUSE_BEHAVIOR_DEFAULT)) {
 
                 rogue.disturbed = true;
@@ -2099,6 +2102,7 @@ boolean startFighting(enum directions dir, boolean tillDeath) {
         if (!playerMoves(dir)) {
             break;
         }
+        androidMarkSaveBoundary(); // each attack is its own recorded key
         if (pauseAnimation(1, PAUSE_BEHAVIOR_DEFAULT)) {
             break;
         }
@@ -2212,6 +2216,8 @@ boolean useStairs(short stairDirection) {
                 rogue.deepestLevel = rogue.depthLevel;
             }
             // Arriving on a level is a save point, so a crash costs at most one level of play.
+            // Nothing else of this move is left to play out, so the save may end here.
+            androidMarkSaveBoundary();
             androidWriteSaveFile();
             //overlayDisplayBuffer(NULL, toBuf);
             //irisFadeBetweenBuffers(fromBuf, toBuf, mapToWindowX(player.loc.x), mapToWindowY(player.loc.y), 20, false);
@@ -2232,6 +2238,7 @@ boolean useStairs(short stairDirection) {
             } else {
                 message("You ascend.", 0);
                 startLevel(rogue.depthLevel + 1, stairDirection);
+                androidMarkSaveBoundary();
                 androidWriteSaveFile();
                 //irisFadeBetweenBuffers(fromBuf, toBuf, mapToWindowX(player.loc.x), mapToWindowY(player.loc.y), 20, true);
             }

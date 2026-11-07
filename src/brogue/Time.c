@@ -1023,7 +1023,9 @@ static void playerFalls() {
             rogue.deepestLevel = rogue.depthLevel;
         }
         if (!killed) {
-            // Falling to a new level is a save point just like taking the stairs.
+            // Falling to a new level is a save point just like taking the stairs. The turn ends
+            // here, so nothing is left to play out and the save may end here too.
+            androidMarkSaveBoundary();
             androidWriteSaveFile();
         }
     } else {
@@ -2134,6 +2136,7 @@ void autoRest() {
             recordKeystroke(REST_KEY, false, false);
             rogue.justRested = true;
             playerTurnEnded();
+            androidMarkSaveBoundary(); // each turn of rest is its own recorded key
             if (dangerChanged(danger) || pauseAnimation(1, PAUSE_BEHAVIOR_DEFAULT)) {
                 rogue.disturbed = true;
             }
@@ -2143,6 +2146,7 @@ void autoRest() {
             recordKeystroke(REST_KEY, false, false);
             rogue.justRested = true;
             playerTurnEnded();
+            androidMarkSaveBoundary(); // each turn of rest is its own recorded key
             if (dangerChanged(danger) || pauseAnimation(1, PAUSE_BEHAVIOR_DEFAULT)) {
                 rogue.disturbed = true;
             }

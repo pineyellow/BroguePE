@@ -572,6 +572,11 @@ void mainInputLoop() {
 
     while (!rogue.gameHasEnded && (!playingBack || !canceled)) { // repeats until the game ends
 
+        if (!playingBack) {
+            // The last command is over and the next isn't recorded yet, so a save may end here.
+            androidMarkSaveBoundary();
+        }
+
         oldRNG = rogue.RNG;
         rogue.RNG = RNG_COSMETIC;
 
@@ -2698,6 +2703,7 @@ void executeKeystroke(signed long keystroke, boolean controlKey, boolean shiftKe
                 rogue.automationActive = true;
                 do {
                     manualSearch();
+                    androidMarkSaveBoundary(); // each turn of searching is its own recorded key
                     if (pauseAnimation(80, PAUSE_BEHAVIOR_DEFAULT)) {
                         rogue.disturbed = true;
                     }

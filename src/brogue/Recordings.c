@@ -255,6 +255,27 @@ void flushBufferToFile() {
     locationInRecordingBuffer = 0;
 }
 
+// Where a save may end: the recording as of the last time the game was between commands, when
+// everything in it had been played out, with the header's turn count and deepest depth then.
+// Android can pause the app, and so save, in the middle of a turn, during an animation or a
+// --MORE--. A save that stopped there would go out of sync when loaded, in Brogue CE and when
+// resumed here, so androidWriteSaveFile() cuts it back to this point.
+static boolean saveBoundaryKnown = false;
+static unsigned long saveBoundaryLength, saveBoundaryTurns, saveBoundaryDeepest;
+
+// Notes the current end of the recording as a place a save may end. Call it only where nothing
+// recorded is waiting to be played out: before a new command is read, or after a step of
+// travel, exploring or resting.
+void androidMarkSaveBoundary(void) {
+    if (rogue.playbackMode || !rogue.recording) {
+        return;
+    }
+    saveBoundaryLength = lengthOfPlaybackFile + locationInRecordingBuffer;
+    saveBoundaryTurns = rogue.playerTurnNumber;
+    saveBoundaryDeepest = rogue.deepestLevel;
+    saveBoundaryKnown = true;
+}
+
 void fillBufferFromFile() {
 //  short i;
     FILE *recordFile;
@@ -540,6 +561,7 @@ void initRecording() {
     locationInRecordingBuffer   = 0;
     positionInPlaybackFile      = 0;
     recordingLocation           = 0;
+    saveBoundaryKnown           = false;
     maxLevelChanges             = 0;
     rogue.playbackOOS           = false;
     rogue.playbackOmniscience   = false;
@@ -1279,10 +1301,18 @@ void saveGameNoPrompt() {
 
 static void copyFile(char *fromFilePath, char *toFilePath, unsigned long fromFileLength);
 
+// Where the header's turn count starts, followed by the deepest depth and the file length, four
+// bytes each (see writeHeaderInfo).
+#define RECORDING_HEADER_TURNS_OFFSET   24
+#define RECORDING_HEADER_TURNS_BYTES    12
+#define RECORDING_HEADER_LENGTH_OFFSET  32
+
 // Copies up to `length` bytes of the recording into a new save file and pushes it to storage.
-// A recording shorter than `length` is copied as far as it goes. Returns false if anything could
-// not be read or written, in which case the new file must not be used.
-static boolean copyRecordingToSaveFile(const char *fromFilePath, const char *toFilePath, unsigned long length) {
+// A recording shorter than `length` is copied as far as it goes. If headerTurns isn't NULL, its
+// RECORDING_HEADER_TURNS_BYTES replace the copy's turn count, deepest depth and length. Returns
+// false if anything could not be read or written, in which case the new file must not be used.
+static boolean copyRecordingToSaveFile(const char *fromFilePath, const char *toFilePath, unsigned long length,
+                                       const unsigned char *headerTurns) {
     unsigned char fileBuffer[INPUT_RECORD_BUFFER];
     unsigned long copied = 0;
     boolean succeeded = true;
@@ -1300,6 +1330,9 @@ static boolean copyRecordingToSaveFile(const char *fromFilePath, const char *toF
     while (copied < length) {
         size_t wanted = min(INPUT_RECORD_BUFFER, length - copied);
         size_t got = fread((void *) fileBuffer, 1, wanted, fromFile);
+        if (headerTurns && copied == 0 && got >= RECORDING_HEADER_LENGTH) {
+            memcpy(&fileBuffer[RECORDING_HEADER_TURNS_OFFSET], headerTurns, RECORDING_HEADER_TURNS_BYTES);
+        }
         if (got > 0 && fwrite((void *) fileBuffer, 1, got, toFile) != got) {
             succeeded = false;
             break;
@@ -1346,8 +1379,20 @@ boolean androidWriteSaveFile(void) {
     snprintf(tmpPath, sizeof(tmpPath), "%s.tmp", finalPath);
 
     flushBufferToFile();
-    // lengthOfPlaybackFile is the on-disk size; recordingLocation excludes the header.
-    if (!copyRecordingToSaveFile(currentFilePath, tmpPath, lengthOfPlaybackFile)
+    // lengthOfPlaybackFile is the on-disk size; recordingLocation excludes the header. The save
+    // ends at the last point between commands, with the header as it was then. Anything after
+    // it, such as a turn still in progress, is left out; loading the save puts the player back
+    // before that command.
+    unsigned long saveLength = lengthOfPlaybackFile;
+    unsigned char headerTurns[RECORDING_HEADER_TURNS_BYTES];
+    const boolean cutAtBoundary = saveBoundaryKnown && saveBoundaryLength <= lengthOfPlaybackFile;
+    if (cutAtBoundary) {
+        saveLength = saveBoundaryLength;
+        numberToString(saveBoundaryTurns, 4, &headerTurns[0]);
+        numberToString(saveBoundaryDeepest, 4, &headerTurns[4]);
+        numberToString(saveBoundaryLength, 4, &headerTurns[8]);
+    }
+    if (!copyRecordingToSaveFile(currentFilePath, tmpPath, saveLength, cutAtBoundary ? headerTurns : NULL)
         || rename(tmpPath, finalPath) != 0) {
 
         remove(tmpPath);
@@ -1410,11 +1455,37 @@ void androidKeepFinishedRecording(void) {
 
     mkdir(ANDROID_RECORDINGS_DIR, 0700);
     flushBufferToFile();
-    if (!copyRecordingToSaveFile(currentFilePath, tmpPath, lengthOfPlaybackFile)
+    if (!copyRecordingToSaveFile(currentFilePath, tmpPath, lengthOfPlaybackFile, NULL)
         || rename(tmpPath, ANDROID_FINISHED_RECORDING) != 0) {
 
         remove(tmpPath);
     }
+}
+
+// Ends an abandoned run's recording the way androidAbandonGame() does, with the quit key, so
+// that playback shows the player quitting there, here and in Brogue CE. A save ends between
+// commands (see androidWriteSaveFile), so nothing before the key is waiting for more input.
+static void appendQuitKey(const char *path) {
+    FILE *file = fopen(path, "r+b");
+    if (!file) {
+        return;
+    }
+    unsigned char header[RECORDING_HEADER_LENGTH];
+    if (fread(header, 1, RECORDING_HEADER_LENGTH, file) == RECORDING_HEADER_LENGTH
+        && fseek(file, 0, SEEK_END) == 0) {
+
+        const long end = ftell(file);
+        const unsigned char quit[3] = {KEYSTROKE, compressKeystroke(QUIT_KEY), 0}; // no modifier keys
+        unsigned char length[4];
+        numberToString((uint64_t) end + sizeof(quit), 4, length);
+        if (end >= RECORDING_HEADER_LENGTH
+            && fwrite(quit, 1, sizeof(quit), file) == sizeof(quit)
+            && fseek(file, RECORDING_HEADER_LENGTH_OFFSET, SEEK_SET) == 0) {
+
+            fwrite(length, 1, sizeof(length), file);
+        }
+    }
+    fclose(file);
 }
 
 // A new run is replacing the saved one, so that run was abandoned. Its save is also its
@@ -1429,6 +1500,8 @@ void androidSetAsideSaveFile(void) {
     mkdir(ANDROID_RECORDINGS_DIR, 0700);
     if (rename(savePath, ANDROID_ABANDONED_RECORDING) != 0) {
         remove(savePath);
+    } else {
+        appendQuitKey(ANDROID_ABANDONED_RECORDING);
     }
 }
 
@@ -1718,6 +1791,10 @@ void switchToPlaying() {
     rogue.recording             = true;
     locationInRecordingBuffer   = 0;
     copyFile(currentFilePath, lastGamePath, recordingLocation);
+    // The copy holds only what was played back, which is less than the whole save when loading
+    // stops at the save's turn count. New input goes after it, so count only what was copied, as
+    // the SWITCH_TO_PLAYING_KEY case does.
+    lengthOfPlaybackFile        = recordingLocation;
 #if !defined(ENABLE_PLAYBACK_SWITCH) && !defined(BROGUE_ANDROID)
     // On Android the save that was just loaded stays on disk until the next save replaces it,
     // so a crash before then resumes from the same point instead of losing the run.
