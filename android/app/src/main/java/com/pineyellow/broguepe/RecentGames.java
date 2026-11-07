@@ -33,8 +33,18 @@ final class RecentGames {
     static final String FINISHED_RECORDING = "finished" + RECORDING_SUFFIX;
     static final String ABANDONED_RECORDING = "abandoned" + RECORDING_SUFFIX;
     /** Bytes at the start of a recording before its moves, as in Recordings.c.
-     *  The first 15 name the version it was recorded in. */
+     *  The first 15 name the version it was recorded in, and the next one its
+     *  mode. */
     static final int RECORDING_HEADER_LENGTH = 36;
+    private static final int VERSION_LENGTH = 15;
+    private static final int MODE_OFFSET = 15;
+    /** The mode of a run on PE's Easy difficulty: GAME_MODE_BALANCED_EASY in
+     *  Rogue.h. Brogue CE has no such mode. */
+    private static final int MODE_PE_EASY = 3;
+    /** Put before the version of an exported Easy replay. Brogue CE would play
+     *  it by its own rules and show a different game, so this makes it refuse
+     *  the file instead. */
+    static final String PE_ONLY_PREFIX = "PE ";
 
     private static final int VERSION = 1;
 
@@ -165,12 +175,43 @@ final class RecentGames {
         return name.append(RECORDING_SUFFIX).toString();
     }
 
-    /** The version a recording's header names, such as "CE 1.14.1.0", or null
+    /** Marks the header of an exported replay as one only Brogue PE can play,
+     *  if its run was on Easy: "CE 1.15.1" becomes "PE CE 1.15.1". Returns
+     *  whether it changed. */
+    static boolean tagPeOnly(byte[] header, int length) {
+        if (header == null || length < RECORDING_HEADER_LENGTH
+                || (header[MODE_OFFSET] & 0xff) != MODE_PE_EASY) {
+            return false;
+        }
+        String version = recordingVersion(header, length);
+        if (version == null || PE_ONLY_PREFIX.length() + version.length() > VERSION_LENGTH) {
+            return false;
+        }
+        byte[] tagged = (PE_ONLY_PREFIX + version).getBytes(
+            java.nio.charset.StandardCharsets.US_ASCII);
+        java.util.Arrays.fill(header, 0, VERSION_LENGTH, (byte) 0);
+        System.arraycopy(tagged, 0, header, 0, tagged.length);
+        return true;
+    }
+
+    /** Undoes tagPeOnly on an imported replay. Returns whether it changed. */
+    static boolean untagPeOnly(byte[] header, int length) {
+        if (header == null || length < RECORDING_HEADER_LENGTH) return false;
+        for (int i = 0; i < PE_ONLY_PREFIX.length(); i++) {
+            if (header[i] != PE_ONLY_PREFIX.charAt(i)) return false;
+        }
+        int prefix = PE_ONLY_PREFIX.length();
+        System.arraycopy(header, prefix, header, 0, VERSION_LENGTH - prefix);
+        java.util.Arrays.fill(header, VERSION_LENGTH - prefix, VERSION_LENGTH, (byte) 0);
+        return true;
+    }
+
+    /** The version a recording's header names, such as "CE 1.15.1", or null
      *  if the bytes don't start like a Brogue recording. */
     static String recordingVersion(byte[] header, int length) {
         if (header == null || length < RECORDING_HEADER_LENGTH) return null;
         int end = 0;
-        while (end < 15 && header[end] != 0) {
+        while (end < VERSION_LENGTH && header[end] != 0) {
             // Shown to the player, so only plain printable ASCII.
             if (header[end] < 0x20 || header[end] > 0x7e) return null;
             end++;

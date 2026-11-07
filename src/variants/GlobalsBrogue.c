@@ -986,7 +986,9 @@ const char *mainMenuTitle_Brogue =
 
 // Recording version. Saved into recordings and save files made by this version.
 // Cannot be longer than 16 chars
-#define BROGUE_RECORDING_VERSION_STRING "CE " STRINGIFY(BROGUE_MAJOR) "." STRINGIFY(BROGUE_MINOR) "." STRINGIFY(BROGUE_PATCH) "." STRINGIFY(BROGUE_BUILD)
+// The same as Brogue CE's, so replays and saves go both ways with it. Files from before this
+// were "CE 1.15.1.9", which the pattern below still reads as patch 1.
+#define BROGUE_RECORDING_VERSION_STRING "CE " STRINGIFY(BROGUE_MAJOR) "." STRINGIFY(BROGUE_MINOR) "." STRINGIFY(BROGUE_PATCH)
 
 /* Patch pattern. A scanf format string which matches an unsigned short. If this
 matches against a recording version string, it defines a "patch version." During
@@ -997,7 +999,7 @@ which is equal or less than the patch version of the current game
 (rogue.patchLevel is set to the recording's); or b) it doesn't match the version
 strings, but they are equal (rogue.patchLevel is set to 0).
 */
-#define BROGUE_PATCH_VERSION_PATTERN "CE " STRINGIFY(BROGUE_MAJOR) "." STRINGIFY(BROGUE_MINOR) "." STRINGIFY(BROGUE_PATCH) "." STRINGIFY(BROGUE_BUILD) ".%hu"
+#define BROGUE_PATCH_VERSION_PATTERN "CE " STRINGIFY(BROGUE_MAJOR) "." STRINGIFY(BROGUE_MINOR) ".%hu"
 
 // Dungeon version - the earliest version where each seed creates a dungeon identical
 // to that in the current version. Used in seed catalog output.

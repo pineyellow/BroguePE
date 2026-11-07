@@ -15,11 +15,14 @@ import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
+import java.io.RandomAccessFile;
 
 /** Saves a Recent Games recording to a file, and plays a replay file. The
  *  player picks the file in Android's own file picker, which lets the app use
  *  only that one file, so the app needs no storage permission. An exported
- *  replay is the recording just as the engine wrote it. */
+ *  replay is the recording just as the engine wrote it, which Brogue CE can
+ *  play too, except that an Easy run's is marked as PE's only (see
+ *  RecentGames.tagPeOnly). */
 final class ReplayFiles {
 
     static final int REQUEST_EXPORT = 7301;
@@ -101,17 +104,32 @@ final class ReplayFiles {
     private void saveTo(File recording, Uri target) {
         new Thread(() -> {
             boolean saved = false;
+            boolean peOnly = false;
             try (InputStream in = new FileInputStream(recording);
                  OutputStream out = activity.getContentResolver().openOutputStream(target, "w")) {
                 if (out == null) throw new IOException("no stream for " + target);
+                byte[] header = new byte[RecentGames.RECORDING_HEADER_LENGTH];
+                int length = readHeader(in, header);
+                peOnly = RecentGames.tagPeOnly(header, length);
+                out.write(header, 0, length);
                 copy(in, out, Long.MAX_VALUE);
                 saved = true;
             } catch (IOException | RuntimeException e) {
                 Log.w(TAG, "export failed", e);
             }
             final boolean ok = saved;
-            activity.runOnUiThread(() ->
-                toast(ok ? "Replay exported" : "Couldn't export the replay"));
+            final boolean onlyHere = peOnly;
+            activity.runOnUiThread(() -> {
+                if (!ok) {
+                    toast("Couldn't export the replay");
+                } else if (onlyHere) {
+                    // Before it's shared with someone playing Brogue CE.
+                    Toast.makeText(activity, "Replay exported. Easy mode replays only play in Brogue PE",
+                        Toast.LENGTH_LONG).show();
+                } else {
+                    toast("Replay exported");
+                }
+            });
         }, "BrogueReplayExport").start();
     }
 
@@ -146,28 +164,48 @@ final class ReplayFiles {
             partial.delete();
             return "Couldn't read that file";
         }
+        byte[] header = new byte[RecentGames.RECORDING_HEADER_LENGTH];
+        int length;
+        try (InputStream in = new FileInputStream(partial)) {
+            length = readHeader(in, header);
+        } catch (IOException e) {
+            partial.delete();
+            return "Couldn't read that file";
+        }
+        // An Easy replay exported from here gets its own version back.
+        if (RecentGames.untagPeOnly(header, length)) {
+            try (RandomAccessFile file = new RandomAccessFile(partial, "rw")) {
+                file.write(header, 0, length);
+            } catch (IOException e) {
+                partial.delete();
+                return "Couldn't read that file";
+            }
+        }
+        String version = RecentGames.recordingVersion(header, length);
+        if (version == null) {
+            partial.delete();
+            return "That file isn't a Brogue replay";
+        }
         if (!partial.renameTo(target)) {
             partial.delete();
             return "Couldn't read that file";
         }
-
-        byte[] header = new byte[RecentGames.RECORDING_HEADER_LENGTH];
-        int length = 0;
-        try (InputStream in = new FileInputStream(target)) {
-            int n;
-            while (length < header.length
-                    && (n = in.read(header, length, header.length - length)) > 0) {
-                length += n;
-            }
-        } catch (IOException e) {
-            return "Couldn't read that file";
-        }
-        String version = RecentGames.recordingVersion(header, length);
-        if (version == null) return "That file isn't a Brogue replay";
         if (!activity.nativeRecordingIsPlayable(target.getAbsolutePath())) {
             return "This replay is from another version of Brogue (" + version + ")";
         }
         return null;
+    }
+
+    /** Reads up to header.length bytes from the start of a file. Returns how
+     *  many it got, fewer only if the file is shorter. */
+    private static int readHeader(InputStream in, byte[] header) throws IOException {
+        int length = 0;
+        int n;
+        while (length < header.length
+                && (n = in.read(header, length, header.length - length)) > 0) {
+            length += n;
+        }
+        return length;
     }
 
     /** Copies at most limit bytes. Returns false if there was more. */

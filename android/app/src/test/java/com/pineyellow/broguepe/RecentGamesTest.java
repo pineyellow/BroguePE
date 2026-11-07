@@ -130,6 +130,46 @@ public class RecentGamesTest {
         assertNull(RecentGames.recordingVersion(new byte[40], 40));
     }
 
+    private static byte[] header(String version, int mode) throws Exception {
+        byte[] header = new byte[RecentGames.RECORDING_HEADER_LENGTH];
+        byte[] text = version.getBytes("US-ASCII");
+        System.arraycopy(text, 0, header, 0, text.length);
+        header[15] = (byte) mode;
+        header[20] = 42; // the seed, which must be left alone
+        return header;
+    }
+
+    @Test
+    public void onlyEasyExportsAreTaggedAndTagsComeOff() throws Exception {
+        byte[] easy = header("CE 1.15.1", 3);
+        assertTrue(RecentGames.tagPeOnly(easy, easy.length));
+        assertNull(RecentGames.recordingVersion(easy, easy.length));
+        assertEquals("PE CE 1.15.1", new String(easy, 0, 12, "US-ASCII"));
+        assertEquals(0, easy[12]);
+        assertEquals(3, easy[15]);
+        assertEquals(42, easy[20]);
+
+        assertTrue(RecentGames.untagPeOnly(easy, easy.length));
+        assertEquals("CE 1.15.1", RecentGames.recordingVersion(easy, easy.length));
+        assertEquals(3, easy[15]);
+        assertEquals(42, easy[20]);
+
+        // Recordings from before the version lost its ".9" still fit.
+        byte[] old = header("CE 1.15.1.9", 3);
+        assertTrue(RecentGames.tagPeOnly(old, old.length));
+        assertTrue(RecentGames.untagPeOnly(old, old.length));
+        assertEquals("CE 1.15.1.9", RecentGames.recordingVersion(old, old.length));
+
+        byte[] normal = header("RB 1.7.1", 0);
+        assertFalse(RecentGames.tagPeOnly(normal, normal.length));
+        assertFalse(RecentGames.untagPeOnly(normal, normal.length));
+        assertEquals("RB 1.7.1", RecentGames.recordingVersion(normal, normal.length));
+        // Brogue CE's own easy mode plays the same there.
+        byte[] ceEasy = header("CE 1.15.1", 2);
+        assertFalse(RecentGames.tagPeOnly(ceEasy, ceEasy.length));
+        assertFalse(RecentGames.tagPeOnly(easy, easy.length - 1));
+    }
+
     @Test
     public void onlyUnusedRecordingsAreDeleted() throws Exception {
         List<JSONObject> games = new ArrayList<>();
