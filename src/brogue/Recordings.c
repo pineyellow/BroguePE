@@ -1491,6 +1491,8 @@ void androidRemoveStaleRecordings(const char *keepPath) {
 }
 
 void androidAbandonGame(void) {
+    // As Brogue CE does, so its playback quits here too instead of running out of recording.
+    recordKeystroke(QUIT_KEY, false, false);
     rogue.quit = true;
     gameOver("Quit", true);
 }
