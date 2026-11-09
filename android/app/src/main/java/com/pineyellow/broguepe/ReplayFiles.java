@@ -103,7 +103,7 @@ final class ReplayFiles {
             if (recording == null) toast("Couldn't export the replay. Try again.");
             else saveTo(recording, uri);
         } else {
-            if (mode == null) toast("Couldn't import the replay. Try again.");
+            if (mode == null) toast("Couldn't open the replay. Try again.");
             else importAndWatch(uri, mode[0], mode[1]);
         }
         return true;

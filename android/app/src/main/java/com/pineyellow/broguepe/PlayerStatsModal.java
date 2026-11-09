@@ -418,7 +418,7 @@ final class PlayerStatsModal {
      *  one exported on another phone, and plays it. */
     private View makeImportRow() {
         TextView row = new TextView(activity);
-        row.setText("Import replay");
+        row.setText("Watch replay file");
         row.setTextColor(Palette.GHOST_WHITE);
         row.setTextSize(TypedValue.COMPLEX_UNIT_SP, 12);
         row.setTypeface(Typeface.MONOSPACE, Typeface.BOLD);
